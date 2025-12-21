@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 env:
-  ACR_NAME: acrdalryeodev
+  ACR_NAME: acrdalryeodev-caavfqd2d6e2e6f9
   RESOURCE_GROUP: rg-dalryeo-dev
   CONTAINER_APP_NAME: backend-api-dev
   IMAGE_NAME: backend-api-dev
