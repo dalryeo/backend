@@ -1,12 +1,15 @@
-FROM gradle:8.6-jdk17 AS build
+FROM eclipse-temurin:17-jdk AS build
 WORKDIR /app
 
-COPY build.gradle settings.gradle gradle/ ./
+COPY gradlew gradlew.bat ./
+COPY gradle gradle/
+RUN chmod +x gradlew
 
-RUN gradle --no-daemon dependencies || true
+COPY build.gradle settings.gradle ./
+RUN ./gradlew --no-daemon dependencies || true
 
 COPY . .
-RUN gradle --no-daemon clean bootJar
+RUN ./gradlew --no-daemon clean bootJar
 
 FROM eclipse-temurin:17-jre
 WORKDIR /app
