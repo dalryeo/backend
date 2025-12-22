@@ -31,13 +31,22 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Show subscription context
+      - name: Ensure Azure CLI extensions
         run: |
-          az account show --query "{name:name, id:id}" -o json
-          az acr list -g rg-dalryeo-dev --query "[].{name:name, loginServer:loginServer}" -o table
+          az config set extension.use_dynamic_install=yes_without_prompt
 
-      - name: Login to ACR
-        run: az acr login --name $ACR_RESOURCE_NAME
+      - name: Debug ACR discovery
+        run: |
+          set -euxo pipefail
+          az account show --query "{name:name, id:id, tenantId:tenantId}" -o json
+          az acr show -n $ACR_RESOURCE_NAME --query "{name:name, loginServer:loginServer, resourceGroup:resourceGroup}" -o json
+
+      - name: Docker login to ACR (token)
+        run: |
+          set -euxo pipefail
+          az account set --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+          TOKEN=$(az acr login --name $ACR_RESOURCE_NAME --expose-token --output tsv --query accessToken)
+          echo "$TOKEN" | docker login $ACR_LOGIN_SERVER --username 00000000-0000-0000-0000-000000000000 --password-stdin
 
       - name: Build and Push Docker image
         run: |
