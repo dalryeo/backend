@@ -37,8 +37,8 @@ spring:
 
   # Jackson 설정
   jackson:
-    serialization:
-      WRITE_DATES_AS_TIMESTAMPS: false
+#    serialization:
+#      WRITE_DATES_AS_TIMESTAMPS: false
     time-zone: Asia/Seoul
     date-format: yyyy-MM-dd'T'HH:mm:ss
 
