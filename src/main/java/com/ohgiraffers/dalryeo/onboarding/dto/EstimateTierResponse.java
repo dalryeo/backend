@@ -10,6 +10,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class EstimateTierResponse {
-    private String tier;
+    private String tierCode;
+    private String displayName;
+    private String tierGrade;
+    private Double score;
 }
 

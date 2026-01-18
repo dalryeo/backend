@@ -9,6 +9,7 @@ import com.ohgiraffers.dalryeo.onboarding.dto.EstimateTierRequest;
 import com.ohgiraffers.dalryeo.onboarding.dto.EstimateTierResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.NicknameCheckResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingRequest;
+import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingResponse;
 import com.ohgiraffers.dalryeo.onboarding.service.OnboardingService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -45,6 +46,17 @@ public class OnboardingController {
         Long userId = extractUserIdFromRequest(httpRequest);
         onboardingService.saveOnboarding(userId, request);
         return CommonResponse.success();
+    }
+
+    /**
+     * 온보딩 정보 조회
+     * GET /onboarding
+     */
+    @GetMapping
+    public CommonResponse<OnboardingResponse> getOnboarding(HttpServletRequest httpRequest) {
+        Long userId = extractUserIdFromRequest(httpRequest);
+        OnboardingResponse response = onboardingService.getOnboarding(userId);
+        return CommonResponse.success(response);
     }
 
     /**

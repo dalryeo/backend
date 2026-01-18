@@ -6,9 +6,13 @@ import com.ohgiraffers.dalryeo.onboarding.dto.EstimateTierRequest;
 import com.ohgiraffers.dalryeo.onboarding.dto.EstimateTierResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.NicknameCheckResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingRequest;
+import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 @Service
 @RequiredArgsConstructor
@@ -48,6 +52,24 @@ public class OnboardingService {
     }
 
     /**
+     * 온보딩 정보 조회
+     */
+    @Transactional(readOnly = true)
+    public OnboardingResponse getOnboarding(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+
+        return OnboardingResponse.builder()
+                .nickname(user.getNickname())
+                .gender(user.getGender())
+                .birth(user.getBirth())
+                .height(user.getHeight())
+                .weight(user.getWeight())
+                .profileImage(user.getProfileImage())
+                .build();
+    }
+
+    /**
      * 예상 티어 계산
      * 거리와 페이스를 기반으로 티어를 계산합니다.
      */
@@ -56,39 +78,94 @@ public class OnboardingService {
         double distanceKm = request.getDistanceKm();
         int paceSecPerKm = request.getPaceSecPerKm();
 
-        // 티어 계산 로직
-        // 거리가 길수록, 페이스가 빠를수록(초가 적을수록) 높은 티어
-        // 예시: BRONZE, SILVER, GOLD, PLATINUM, DIAMOND
-        String tier = calculateTier(distanceKm, paceSecPerKm);
+        double score = calculateTierScore(distanceKm, paceSecPerKm);
+        TierInfo tierInfo = resolveTierInfo(score);
 
         return EstimateTierResponse.builder()
-                .tier(tier)
+                .tierCode(tierInfo.tierCode())
+                .displayName(tierInfo.displayName())
+                .tierGrade(tierInfo.tierGrade())
+                .score(score)
                 .build();
     }
 
     /**
-     * 거리와 페이스를 기반으로 티어를 계산합니다.
+     * 거리와 페이스를 기반으로 티어 점수를 계산합니다.
      * 실제 비즈니스 로직에 맞게 수정이 필요할 수 있습니다.
      */
-    private String calculateTier(double distanceKm, int paceSecPerKm) {
-        // 예시 티어 계산 로직
-        // 거리 점수: 5km 이상이면 높은 점수
-        // 페이스 점수: 300초(5분/km) 이하면 높은 점수
-        double distanceScore = Math.min(distanceKm / 5.0, 1.0) * 50;
-        double paceScore = Math.max(0, (600 - paceSecPerKm) / 600.0) * 50;
-        double totalScore = distanceScore + paceScore;
+    private double calculateTierScore(double distanceKm, int paceSecPerKm) {
+        double paceMinutes = round2(paceSecPerKm / 60.0);
+        double baseScore = round2(6.00 / paceMinutes);
+        double distanceWeight = getDistanceWeight(distanceKm);
+        return round2(baseScore * distanceWeight);
+    }
 
-        if (totalScore >= 80) {
-            return "DIAMOND";
-        } else if (totalScore >= 60) {
-            return "PLATINUM";
-        } else if (totalScore >= 40) {
-            return "GOLD";
-        } else if (totalScore >= 20) {
-            return "SILVER";
-        } else {
-            return "BRONZE";
+    private double getDistanceWeight(double distanceKm) {
+        if (distanceKm < 1.00) {
+            return 0.50;
+        } else if (distanceKm < 2.00) {
+            return 0.60;
+        } else if (distanceKm < 3.00) {
+            return 0.70;
+        } else if (distanceKm < 5.00) {
+            return 1.00;
+        } else if (distanceKm < 7.00) {
+            return 1.03;
+        } else if (distanceKm < 9.00) {
+            return 1.05;
+        } else if (distanceKm < 11.00) {
+            return 1.06;
+        } else if (distanceKm < 15.00) {
+            return 1.07;
+        } else if (distanceKm < 25.00) {
+            return 1.08;
+        } else if (distanceKm < 40.00) {
+            return 1.09;
         }
+        return 1.10;
+    }
+
+    private TierInfo resolveTierInfo(double score) {
+        if (score >= 1.50) {
+            return new TierInfo("CHEETAH", "치타", gradeForRange(score, 1.64, 1.57, 1.50));
+        } else if (score >= 1.20) {
+            return new TierInfo("DEER", "사슴", gradeForRange(score, 1.39, 1.29, 1.20));
+        } else if (score >= 1.00) {
+            return new TierInfo("HUSKY", "허스키", gradeForRange(score, 1.13, 1.06, 1.00));
+        } else if (score >= 0.86) {
+            return new TierInfo("FOX", "여우", gradeForRange(score, 0.95, 0.90, 0.86));
+        } else if (score >= 0.75) {
+            return new TierInfo("ROE_DEER", "고라니", gradeForRange(score, 0.82, 0.78, 0.75));
+        } else if (score >= 0.67) {
+            return new TierInfo("SHEEP", "양", gradeForRange(score, 0.72, 0.69, 0.67));
+        } else if (score >= 0.60) {
+            return new TierInfo("RABBIT", "토끼", gradeForRange(score, 0.64, 0.62, 0.60));
+        } else if (score >= 0.55) {
+            return new TierInfo("PANDA", "판다", gradeForRange(score, 0.58, 0.56, 0.55));
+        } else if (score >= 0.46) {
+            return new TierInfo("DUCK", "오리", gradeForRange(score, 0.52, 0.49, 0.46));
+        }
+        return new TierInfo("TURTLE", "거북이", null);
+    }
+
+    private String gradeForRange(double score, double goldMin, double silverMin, double bronzeMin) {
+        if (score >= goldMin) {
+            return "Gold";
+        } else if (score >= silverMin) {
+            return "Silver";
+        } else if (score >= bronzeMin) {
+            return "Bronze";
+        }
+        return null;
+    }
+
+    private double round2(double value) {
+        return BigDecimal.valueOf(value)
+                .setScale(2, RoundingMode.HALF_UP)
+                .doubleValue();
+    }
+
+    private record TierInfo(String tierCode, String displayName, String tierGrade) {
     }
 }
 

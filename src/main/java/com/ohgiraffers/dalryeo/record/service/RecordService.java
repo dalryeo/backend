@@ -17,7 +17,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -111,36 +110,18 @@ public class RecordService {
         List<RunningRecord> weeklyRecords = runningRecordRepository.findByUserIdAndWeekRange(
                 userId, startDateTime, endDateTime);
 
-        // 날짜별로 그룹화하여 일별 합계 계산
-        Map<LocalDate, List<RunningRecord>> recordsByDate = weeklyRecords.stream()
-                .collect(Collectors.groupingBy(record -> record.getStartAt().toLocalDate()));
-
-        return recordsByDate.entrySet().stream()
-                .map(entry -> {
-                    LocalDate date = entry.getKey();
-                    List<RunningRecord> dayRecords = entry.getValue();
-
-                    // 하루 총 거리
-                    double totalDistance = dayRecords.stream()
-                            .mapToDouble(RunningRecord::getDistanceKm)
-                            .sum();
-
-                    // 하루 평균 페이스 (거리 가중 평균)
-                    int avgPace = 0;
-                    if (dayRecords.size() > 0) {
-                        double totalWeightedPace = dayRecords.stream()
-                                .mapToDouble(r -> r.getAvgPaceSecPerKm() * r.getDistanceKm())
-                                .sum();
-                        avgPace = (int) Math.round(totalWeightedPace / totalDistance);
-                    }
-
-                    return WeeklyRecordResponse.builder()
-                            .date(date)
-                            .distanceKm(totalDistance)
-                            .paceSecPerKm(avgPace)
-                            .build();
-                })
-                .sorted((a, b) -> b.getDate().compareTo(a.getDate())) // 최신순 정렬
+        return weeklyRecords.stream()
+                .map(record -> WeeklyRecordResponse.builder()
+                        .recordId(record.getId())
+                        .platform(record.getPlatform())
+                        .distanceKm(record.getDistanceKm())
+                        .durationSec(record.getDurationSec())
+                        .avgPaceSecPerKm(record.getAvgPaceSecPerKm())
+                        .avgHeartRate(record.getAvgHeartRate())
+                        .caloriesKcal(record.getCaloriesKcal())
+                        .startAt(record.getStartAt())
+                        .endAt(record.getEndAt())
+                        .build())
                 .collect(Collectors.toList());
     }
 }
