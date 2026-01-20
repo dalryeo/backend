@@ -150,11 +150,11 @@ public class OnboardingService {
 
     private String gradeForRange(double score, double goldMin, double silverMin, double bronzeMin) {
         if (score >= goldMin) {
-            return "Gold";
+            return "G";
         } else if (score >= silverMin) {
-            return "Silver";
+            return "S";
         } else if (score >= bronzeMin) {
-            return "Bronze";
+            return "B";
         }
         return null;
     }

@@ -67,6 +67,7 @@ public class AnalysisService {
                         .distanceKm(record.getDistanceKm())
                         .durationSec(record.getDurationSec())
                         .avgPaceSecPerKm(record.getAvgPaceSecPerKm())
+                        .bpm(record.getAvgHeartRate())
                         .date(record.getStartAt().toLocalDate())
                         .build())
                 .collect(Collectors.toList());

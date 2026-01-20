@@ -17,6 +17,7 @@ public class RecordListItemResponse {
     private Double distanceKm;
     private Integer durationSec;
     private Integer avgPaceSecPerKm;
+    private Integer bpm;
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate date;
 }

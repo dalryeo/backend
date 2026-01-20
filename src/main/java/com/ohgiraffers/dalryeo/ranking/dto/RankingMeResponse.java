@@ -4,19 +4,18 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 @Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class DistanceRankingResponse {
-    @Setter
-    private Integer rank;
+public class RankingMeResponse {
     private String nickname;
-    private Double weeklyDistance;
-    private Integer weeklyAvgPace;
+    private Integer scoreRank;
+    private Integer distanceRank;
     private String tierCode;
     private String tierGrade;
+    private Double tierScore;
+    private Integer weeklyAvgPace;
+    private Double weeklyDistance;
 }
-

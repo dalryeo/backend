@@ -3,6 +3,7 @@ package com.ohgiraffers.dalryeo.ranking.service;
 import com.ohgiraffers.dalryeo.auth.entity.User;
 import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
 import com.ohgiraffers.dalryeo.ranking.dto.DistanceRankingResponse;
+import com.ohgiraffers.dalryeo.ranking.dto.RankingMeResponse;
 import com.ohgiraffers.dalryeo.ranking.dto.ScoreRankingResponse;
 import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
@@ -75,8 +76,8 @@ public class RankingService {
 
             ScoreRankingResponse ranking = ScoreRankingResponse.builder()
                     .nickname(user.getNickname())
-                    .tierCode(user.getCurrentTier() != null ? user.getCurrentTier() : "BRONZE")
-                    .tierGrade(user.getCurrentTierGrade() != null ? user.getCurrentTierGrade() : "C")
+                    .tierCode(mapTierName(user.getCurrentTier()))
+                    .tierGrade(mapTierGrade(user.getCurrentTierGrade()))
                     .tierScore(user.getTierScore())
                     .weeklyAvgPace(weeklyAvgPace)
                     .weeklyDistance(weeklyDistance)
@@ -136,11 +137,20 @@ public class RankingService {
                     .mapToDouble(RunningRecord::getDistanceKm)
                     .sum();
 
+            int weeklyAvgPace = 0;
+            if (!userRecords.isEmpty()) {
+                double totalWeightedPace = userRecords.stream()
+                        .mapToDouble(r -> r.getAvgPaceSecPerKm() * r.getDistanceKm())
+                        .sum();
+                weeklyAvgPace = (int) Math.round(totalWeightedPace / weeklyDistance);
+            }
+
             DistanceRankingResponse ranking = DistanceRankingResponse.builder()
                     .nickname(user.getNickname())
                     .weeklyDistance(weeklyDistance)
-                    .tierCode(user.getCurrentTier() != null ? user.getCurrentTier() : "BRONZE")
-                    .tierGrade(user.getCurrentTierGrade() != null ? user.getCurrentTierGrade() : "C")
+                    .weeklyAvgPace(weeklyAvgPace)
+                    .tierCode(mapTierName(user.getCurrentTier()))
+                    .tierGrade(mapTierGrade(user.getCurrentTierGrade()))
                     .build();
 
             rankings.add(ranking);
@@ -155,6 +165,143 @@ public class RankingService {
         }
 
         return rankings;
+    }
+
+    /**
+     * 내 랭킹 조회
+     */
+    @Transactional(readOnly = true)
+    public RankingMeResponse getMyRanking(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+
+        if (user.isWithdrawn()) {
+            throw new RuntimeException("탈퇴한 사용자입니다.");
+        }
+
+        // 이번 주 시작일과 종료일 계산 (월요일 ~ 일요일)
+        LocalDate today = LocalDate.now();
+        LocalDate weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate weekEnd = weekStart.plusDays(7);
+
+        LocalDateTime startDateTime = weekStart.atStartOfDay();
+        LocalDateTime endDateTime = weekEnd.atStartOfDay();
+
+        // 이번 주 모든 기록 조회
+        List<RunningRecord> weeklyRecords = runningRecordRepository.findByWeekRange(startDateTime, endDateTime);
+
+        // 사용자별로 그룹화
+        Map<Long, List<RunningRecord>> recordsByUser = weeklyRecords.stream()
+                .collect(Collectors.groupingBy(RunningRecord::getUserId));
+
+        // 모든 활성 사용자 조회 (탈퇴하지 않은 사용자)
+        List<User> activeUsers = userRepository.findAll().stream()
+                .filter(activeUser -> !activeUser.isWithdrawn() && activeUser.getNickname() != null)
+                .collect(Collectors.toList());
+
+        Integer scoreRank = calculateScoreRank(activeUsers, recordsByUser, userId);
+        Integer distanceRank = calculateDistanceRank(activeUsers, recordsByUser, userId);
+
+        List<RunningRecord> myRecords = recordsByUser.getOrDefault(userId, Collections.emptyList());
+        double weeklyDistance = myRecords.stream()
+                .mapToDouble(RunningRecord::getDistanceKm)
+                .sum();
+
+        int weeklyAvgPace = 0;
+        if (!myRecords.isEmpty()) {
+            double totalWeightedPace = myRecords.stream()
+                    .mapToDouble(r -> r.getAvgPaceSecPerKm() * r.getDistanceKm())
+                    .sum();
+            weeklyAvgPace = (int) Math.round(totalWeightedPace / weeklyDistance);
+        }
+
+        return RankingMeResponse.builder()
+                .nickname(user.getNickname())
+                .scoreRank(scoreRank)
+                .distanceRank(distanceRank)
+                .tierCode(mapTierName(user.getCurrentTier()))
+                .tierGrade(mapTierGrade(user.getCurrentTierGrade()))
+                .tierScore(user.getTierScore())
+                .weeklyAvgPace(weeklyAvgPace)
+                .weeklyDistance(weeklyDistance)
+                .build();
+    }
+
+    private Integer calculateScoreRank(List<User> activeUsers, Map<Long, List<RunningRecord>> recordsByUser, Long userId) {
+        List<UserScoreEntry> entries = new ArrayList<>();
+
+        for (User user : activeUsers) {
+            List<RunningRecord> userRecords = recordsByUser.getOrDefault(user.getId(), Collections.emptyList());
+            if (userRecords.isEmpty() || user.getTierScore() == null) {
+                continue;
+            }
+
+            entries.add(new UserScoreEntry(user.getId(), user.getTierScore()));
+        }
+
+        entries.sort((a, b) -> Double.compare(b.tierScore(), a.tierScore()));
+        for (int i = 0; i < entries.size(); i++) {
+            if (Objects.equals(entries.get(i).userId(), userId)) {
+                return i + 1;
+            }
+        }
+        return null;
+    }
+
+    private Integer calculateDistanceRank(List<User> activeUsers, Map<Long, List<RunningRecord>> recordsByUser, Long userId) {
+        List<UserDistanceEntry> entries = new ArrayList<>();
+
+        for (User user : activeUsers) {
+            List<RunningRecord> userRecords = recordsByUser.getOrDefault(user.getId(), Collections.emptyList());
+            if (userRecords.isEmpty()) {
+                continue;
+            }
+
+            double weeklyDistance = userRecords.stream()
+                    .mapToDouble(RunningRecord::getDistanceKm)
+                    .sum();
+
+            entries.add(new UserDistanceEntry(user.getId(), weeklyDistance));
+        }
+
+        entries.sort((a, b) -> Double.compare(b.weeklyDistance(), a.weeklyDistance()));
+        for (int i = 0; i < entries.size(); i++) {
+            if (Objects.equals(entries.get(i).userId(), userId)) {
+                return i + 1;
+            }
+        }
+        return null;
+    }
+
+    private record UserScoreEntry(Long userId, Double tierScore) {
+    }
+
+    private record UserDistanceEntry(Long userId, Double weeklyDistance) {
+    }
+
+    private String mapTierName(String tierCode) {
+        if (tierCode == null) {
+            return "TURTLE";
+        }
+        return switch (tierCode) {
+            case "CHEETAH", "DEER", "HUSKY", "FOX", "ROE_DEER", "SHEEP",
+                 "RABBIT", "PANDA", "DUCK", "TURTLE" -> tierCode;
+            case "BRONZE", "SILVER", "GOLD", "PLATINUM", "DIAMOND" -> "TURTLE";
+            default -> "TURTLE";
+        };
+    }
+
+    private String mapTierGrade(String tierGrade) {
+        if (tierGrade == null) {
+            return "B";
+        }
+        return switch (tierGrade) {
+            case "G", "S", "B" -> tierGrade;
+            case "Gold" -> "G";
+            case "Silver" -> "S";
+            case "Bronze" -> "B";
+            default -> "B";
+        };
     }
 }
 

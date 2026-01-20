@@ -8,14 +8,13 @@ import com.ohgiraffers.dalryeo.common.CommonResponse;
 import com.ohgiraffers.dalryeo.record.dto.RecordIdResponse;
 import com.ohgiraffers.dalryeo.record.dto.RecordSummaryResponse;
 import com.ohgiraffers.dalryeo.record.dto.RunningRecordRequest;
-import com.ohgiraffers.dalryeo.record.dto.WeeklyRecordResponse;
+import com.ohgiraffers.dalryeo.record.dto.WeeklyRecordListResponse;
 import com.ohgiraffers.dalryeo.record.service.RecordService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 
 @RestController
 @RequestMapping("/records")
@@ -55,9 +54,9 @@ public class RecordController {
      * GET /records/weekly
      */
     @GetMapping("/weekly")
-    public CommonResponse<List<WeeklyRecordResponse>> getWeeklyRecords(HttpServletRequest httpRequest) {
+    public CommonResponse<WeeklyRecordListResponse> getWeeklyRecords(HttpServletRequest httpRequest) {
         Long userId = extractUserIdFromRequest(httpRequest);
-        List<WeeklyRecordResponse> response = recordService.getWeeklyRecords(userId);
+        WeeklyRecordListResponse response = recordService.getWeeklyRecords(userId);
         return CommonResponse.success(response);
     }
 

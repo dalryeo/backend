@@ -20,6 +20,7 @@ public class WeeklyRecordResponse {
     private Integer avgPaceSecPerKm;
     private Integer avgHeartRate;
     private Integer caloriesKcal;
+    private String tierCode;
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime startAt;
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
