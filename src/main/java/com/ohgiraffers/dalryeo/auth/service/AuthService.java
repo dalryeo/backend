@@ -49,9 +49,11 @@ public class AuthService {
             user = userRepository.save(user);
             isNewUser = true;
         } else {
-            // 탈퇴한 사용자 체크
+            // 탈퇴한 사용자는 재가입 처리
             if (user.isWithdrawn()) {
-                throw new AuthException(AuthErrorCode.WITHDRAWN_USER);
+                user.reactivate();
+                user = userRepository.save(user);
+                isNewUser = true;
             }
         }
 

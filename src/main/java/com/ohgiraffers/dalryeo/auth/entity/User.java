@@ -76,6 +76,20 @@ public class User {
         this.refreshToken = null;
     }
 
+    public void reactivate() {
+        this.isWithdrawn = false;
+        this.refreshToken = null;
+        this.nickname = null;
+        this.gender = null;
+        this.birth = null;
+        this.height = null;
+        this.weight = null;
+        this.profileImage = null;
+        this.currentTier = null;
+        this.currentTierGrade = null;
+        this.tierScore = null;
+    }
+
     public void clearRefreshToken() {
         this.refreshToken = null;
     }
@@ -87,6 +101,14 @@ public class User {
         this.height = height;
         this.weight = weight;
         this.profileImage = profileImage;
+    }
+
+    public void updateProfile(String nickname, String gender, LocalDate birth, Integer height, Integer weight) {
+        this.nickname = nickname;
+        this.gender = gender;
+        this.birth = birth;
+        this.height = height;
+        this.weight = weight;
     }
 }
 

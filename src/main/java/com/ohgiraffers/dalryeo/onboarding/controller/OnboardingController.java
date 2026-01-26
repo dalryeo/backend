@@ -11,6 +11,8 @@ import com.ohgiraffers.dalryeo.onboarding.dto.NicknameCheckResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingRequest;
 import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingResponse;
 import com.ohgiraffers.dalryeo.onboarding.service.OnboardingService;
+import com.ohgiraffers.dalryeo.mypage.dto.ProfileUpdateRequest;
+import com.ohgiraffers.dalryeo.mypage.service.MypageService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 public class OnboardingController {
 
     private final OnboardingService onboardingService;
+    private final MypageService mypageService;
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtTokenExtractor jwtTokenExtractor;
 
@@ -45,6 +48,19 @@ public class OnboardingController {
             HttpServletRequest httpRequest) {
         Long userId = extractUserIdFromRequest(httpRequest);
         onboardingService.saveOnboarding(userId, request);
+        return CommonResponse.success();
+    }
+
+    /**
+     * 온보딩 정보 수정
+     * PUT /onboarding
+     */
+    @PutMapping
+    public CommonResponse<Void> updateOnboarding(
+            @Valid @RequestBody ProfileUpdateRequest request,
+            HttpServletRequest httpRequest) {
+        Long userId = extractUserIdFromRequest(httpRequest);
+        mypageService.updateProfile(userId, request);
         return CommonResponse.success();
     }
 
