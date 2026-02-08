@@ -80,8 +80,11 @@ public class OnboardingController {
      * POST /onboarding/estimate-tier
      */
     @PostMapping("/estimate-tier")
-    public CommonResponse<EstimateTierResponse> estimateTier(@Valid @RequestBody EstimateTierRequest request) {
-        EstimateTierResponse response = onboardingService.estimateTier(request);
+    public CommonResponse<EstimateTierResponse> estimateTier(
+            @Valid @RequestBody EstimateTierRequest request,
+            HttpServletRequest httpRequest) {
+        Long userId = extractUserIdFromRequest(httpRequest);
+        EstimateTierResponse response = onboardingService.estimateTier(userId, request);
         return CommonResponse.success(response);
     }
 

@@ -7,12 +7,17 @@ import com.ohgiraffers.dalryeo.onboarding.dto.EstimateTierResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.NicknameCheckResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingRequest;
 import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingResponse;
+import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
+import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.temporal.TemporalAdjusters;
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +25,7 @@ import java.math.RoundingMode;
 public class OnboardingService {
 
     private final UserRepository userRepository;
+    private final WeeklyTierRepository weeklyTierRepository;
 
     /**
      * 닉네임 중복 체크
@@ -74,12 +80,14 @@ public class OnboardingService {
      * 거리와 페이스를 기반으로 티어를 계산합니다.
      */
     @Transactional(readOnly = true)
-    public EstimateTierResponse estimateTier(EstimateTierRequest request) {
+    public EstimateTierResponse estimateTier(Long userId, EstimateTierRequest request) {
         double distanceKm = request.getDistanceKm();
         int paceSecPerKm = request.getPaceSecPerKm();
 
         double score = calculateTierScore(distanceKm, paceSecPerKm);
         TierInfo tierInfo = resolveTierInfo(score);
+
+        saveWeeklyTier(userId, tierInfo, score);
 
         return EstimateTierResponse.builder()
                 .tierCode(tierInfo.tierCode())
@@ -163,6 +171,29 @@ public class OnboardingService {
         return BigDecimal.valueOf(value)
                 .setScale(2, RoundingMode.HALF_UP)
                 .doubleValue();
+    }
+
+    private void saveWeeklyTier(Long userId, TierInfo tierInfo, double score) {
+        LocalDate weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        Integer tierScore = toTierScoreInt(score);
+
+        WeeklyTier weeklyTier = weeklyTierRepository.findByUserIdAndWeekStartDate(userId, weekStart)
+                .orElseGet(() -> WeeklyTier.builder()
+                        .userId(userId)
+                        .weekStartDate(weekStart)
+                        .tierCode(tierInfo.tierCode())
+                        .tierScore(tierScore)
+                        .build());
+
+        weeklyTier.updateTier(tierInfo.tierCode(), tierScore);
+        weeklyTierRepository.save(weeklyTier);
+    }
+
+    private Integer toTierScoreInt(double score) {
+        return BigDecimal.valueOf(score)
+                .setScale(2, RoundingMode.HALF_UP)
+                .movePointRight(2)
+                .intValue();
     }
 
     private record TierInfo(String tierCode, String displayName, String tierGrade) {

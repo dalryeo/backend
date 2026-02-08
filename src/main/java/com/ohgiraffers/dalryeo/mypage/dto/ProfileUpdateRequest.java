@@ -16,7 +16,7 @@ public class ProfileUpdateRequest {
     private String nickname;
 
     @NotBlank(message = "성별은 필수입니다.")
-    @Pattern(regexp = "^[FM]$", message = "성별은 F 또는 M이어야 합니다.")
+    @Pattern(regexp = "^[FMO]$", message = "성별은 F, M 또는 O이어야 합니다.")
     private String gender;
 
     @JsonFormat(pattern = "yyyy-MM-dd")

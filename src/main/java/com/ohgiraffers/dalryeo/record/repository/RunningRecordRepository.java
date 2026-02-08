@@ -37,6 +37,14 @@ public interface RunningRecordRepository extends JpaRepository<RunningRecord, Lo
             @Param("endDate") LocalDateTime endDate
     );
 
+    @Query("SELECT COUNT(r) > 0 FROM RunningRecord r WHERE r.userId = :userId " +
+           "AND r.startAt >= :startDate AND r.startAt < :endDate")
+    boolean existsByUserIdAndWeekRange(
+            @Param("userId") Long userId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
     @Query("SELECT r FROM RunningRecord r WHERE r.userId = :userId " +
            "AND DATE(r.startAt) = :date " +
            "ORDER BY r.startAt DESC")
