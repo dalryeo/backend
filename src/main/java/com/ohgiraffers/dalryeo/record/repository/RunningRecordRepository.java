@@ -59,5 +59,7 @@ public interface RunningRecordRepository extends JpaRepository<RunningRecord, Lo
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate
     );
+
+    void deleteByUserId(Long userId);
 }
 

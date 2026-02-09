@@ -8,4 +8,5 @@ import java.util.Optional;
 
 public interface WeeklyTierRepository extends JpaRepository<WeeklyTier, Long> {
     Optional<WeeklyTier> findByUserIdAndWeekStartDate(Long userId, LocalDate weekStartDate);
+    void deleteByUserId(Long userId);
 }
