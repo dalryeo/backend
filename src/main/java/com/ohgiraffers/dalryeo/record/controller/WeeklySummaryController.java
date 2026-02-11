@@ -5,18 +5,16 @@ import com.ohgiraffers.dalryeo.auth.exception.AuthException;
 import com.ohgiraffers.dalryeo.auth.jwt.JwtTokenExtractor;
 import com.ohgiraffers.dalryeo.auth.jwt.JwtTokenProvider;
 import com.ohgiraffers.dalryeo.common.CommonResponse;
-import com.ohgiraffers.dalryeo.record.dto.WeeklySummaryByWeekResponse;
+import com.ohgiraffers.dalryeo.record.dto.WeeklySummaryItemResponse;
 import com.ohgiraffers.dalryeo.record.dto.WeeklySummaryResponse;
 import com.ohgiraffers.dalryeo.record.service.RecordService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/weekly/summary")
@@ -39,15 +37,13 @@ public class WeeklySummaryController {
     }
 
     /**
-     * 주간 요약 (주별 조회)
-     * GET /weekly/summary?weekStart=YYYY-MM-DD
+     * 주간 요약 리스트 (가입일부터 현재까지)
+     * GET /weekly/summary/list
      */
-    @GetMapping
-    public CommonResponse<WeeklySummaryByWeekResponse> getWeeklySummaryByWeekStart(
-            HttpServletRequest httpRequest,
-            @RequestParam("weekStart") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStart) {
+    @GetMapping("/list")
+    public CommonResponse<List<WeeklySummaryItemResponse>> getWeeklySummaryList(HttpServletRequest httpRequest) {
         Long userId = extractUserIdFromRequest(httpRequest);
-        WeeklySummaryByWeekResponse response = recordService.getWeeklySummaryByWeekStart(userId, weekStart);
+        List<WeeklySummaryItemResponse> response = recordService.getWeeklySummaryList(userId);
         return CommonResponse.success(response);
     }
 

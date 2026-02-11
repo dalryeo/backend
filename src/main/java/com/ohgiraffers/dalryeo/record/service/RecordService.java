@@ -8,6 +8,7 @@ import com.ohgiraffers.dalryeo.record.dto.RunningRecordRequest;
 import com.ohgiraffers.dalryeo.record.dto.WeeklyRecordListResponse;
 import com.ohgiraffers.dalryeo.record.dto.WeeklyRecordResponse;
 import com.ohgiraffers.dalryeo.record.dto.WeeklySummaryByWeekResponse;
+import com.ohgiraffers.dalryeo.record.dto.WeeklySummaryItemResponse;
 import com.ohgiraffers.dalryeo.record.dto.WeeklySummaryResponse;
 import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
@@ -21,6 +22,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -150,48 +152,35 @@ public class RecordService {
     }
 
     /**
-     * 주간 요약 (주별 조회, 가입일 이후만 집계)
+     * 주간 요약 리스트 (가입일부터 현재까지)
      */
     @Transactional(readOnly = true)
-    public WeeklySummaryByWeekResponse getWeeklySummaryByWeekStart(Long userId, LocalDate weekStartDate) {
+    public List<WeeklySummaryItemResponse> getWeeklySummaryList(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
 
-        LocalDateTime weekStartDateTime = weekStartDate.atStartOfDay();
-        LocalDateTime endDateTime = weekStartDate.plusDays(7).atStartOfDay();
+        LocalDate createdAt = user.getCreatedAt() != null
+                ? user.getCreatedAt().toLocalDate()
+                : LocalDate.now();
+        LocalDate startWeek = createdAt.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate endWeek = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
 
-        // 가입일 이후만 집계되도록 시작일 보정
-        LocalDateTime createdAt = user.getCreatedAt();
-        LocalDateTime createdAtDateStart = createdAt != null
-                ? createdAt.toLocalDate().atStartOfDay()
-                : null;
-        LocalDateTime effectiveStart = createdAtDateStart != null && createdAtDateStart.isAfter(weekStartDateTime)
-                ? createdAtDateStart
-                : weekStartDateTime;
-
-        List<RunningRecord> summaryRecords = runningRecordRepository.findByUserIdAndWeekRange(
-                userId, effectiveStart, endDateTime);
-
-        int runCount = summaryRecords.size();
-        double weeklyDistance = summaryRecords.stream()
-                .mapToDouble(RunningRecord::getDistanceKm)
-                .sum();
-
-        int averagePace = 0;
-        if (weeklyDistance > 0) {
-            double totalWeightedPace = summaryRecords.stream()
-                    .mapToDouble(record -> record.getAvgPaceSecPerKm() * record.getDistanceKm())
-                    .sum();
-            averagePace = (int) Math.round(totalWeightedPace / weeklyDistance);
+        List<WeeklySummaryItemResponse> summaries = new ArrayList<>();
+        LocalDate weekStart = startWeek;
+        while (!weekStart.isAfter(endWeek)) {
+            WeeklySummaryByWeekResponse summary = buildWeeklySummaryByWeekStart(user, weekStart);
+            summaries.add(WeeklySummaryItemResponse.builder()
+                    .weekStart(weekStart)
+                    .tierCode(summary.getTierCode())
+                    .tierGrade(summary.getTierGrade())
+                    .runCount(summary.getRunCount())
+                    .averagePace(summary.getAveragePace())
+                    .weeklyDistance(summary.getWeeklyDistance())
+                    .build());
+            weekStart = weekStart.plusWeeks(1);
         }
 
-        return WeeklySummaryByWeekResponse.builder()
-                .tierCode(mapTierName(user.getCurrentTier()))
-                .tierGrade(mapTierGrade(user.getCurrentTierGrade()))
-                .runCount(runCount)
-                .averagePace(averagePace)
-                .weeklyDistance(weeklyDistance)
-                .build();
+        return summaries;
     }
 
     /**
@@ -320,6 +309,44 @@ public class RecordService {
         return BigDecimal.valueOf(value)
                 .setScale(2, RoundingMode.HALF_UP)
                 .doubleValue();
+    }
+
+    private WeeklySummaryByWeekResponse buildWeeklySummaryByWeekStart(User user, LocalDate weekStartDate) {
+        LocalDateTime weekStartDateTime = weekStartDate.atStartOfDay();
+        LocalDateTime endDateTime = weekStartDate.plusDays(7).atStartOfDay();
+
+        // 가입일 이후만 집계되도록 시작일 보정
+        LocalDateTime createdAt = user.getCreatedAt();
+        LocalDateTime createdAtDateStart = createdAt != null
+                ? createdAt.toLocalDate().atStartOfDay()
+                : null;
+        LocalDateTime effectiveStart = createdAtDateStart != null && createdAtDateStart.isAfter(weekStartDateTime)
+                ? createdAtDateStart
+                : weekStartDateTime;
+
+        List<RunningRecord> summaryRecords = runningRecordRepository.findByUserIdAndWeekRange(
+                user.getId(), effectiveStart, endDateTime);
+
+        int runCount = summaryRecords.size();
+        double weeklyDistance = summaryRecords.stream()
+                .mapToDouble(RunningRecord::getDistanceKm)
+                .sum();
+
+        int averagePace = 0;
+        if (weeklyDistance > 0) {
+            double totalWeightedPace = summaryRecords.stream()
+                    .mapToDouble(record -> record.getAvgPaceSecPerKm() * record.getDistanceKm())
+                    .sum();
+            averagePace = (int) Math.round(totalWeightedPace / weeklyDistance);
+        }
+
+        return WeeklySummaryByWeekResponse.builder()
+                .tierCode(mapTierName(user.getCurrentTier()))
+                .tierGrade(mapTierGrade(user.getCurrentTierGrade()))
+                .runCount(runCount)
+                .averagePace(averagePace)
+                .weeklyDistance(weeklyDistance)
+                .build();
     }
 
 }
