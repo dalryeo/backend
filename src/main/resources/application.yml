@@ -4,9 +4,9 @@ spring:
 
   # 데이터베이스 설정
   datasource:
-    url: ${DB_URL:jdbc:postgresql://aws-1-ap-southeast-2.pooler.supabase.com:5432/postgres?sslmode=require}
-    username: ${DB_USERNAME:postgres.cqyvxgibytjjaeqcdvdy}
-    password: ${DB_PASSWORD:runmorefast82}
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 5
@@ -88,3 +88,8 @@ management:
         enabled: true
       show-details: never
 
+sentry:
+  dsn: ${SENTRY_DSN:}
+  environment: ${SENTRY_ENVIRONMENT:prod}
+  release: ${SENTRY_RELEASE:local}
+  send-default-pii: false
