@@ -38,6 +38,10 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
     runtimeOnly 'org.postgresql:postgresql'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // log 추적을 위한 sentry 의존성추가
+    implementation platform("io.sentry:sentry-bom:8.31.0")
+    implementation "io.sentry:sentry-spring-boot-4-starter"
 }
 
 tasks.named('test') {
