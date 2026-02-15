@@ -79,7 +79,7 @@ public class OnboardingService {
      * 예상 티어 계산
      * 거리와 페이스를 기반으로 티어를 계산합니다.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public EstimateTierResponse estimateTier(Long userId, EstimateTierRequest request) {
         double distanceKm = request.getDistanceKm();
         int paceSecPerKm = request.getPaceSecPerKm();
