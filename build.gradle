@@ -40,8 +40,8 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
     // log 추적을 위한 sentry 의존성추가
-    implementation platform("io.sentry:sentry-bom:8.31.0")
-    implementation "io.sentry:sentry-spring-boot-4-starter"
+    implementation platform("io.sentry:sentry-bom:7.20.0")
+    implementation "io.sentry:sentry-spring-boot-starter-jakarta"
 }
 
 tasks.named('test') {
