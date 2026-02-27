@@ -62,6 +62,7 @@ jobs:
             --resource-group $RESOURCE_GROUP \
             --image $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ env.IMAGE_TAG }} \
             --set-env-vars \
+              APPLICATIONINSIGHTS_CONNECTION_STRING=${{ secrets.APPINSIGHTS_CONNECTION_STRING }} \
               SENTRY_DSN=secretref:sentry-dsn \
               SENTRY_ENVIRONMENT=prod \
               SENTRY_RELEASE=${{ env.IMAGE_TAG }}
