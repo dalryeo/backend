@@ -12,6 +12,7 @@ import com.ohgiraffers.dalryeo.record.dto.WeeklySummaryItemResponse;
 import com.ohgiraffers.dalryeo.record.dto.WeeklySummaryResponse;
 import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
+import com.ohgiraffers.dalryeo.tier.service.TierService;
 import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
 import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,7 @@ public class RecordService {
     private final RunningRecordRepository runningRecordRepository;
     private final UserRepository userRepository;
     private final WeeklyTierRepository weeklyTierRepository;
+    private final TierService tierService;
 
     /**
      * 러닝 기록 저장
@@ -207,8 +209,9 @@ public class RecordService {
 
         List<WeeklyRecordResponse> records = weeklyRecords.stream()
                 .map(record -> {
-                    String tierCode = resolveTierCode(
-                            calculateTierScore(record.getDistanceKm(), record.getAvgPaceSecPerKm()));
+                    String tierCode = tierService.resolveByScore(
+                            calculateTierScore(record.getDistanceKm(), record.getAvgPaceSecPerKm()))
+                            .tierCode();
                     return WeeklyRecordResponse.builder()
                             .recordId(record.getId())
                             .platform(record.getPlatform())
@@ -310,7 +313,8 @@ public class RecordService {
     private ResolvedTier resolveCurrentTier(Long userId, LocalDate weekStartDate, List<RunningRecord> weeklyRecords) {
         if (!weeklyRecords.isEmpty()) {
             double weeklyTierScore = calculateWeeklyTierScore(weeklyRecords);
-            return new ResolvedTier(resolveTierCode(weeklyTierScore), resolveTierGrade(weeklyTierScore));
+            TierService.TierInfo tierInfo = tierService.resolveByScore(weeklyTierScore);
+            return new ResolvedTier(tierInfo.tierCode(), tierInfo.tierGrade());
         }
 
         return weeklyTierRepository.findByUserIdAndWeekStartDate(userId, weekStartDate)
@@ -320,8 +324,9 @@ public class RecordService {
 
     private ResolvedTier toResolvedTier(WeeklyTier weeklyTier) {
         double score = scoreFromInt(weeklyTier.getTierScore());
-        String tierGrade = resolveTierGrade(score);
-        return new ResolvedTier(weeklyTier.getTierCode(), tierGrade == null ? "B" : tierGrade);
+        TierService.TierInfo tierInfo = tierService.resolveByTierCodeAndScore(weeklyTier.getTierCode(), score);
+        String tierGrade = tierInfo.tierGrade();
+        return new ResolvedTier(tierInfo.tierCode(), tierGrade == null ? "B" : tierGrade);
     }
 
     private double calculateWeeklyTierScore(List<RunningRecord> records) {
@@ -333,63 +338,6 @@ public class RecordService {
                 .mapToDouble(record -> calculateTierScore(record.getDistanceKm(), record.getAvgPaceSecPerKm()))
                 .sum();
         return round2(totalScore / records.size());
-    }
-
-    private String resolveTierCode(double score) {
-        if (score >= 1.50) {
-            return "CHEETAH";
-        } else if (score >= 1.20) {
-            return "DEER";
-        } else if (score >= 1.00) {
-            return "HUSKY";
-        } else if (score >= 0.86) {
-            return "FOX";
-        } else if (score >= 0.75) {
-            return "ROE_DEER";
-        } else if (score >= 0.67) {
-            return "SHEEP";
-        } else if (score >= 0.60) {
-            return "RABBIT";
-        } else if (score >= 0.55) {
-            return "PANDA";
-        } else if (score >= 0.46) {
-            return "DUCK";
-        }
-        return "TURTLE";
-    }
-
-    private String resolveTierGrade(double score) {
-        if (score >= 1.50) {
-            return gradeForRange(score, 1.64, 1.57, 1.50);
-        } else if (score >= 1.20) {
-            return gradeForRange(score, 1.39, 1.29, 1.20);
-        } else if (score >= 1.00) {
-            return gradeForRange(score, 1.13, 1.06, 1.00);
-        } else if (score >= 0.86) {
-            return gradeForRange(score, 0.95, 0.90, 0.86);
-        } else if (score >= 0.75) {
-            return gradeForRange(score, 0.82, 0.78, 0.75);
-        } else if (score >= 0.67) {
-            return gradeForRange(score, 0.72, 0.69, 0.67);
-        } else if (score >= 0.60) {
-            return gradeForRange(score, 0.64, 0.62, 0.60);
-        } else if (score >= 0.55) {
-            return gradeForRange(score, 0.58, 0.56, 0.55);
-        } else if (score >= 0.46) {
-            return gradeForRange(score, 0.52, 0.49, 0.46);
-        }
-        return null;
-    }
-
-    private String gradeForRange(double score, double goldMin, double silverMin, double bronzeMin) {
-        if (score >= goldMin) {
-            return "G";
-        } else if (score >= silverMin) {
-            return "S";
-        } else if (score >= bronzeMin) {
-            return "B";
-        }
-        return null;
     }
 
     private double scoreFromInt(Integer score) {

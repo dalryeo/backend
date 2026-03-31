@@ -1,6 +1,7 @@
 package com.ohgiraffers.dalryeo.weeklytier.service;
 
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
+import com.ohgiraffers.dalryeo.tier.service.TierService;
 import com.ohgiraffers.dalryeo.weeklytier.dto.WeeklyTierResponse;
 import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
 import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
@@ -23,6 +24,7 @@ public class WeeklyTierService {
 
     private final WeeklyTierRepository weeklyTierRepository;
     private final RunningRecordRepository runningRecordRepository;
+    private final TierService tierService;
 
     @Transactional(readOnly = true)
     public WeeklyTierResponse getCurrentWeeklyTier(Long userId) {
@@ -43,12 +45,12 @@ public class WeeklyTierService {
 
         WeeklyTier tier = weeklyTier.get();
         double score = scoreFromInt(tier.getTierScore());
-        String tierGrade = resolveTierGrade(score);
+        TierService.TierInfo tierInfo = tierService.resolveByTierCodeAndScore(tier.getTierCode(), score);
 
         return WeeklyTierResponse.builder()
                 .weekStartDate(tier.getWeekStartDate())
-                .tierCode(tier.getTierCode())
-                .tierGrade(tierGrade)
+                .tierCode(tierInfo.tierCode())
+                .tierGrade(tierInfo.tierGrade())
                 .tierScore(score)
                 .build();
     }
@@ -61,39 +63,5 @@ public class WeeklyTierService {
                 .movePointLeft(2)
                 .setScale(2, RoundingMode.HALF_UP)
                 .doubleValue();
-    }
-
-    private String resolveTierGrade(double score) {
-        if (score >= 1.50) {
-            return gradeForRange(score, 1.64, 1.57, 1.50);
-        } else if (score >= 1.20) {
-            return gradeForRange(score, 1.39, 1.29, 1.20);
-        } else if (score >= 1.00) {
-            return gradeForRange(score, 1.13, 1.06, 1.00);
-        } else if (score >= 0.86) {
-            return gradeForRange(score, 0.95, 0.90, 0.86);
-        } else if (score >= 0.75) {
-            return gradeForRange(score, 0.82, 0.78, 0.75);
-        } else if (score >= 0.67) {
-            return gradeForRange(score, 0.72, 0.69, 0.67);
-        } else if (score >= 0.60) {
-            return gradeForRange(score, 0.64, 0.62, 0.60);
-        } else if (score >= 0.55) {
-            return gradeForRange(score, 0.58, 0.56, 0.55);
-        } else if (score >= 0.46) {
-            return gradeForRange(score, 0.52, 0.49, 0.46);
-        }
-        return null;
-    }
-
-    private String gradeForRange(double score, double goldMin, double silverMin, double bronzeMin) {
-        if (score >= goldMin) {
-            return "G";
-        } else if (score >= silverMin) {
-            return "S";
-        } else if (score >= bronzeMin) {
-            return "B";
-        }
-        return null;
     }
 }

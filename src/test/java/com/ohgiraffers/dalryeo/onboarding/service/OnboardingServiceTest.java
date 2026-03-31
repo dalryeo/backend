@@ -8,6 +8,7 @@ import com.ohgiraffers.dalryeo.onboarding.dto.EstimateTierResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.NicknameCheckResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingRequest;
 import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingResponse;
+import com.ohgiraffers.dalryeo.tier.service.TierService;
 import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
 import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
 import org.junit.jupiter.api.Test;
@@ -37,6 +38,9 @@ class OnboardingServiceTest {
 
     @Mock
     private WeeklyTierRepository weeklyTierRepository;
+
+    @Mock
+    private TierService tierService;
 
     @InjectMocks
     private OnboardingService onboardingService;
@@ -108,6 +112,8 @@ class OnboardingServiceTest {
 
         when(weeklyTierRepository.findByUserIdAndWeekStartDate(eq(userId), eq(weekStart)))
                 .thenReturn(Optional.empty());
+        when(tierService.resolveByScore(1.24))
+                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B"));
 
         EstimateTierResponse response = onboardingService.estimateTier(userId, request);
 
@@ -140,6 +146,8 @@ class OnboardingServiceTest {
         when(weeklyTierRepository.findByUserIdAndWeekStartDate(eq(userId), eq(weekStart)))
                 .thenReturn(Optional.of(existingWeeklyTier));
         when(weeklyTierRepository.save(existingWeeklyTier)).thenReturn(existingWeeklyTier);
+        when(tierService.resolveByScore(1.00))
+                .thenReturn(new TierService.TierInfo("HUSKY", "허스키", "B"));
 
         EstimateTierResponse response = onboardingService.estimateTier(userId, request);
 

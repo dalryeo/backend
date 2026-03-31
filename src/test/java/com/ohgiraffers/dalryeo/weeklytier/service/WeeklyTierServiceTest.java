@@ -1,6 +1,7 @@
 package com.ohgiraffers.dalryeo.weeklytier.service;
 
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
+import com.ohgiraffers.dalryeo.tier.service.TierService;
 import com.ohgiraffers.dalryeo.weeklytier.dto.WeeklyTierResponse;
 import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
 import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
@@ -29,6 +30,9 @@ class WeeklyTierServiceTest {
 
     @Mock
     private RunningRecordRepository runningRecordRepository;
+
+    @Mock
+    private TierService tierService;
 
     @InjectMocks
     private WeeklyTierService weeklyTierService;
@@ -75,6 +79,8 @@ class WeeklyTierServiceTest {
                 .thenReturn(false);
         when(weeklyTierRepository.findByUserIdAndWeekStartDate(userId, weekStart))
                 .thenReturn(Optional.of(weeklyTier));
+        when(tierService.resolveByTierCodeAndScore("CHEETAH", 1.57))
+                .thenReturn(new TierService.TierInfo("CHEETAH", "치타", "S"));
 
         WeeklyTierResponse response = weeklyTierService.getCurrentWeeklyTier(userId);
 

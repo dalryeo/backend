@@ -7,6 +7,7 @@ import com.ohgiraffers.dalryeo.onboarding.dto.EstimateTierResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.NicknameCheckResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingRequest;
 import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingResponse;
+import com.ohgiraffers.dalryeo.tier.service.TierService;
 import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
 import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ public class OnboardingService {
 
     private final UserRepository userRepository;
     private final WeeklyTierRepository weeklyTierRepository;
+    private final TierService tierService;
 
     /**
      * 닉네임 중복 체크
@@ -85,7 +87,7 @@ public class OnboardingService {
         int paceSecPerKm = request.getPaceSecPerKm();
 
         double score = calculateTierScore(distanceKm, paceSecPerKm);
-        TierInfo tierInfo = resolveTierInfo(score);
+        TierService.TierInfo tierInfo = tierService.resolveByScore(score);
 
         saveWeeklyTier(userId, tierInfo, score);
 
@@ -133,47 +135,13 @@ public class OnboardingService {
         return 1.10;
     }
 
-    private TierInfo resolveTierInfo(double score) {
-        if (score >= 1.50) {
-            return new TierInfo("CHEETAH", "치타", gradeForRange(score, 1.64, 1.57, 1.50));
-        } else if (score >= 1.20) {
-            return new TierInfo("DEER", "사슴", gradeForRange(score, 1.39, 1.29, 1.20));
-        } else if (score >= 1.00) {
-            return new TierInfo("HUSKY", "허스키", gradeForRange(score, 1.13, 1.06, 1.00));
-        } else if (score >= 0.86) {
-            return new TierInfo("FOX", "여우", gradeForRange(score, 0.95, 0.90, 0.86));
-        } else if (score >= 0.75) {
-            return new TierInfo("ROE_DEER", "고라니", gradeForRange(score, 0.82, 0.78, 0.75));
-        } else if (score >= 0.67) {
-            return new TierInfo("SHEEP", "양", gradeForRange(score, 0.72, 0.69, 0.67));
-        } else if (score >= 0.60) {
-            return new TierInfo("RABBIT", "토끼", gradeForRange(score, 0.64, 0.62, 0.60));
-        } else if (score >= 0.55) {
-            return new TierInfo("PANDA", "판다", gradeForRange(score, 0.58, 0.56, 0.55));
-        } else if (score >= 0.46) {
-            return new TierInfo("DUCK", "오리", gradeForRange(score, 0.52, 0.49, 0.46));
-        }
-        return new TierInfo("TURTLE", "거북이", null);
-    }
-
-    private String gradeForRange(double score, double goldMin, double silverMin, double bronzeMin) {
-        if (score >= goldMin) {
-            return "G";
-        } else if (score >= silverMin) {
-            return "S";
-        } else if (score >= bronzeMin) {
-            return "B";
-        }
-        return null;
-    }
-
     private double round2(double value) {
         return BigDecimal.valueOf(value)
                 .setScale(2, RoundingMode.HALF_UP)
                 .doubleValue();
     }
 
-    private void saveWeeklyTier(Long userId, TierInfo tierInfo, double score) {
+    private void saveWeeklyTier(Long userId, TierService.TierInfo tierInfo, double score) {
         LocalDate weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
         Integer tierScore = toTierScoreInt(score);
 
@@ -196,7 +164,4 @@ public class OnboardingService {
                 .intValue();
     }
 
-    private record TierInfo(String tierCode, String displayName, String tierGrade) {
-    }
 }
-

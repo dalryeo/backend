@@ -8,6 +8,7 @@ import com.ohgiraffers.dalryeo.ranking.dto.RankingMeResponse;
 import com.ohgiraffers.dalryeo.ranking.dto.ScoreRankingResponse;
 import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
+import com.ohgiraffers.dalryeo.tier.service.TierService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -33,6 +34,9 @@ class RankingServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private TierService tierService;
+
     @InjectMocks
     private RankingService rankingService;
 
@@ -49,6 +53,10 @@ class RankingServiceTest {
                 record(2L, 10.0, 300),
                 record(3L, 20.0, 280)
         ));
+        when(tierService.resolveByScore(1.24))
+                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B"));
+        when(tierService.resolveByScore(1.27))
+                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B"));
 
         List<ScoreRankingResponse> response = rankingService.getWeeklyScoreRanking();
 
@@ -73,6 +81,10 @@ class RankingServiceTest {
                 record(1L, 5.0, 300),
                 record(2L, 10.0, 300)
         ));
+        when(tierService.resolveByScore(1.24))
+                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B"));
+        when(tierService.resolveByScore(1.27))
+                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B"));
 
         List<DistanceRankingResponse> response = rankingService.getWeeklyDistanceRanking();
 
@@ -97,6 +109,8 @@ class RankingServiceTest {
                 record(1L, 5.0, 300),
                 record(2L, 10.0, 300)
         ));
+        when(tierService.resolveByScore(1.24))
+                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B"));
 
         RankingMeResponse response = rankingService.getMyRanking(userId);
 

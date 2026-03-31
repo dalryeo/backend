@@ -7,6 +7,7 @@ import com.ohgiraffers.dalryeo.ranking.dto.RankingMeResponse;
 import com.ohgiraffers.dalryeo.ranking.dto.ScoreRankingResponse;
 import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
+import com.ohgiraffers.dalryeo.tier.service.TierService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +28,7 @@ public class RankingService {
 
     private final RunningRecordRepository runningRecordRepository;
     private final UserRepository userRepository;
+    private final TierService tierService;
 
     /**
      * 점수 기반 주간 랭킹 조회
@@ -77,13 +79,12 @@ public class RankingService {
             }
 
             double weeklyTierScore = calculateWeeklyTierScore(userRecords);
-            String tierCode = resolveTierCode(weeklyTierScore);
-            String tierGrade = resolveTierGrade(weeklyTierScore);
+            TierService.TierInfo tierInfo = tierService.resolveByScore(weeklyTierScore);
 
             ScoreRankingResponse ranking = ScoreRankingResponse.builder()
                     .nickname(user.getNickname())
-                    .tierCode(tierCode)
-                    .tierGrade(tierGrade)
+                    .tierCode(tierInfo.tierCode())
+                    .tierGrade(tierInfo.tierGrade())
                     .tierScore(weeklyTierScore)
                     .weeklyAvgPace(weeklyAvgPace)
                     .weeklyDistance(weeklyDistance)
@@ -152,15 +153,14 @@ public class RankingService {
             }
 
             double weeklyTierScore = calculateWeeklyTierScore(userRecords);
-            String tierCode = resolveTierCode(weeklyTierScore);
-            String tierGrade = resolveTierGrade(weeklyTierScore);
+            TierService.TierInfo tierInfo = tierService.resolveByScore(weeklyTierScore);
 
             DistanceRankingResponse ranking = DistanceRankingResponse.builder()
                     .nickname(user.getNickname())
                     .weeklyDistance(weeklyDistance)
                     .weeklyAvgPace(weeklyAvgPace)
-                    .tierCode(tierCode)
-                    .tierGrade(tierGrade)
+                    .tierCode(tierInfo.tierCode())
+                    .tierGrade(tierInfo.tierGrade())
                     .build();
 
             rankings.add(ranking);
@@ -226,15 +226,14 @@ public class RankingService {
         }
 
         double weeklyTierScore = calculateWeeklyTierScore(myRecords);
-        String tierCode = resolveTierCode(weeklyTierScore);
-        String tierGrade = resolveTierGrade(weeklyTierScore);
+        TierService.TierInfo tierInfo = tierService.resolveByScore(weeklyTierScore);
 
         return RankingMeResponse.builder()
                 .nickname(user.getNickname())
                 .scoreRank(scoreRank)
                 .distanceRank(distanceRank)
-                .tierCode(tierCode)
-                .tierGrade(tierGrade)
+                .tierCode(tierInfo.tierCode())
+                .tierGrade(tierInfo.tierGrade())
                 .tierScore(weeklyTierScore)
                 .weeklyAvgPace(weeklyAvgPace)
                 .weeklyDistance(weeklyDistance)
@@ -294,31 +293,6 @@ public class RankingService {
     private record UserDistanceEntry(Long userId, Double weeklyDistance) {
     }
 
-    private String mapTierName(String tierCode) {
-        if (tierCode == null) {
-            return "TURTLE";
-        }
-        return switch (tierCode) {
-            case "CHEETAH", "DEER", "HUSKY", "FOX", "ROE_DEER", "SHEEP",
-                 "RABBIT", "PANDA", "DUCK", "TURTLE" -> tierCode;
-            case "BRONZE", "SILVER", "GOLD", "PLATINUM", "DIAMOND" -> "TURTLE";
-            default -> "TURTLE";
-        };
-    }
-
-    private String mapTierGrade(String tierGrade) {
-        if (tierGrade == null) {
-            return "B";
-        }
-        return switch (tierGrade) {
-            case "G", "S", "B" -> tierGrade;
-            case "Gold" -> "G";
-            case "Silver" -> "S";
-            case "Bronze" -> "B";
-            default -> "B";
-        };
-    }
-
     private double calculateWeeklyTierScore(List<RunningRecord> records) {
         if (records.isEmpty()) {
             return 0.0;
@@ -361,67 +335,9 @@ public class RankingService {
         return 1.10;
     }
 
-    private String resolveTierCode(double score) {
-        if (score >= 1.50) {
-            return "CHEETAH";
-        } else if (score >= 1.20) {
-            return "DEER";
-        } else if (score >= 1.00) {
-            return "HUSKY";
-        } else if (score >= 0.86) {
-            return "FOX";
-        } else if (score >= 0.75) {
-            return "ROE_DEER";
-        } else if (score >= 0.67) {
-            return "SHEEP";
-        } else if (score >= 0.60) {
-            return "RABBIT";
-        } else if (score >= 0.55) {
-            return "PANDA";
-        } else if (score >= 0.46) {
-            return "DUCK";
-        }
-        return "TURTLE";
-    }
-
-    private String resolveTierGrade(double score) {
-        if (score >= 1.50) {
-            return gradeForRange(score, 1.64, 1.57, 1.50);
-        } else if (score >= 1.20) {
-            return gradeForRange(score, 1.39, 1.29, 1.20);
-        } else if (score >= 1.00) {
-            return gradeForRange(score, 1.13, 1.06, 1.00);
-        } else if (score >= 0.86) {
-            return gradeForRange(score, 0.95, 0.90, 0.86);
-        } else if (score >= 0.75) {
-            return gradeForRange(score, 0.82, 0.78, 0.75);
-        } else if (score >= 0.67) {
-            return gradeForRange(score, 0.72, 0.69, 0.67);
-        } else if (score >= 0.60) {
-            return gradeForRange(score, 0.64, 0.62, 0.60);
-        } else if (score >= 0.55) {
-            return gradeForRange(score, 0.58, 0.56, 0.55);
-        } else if (score >= 0.46) {
-            return gradeForRange(score, 0.52, 0.49, 0.46);
-        }
-        return null;
-    }
-
-    private String gradeForRange(double score, double goldMin, double silverMin, double bronzeMin) {
-        if (score >= goldMin) {
-            return "G";
-        } else if (score >= silverMin) {
-            return "S";
-        } else if (score >= bronzeMin) {
-            return "B";
-        }
-        return null;
-    }
-
     private double round2(double value) {
         return BigDecimal.valueOf(value)
                 .setScale(2, RoundingMode.HALF_UP)
                 .doubleValue();
     }
 }
-
