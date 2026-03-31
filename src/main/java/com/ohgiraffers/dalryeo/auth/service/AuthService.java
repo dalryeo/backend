@@ -2,11 +2,16 @@ package com.ohgiraffers.dalryeo.auth.service;
 
 import com.ohgiraffers.dalryeo.auth.dto.RefreshTokenRequest;
 import com.ohgiraffers.dalryeo.auth.dto.TokenResponse;
+import com.ohgiraffers.dalryeo.auth.entity.AuthToken;
+import com.ohgiraffers.dalryeo.auth.entity.OAuthClient;
 import com.ohgiraffers.dalryeo.auth.entity.User;
+import com.ohgiraffers.dalryeo.auth.entity.UserStatus;
 import com.ohgiraffers.dalryeo.auth.exception.AuthErrorCode;
 import com.ohgiraffers.dalryeo.auth.exception.AuthException;
 import com.ohgiraffers.dalryeo.auth.jwt.JwtTokenProvider;
 import com.ohgiraffers.dalryeo.auth.oauth.AppleOAuthValidator;
+import com.ohgiraffers.dalryeo.auth.repository.AuthTokenRepository;
+import com.ohgiraffers.dalryeo.auth.repository.OAuthClientRepository;
 import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
 import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
@@ -15,15 +20,26 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.HexFormat;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class AuthService {
 
+    private static final String APPLE_PROVIDER = "APPLE";
+
     private final AppleOAuthValidator appleOAuthValidator;
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
+    private final OAuthClientRepository oAuthClientRepository;
+    private final AuthTokenRepository authTokenRepository;
     private final RunningRecordRepository runningRecordRepository;
     private final WeeklyTierRepository weeklyTierRepository;
 
@@ -39,21 +55,25 @@ public class AuthService {
             throw new AuthException(AuthErrorCode.OAUTH_TOKEN_VERIFICATION_FAILED);
         }
 
-        // 기존 사용자 조회
-        User user = userRepository.findByAppleId(appleId)
-                .orElse(null);
-
         boolean isNewUser = false;
+        OAuthClient oAuthClient = oAuthClientRepository.findByProviderAndProviderId(APPLE_PROVIDER, appleId)
+                .orElse(null);
+        User user;
 
-        if (user == null) {
-            // 신규 사용자 생성
+        if (oAuthClient == null) {
             user = User.builder()
-                    .appleId(appleId)
+                    .status(UserStatus.NORMAL)
                     .build();
             user = userRepository.save(user);
+            oAuthClientRepository.save(OAuthClient.builder()
+                    .userId(user.getId())
+                    .provider(APPLE_PROVIDER)
+                    .providerId(appleId)
+                    .build());
             isNewUser = true;
         } else {
-            // 탈퇴한 사용자는 재가입 처리
+            user = userRepository.findById(oAuthClient.getUserId())
+                    .orElseThrow(() -> new RuntimeException("OAuth 사용자 매핑이 올바르지 않습니다."));
             if (user.isWithdrawn()) {
                 user.reactivate();
                 user = userRepository.save(user);
@@ -65,9 +85,7 @@ public class AuthService {
         String accessToken = jwtTokenProvider.generateAccessToken(user.getId());
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
 
-        // Refresh Token 저장
-        user.updateRefreshToken(refreshToken);
-        userRepository.save(user);
+        saveRefreshToken(user.getId(), refreshToken);
 
         return TokenResponse.builder()
                 .accessToken(accessToken)
@@ -87,22 +105,24 @@ public class AuthService {
             throw new AuthException(AuthErrorCode.REFRESH_TOKEN_EXPIRED);
         }
 
-        // DB에서 사용자 조회
-        User user = userRepository.findByRefreshToken(refreshToken)
+        String refreshTokenHash = hashRefreshToken(refreshToken);
+        AuthToken authToken = authTokenRepository.findByRefreshTokenHash(refreshTokenHash)
+                .orElseThrow(() -> new AuthException(AuthErrorCode.REFRESH_TOKEN_MISMATCH));
+        if (authToken.isExpired(LocalDateTime.now())) {
+            throw new AuthException(AuthErrorCode.REFRESH_TOKEN_EXPIRED);
+        }
+
+        User user = userRepository.findById(authToken.getUserId())
                 .orElseThrow(() -> new AuthException(AuthErrorCode.REFRESH_TOKEN_MISMATCH));
 
-        // 탈퇴한 사용자 체크
         if (user.isWithdrawn()) {
             throw new AuthException(AuthErrorCode.WITHDRAWN_USER);
         }
 
-        // 새 토큰 생성
         String newAccessToken = jwtTokenProvider.generateAccessToken(user.getId());
         String newRefreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
 
-        // 새 Refresh Token 저장
-        user.updateRefreshToken(newRefreshToken);
-        userRepository.save(user);
+        saveRefreshToken(user.getId(), newRefreshToken);
 
         return TokenResponse.builder()
                 .accessToken(newAccessToken)
@@ -114,12 +134,9 @@ public class AuthService {
      * 로그아웃 처리
      */
     public void logout(Long userId) {
-        User user = userRepository.findById(userId)
+        userRepository.findById(userId)
                 .orElseThrow(() -> new AuthException(AuthErrorCode.REFRESH_TOKEN_MISMATCH));
-
-        // Refresh Token 제거
-        user.clearRefreshToken();
-        userRepository.save(user);
+        authTokenRepository.deleteByUserId(userId);
     }
 
     /**
@@ -129,10 +146,38 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new AuthException(AuthErrorCode.REFRESH_TOKEN_MISMATCH));
 
-        // 관련 데이터 삭제 후 사용자 삭제
+        authTokenRepository.deleteByUserId(userId);
         weeklyTierRepository.deleteByUserId(userId);
         runningRecordRepository.deleteByUserId(userId);
-        userRepository.delete(user);
+        user.withdraw();
+        userRepository.save(user);
+    }
+
+    private void saveRefreshToken(Long userId, String refreshToken) {
+        String refreshTokenHash = hashRefreshToken(refreshToken);
+        LocalDateTime expiresAt = LocalDateTime.ofInstant(
+                jwtTokenProvider.getExpiration(refreshToken).toInstant(),
+                ZoneId.systemDefault()
+        );
+
+        AuthToken authToken = authTokenRepository.findByUserId(userId)
+                .orElseGet(() -> AuthToken.builder()
+                        .userId(userId)
+                        .refreshTokenHash(refreshTokenHash)
+                        .expiresAt(expiresAt)
+                        .build());
+
+        authToken.rotate(refreshTokenHash, expiresAt);
+        authTokenRepository.save(authToken);
+    }
+
+    private String hashRefreshToken(String refreshToken) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hashedBytes = digest.digest(refreshToken.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hashedBytes);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm is not available.", e);
+        }
     }
 }
-

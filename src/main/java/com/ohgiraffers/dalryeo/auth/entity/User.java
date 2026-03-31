@@ -21,16 +21,11 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false)
-    private String appleId;
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20, nullable = false)
+    private UserStatus status;
 
-    @Column(length = 500)
-    private String refreshToken;
-
-    @Column(nullable = false)
-    private boolean isWithdrawn = false;
-
-    @Column(unique = true)
+    @Column(length = 30, unique = true)
     private String nickname;
 
     @Column(length = 1)
@@ -45,14 +40,6 @@ public class User {
     @Column(length = 500)
     private String profileImage;
 
-    @Column(length = 20)
-    private String currentTier;
-
-    @Column(length = 1)
-    private String currentTierGrade;
-
-    private Double tierScore;
-
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -61,37 +48,35 @@ public class User {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
+    private LocalDateTime deletedAt;
+
     @Builder
-    public User(String appleId) {
-        this.appleId = appleId;
-        this.isWithdrawn = false;
+    public User(UserStatus status) {
+        this.status = status == null ? UserStatus.NORMAL : status;
     }
 
-    public void updateRefreshToken(String refreshToken) {
-        this.refreshToken = refreshToken;
+    public boolean isWithdrawn() {
+        return status == UserStatus.WITHDRAWN;
     }
 
     public void withdraw() {
-        this.isWithdrawn = true;
-        this.refreshToken = null;
+        clearProfile();
+        this.status = UserStatus.WITHDRAWN;
+        this.deletedAt = LocalDateTime.now();
     }
 
     public void reactivate() {
-        this.isWithdrawn = false;
-        this.refreshToken = null;
+        this.status = UserStatus.NORMAL;
+        this.deletedAt = null;
+    }
+
+    private void clearProfile() {
         this.nickname = null;
         this.gender = null;
         this.birth = null;
         this.height = null;
         this.weight = null;
         this.profileImage = null;
-        this.currentTier = null;
-        this.currentTierGrade = null;
-        this.tierScore = null;
-    }
-
-    public void clearRefreshToken() {
-        this.refreshToken = null;
     }
 
     public void updateOnboarding(String nickname, String gender, LocalDate birth, Integer height, Integer weight, String profileImage) {
@@ -111,4 +96,3 @@ public class User {
         this.weight = weight;
     }
 }
-

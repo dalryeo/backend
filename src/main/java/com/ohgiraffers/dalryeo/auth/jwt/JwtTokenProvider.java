@@ -67,5 +67,14 @@ public class JwtTokenProvider {
             return false;
         }
     }
-}
 
+    public Date getExpiration(String token) {
+        Claims claims = Jwts.parser()
+                .verifyWith(secretKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+
+        return claims.getExpiration();
+    }
+}
