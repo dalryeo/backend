@@ -23,7 +23,7 @@ public class RunningRecord {
     @Column(nullable = false)
     private Long userId;
 
-    @Column(length = 10, nullable = false)
+    @Column(name = "source", length = 20, nullable = false)
     private String platform;
 
     @Column(nullable = false)
@@ -68,4 +68,3 @@ public class RunningRecord {
         this.endAt = endAt;
     }
 }
-

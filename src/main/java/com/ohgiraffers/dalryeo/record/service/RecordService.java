@@ -12,6 +12,8 @@ import com.ohgiraffers.dalryeo.record.dto.WeeklySummaryItemResponse;
 import com.ohgiraffers.dalryeo.record.dto.WeeklySummaryResponse;
 import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
+import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
+import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +35,7 @@ public class RecordService {
 
     private final RunningRecordRepository runningRecordRepository;
     private final UserRepository userRepository;
+    private final WeeklyTierRepository weeklyTierRepository;
 
     /**
      * 러닝 기록 저장
@@ -90,10 +93,11 @@ public class RecordService {
                     .sum();
             weeklyAvgPace = (int) Math.round(totalPace / weeklyCount);
         }
+        ResolvedTier currentTier = resolveCurrentTier(userId, weekStart, weeklyRecords);
 
         return RecordSummaryResponse.builder()
-                .currentTier(mapTierName(user.getCurrentTier()))
-                .currentTierGrade(mapTierGrade(user.getCurrentTierGrade()))
+                .currentTier(currentTier.tierCode())
+                .currentTierGrade(currentTier.tierGrade())
                 .weeklyCount(weeklyCount)
                 .weeklyAvgPace(weeklyAvgPace)
                 .weeklyDistance(weeklyDistance)
@@ -141,10 +145,11 @@ public class RecordService {
                     .sum();
             averagePace = (int) Math.round(totalWeightedPace / weeklyDistance);
         }
+        ResolvedTier currentTier = resolveCurrentTier(userId, weekStart, summaryRecords);
 
         return WeeklySummaryResponse.builder()
-                .currentTier(mapTierName(user.getCurrentTier()))
-                .currentTierGrade(mapTierGrade(user.getCurrentTierGrade()))
+                .currentTier(currentTier.tierCode())
+                .currentTierGrade(currentTier.tierGrade())
                 .weeklyCount(runCount)
                 .weeklyAvgPace(averagePace)
                 .weeklyDistance(weeklyDistance)
@@ -225,31 +230,6 @@ public class RecordService {
                 .build();
     }
 
-    private String mapTierName(String tierCode) {
-        if (tierCode == null) {
-            return "TURTLE";
-        }
-        return switch (tierCode) {
-            case "CHEETAH", "DEER", "HUSKY", "FOX", "ROE_DEER", "SHEEP",
-                 "RABBIT", "PANDA", "DUCK", "TURTLE" -> tierCode;
-            case "BRONZE", "SILVER", "GOLD", "PLATINUM", "DIAMOND" -> "TURTLE";
-            default -> "TURTLE";
-        };
-    }
-
-    private String mapTierGrade(String tierGrade) {
-        if (tierGrade == null) {
-            return "B";
-        }
-        return switch (tierGrade) {
-            case "G", "S", "B" -> tierGrade;
-            case "Gold" -> "G";
-            case "Silver" -> "S";
-            case "Bronze" -> "B";
-            default -> "B";
-        };
-    }
-
     private double calculateTierScore(double distanceKm, int paceSecPerKm) {
         double paceMinutes = round2(paceSecPerKm / 60.0);
         double baseScore = round2(6.00 / paceMinutes);
@@ -280,29 +260,6 @@ public class RecordService {
             return 1.09;
         }
         return 1.10;
-    }
-
-    private String resolveTierCode(double score) {
-        if (score >= 1.50) {
-            return "CHEETAH";
-        } else if (score >= 1.20) {
-            return "DEER";
-        } else if (score >= 1.00) {
-            return "HUSKY";
-        } else if (score >= 0.86) {
-            return "FOX";
-        } else if (score >= 0.75) {
-            return "ROE_DEER";
-        } else if (score >= 0.67) {
-            return "SHEEP";
-        } else if (score >= 0.60) {
-            return "RABBIT";
-        } else if (score >= 0.55) {
-            return "PANDA";
-        } else if (score >= 0.46) {
-            return "DUCK";
-        }
-        return "TURTLE";
     }
 
     private double round2(double value) {
@@ -339,15 +296,112 @@ public class RecordService {
                     .sum();
             averagePace = (int) Math.round(totalWeightedPace / weeklyDistance);
         }
+        ResolvedTier currentTier = resolveCurrentTier(user.getId(), weekStartDate, summaryRecords);
 
         return WeeklySummaryByWeekResponse.builder()
-                .tierCode(mapTierName(user.getCurrentTier()))
-                .tierGrade(mapTierGrade(user.getCurrentTierGrade()))
+                .tierCode(currentTier.tierCode())
+                .tierGrade(currentTier.tierGrade())
                 .runCount(runCount)
                 .averagePace(averagePace)
                 .weeklyDistance(weeklyDistance)
                 .build();
     }
 
-}
+    private ResolvedTier resolveCurrentTier(Long userId, LocalDate weekStartDate, List<RunningRecord> weeklyRecords) {
+        if (!weeklyRecords.isEmpty()) {
+            double weeklyTierScore = calculateWeeklyTierScore(weeklyRecords);
+            return new ResolvedTier(resolveTierCode(weeklyTierScore), resolveTierGrade(weeklyTierScore));
+        }
 
+        return weeklyTierRepository.findByUserIdAndWeekStartDate(userId, weekStartDate)
+                .map(this::toResolvedTier)
+                .orElseGet(() -> new ResolvedTier("TURTLE", "B"));
+    }
+
+    private ResolvedTier toResolvedTier(WeeklyTier weeklyTier) {
+        double score = scoreFromInt(weeklyTier.getTierScore());
+        String tierGrade = resolveTierGrade(score);
+        return new ResolvedTier(weeklyTier.getTierCode(), tierGrade == null ? "B" : tierGrade);
+    }
+
+    private double calculateWeeklyTierScore(List<RunningRecord> records) {
+        if (records.isEmpty()) {
+            return 0.0;
+        }
+
+        double totalScore = records.stream()
+                .mapToDouble(record -> calculateTierScore(record.getDistanceKm(), record.getAvgPaceSecPerKm()))
+                .sum();
+        return round2(totalScore / records.size());
+    }
+
+    private String resolveTierCode(double score) {
+        if (score >= 1.50) {
+            return "CHEETAH";
+        } else if (score >= 1.20) {
+            return "DEER";
+        } else if (score >= 1.00) {
+            return "HUSKY";
+        } else if (score >= 0.86) {
+            return "FOX";
+        } else if (score >= 0.75) {
+            return "ROE_DEER";
+        } else if (score >= 0.67) {
+            return "SHEEP";
+        } else if (score >= 0.60) {
+            return "RABBIT";
+        } else if (score >= 0.55) {
+            return "PANDA";
+        } else if (score >= 0.46) {
+            return "DUCK";
+        }
+        return "TURTLE";
+    }
+
+    private String resolveTierGrade(double score) {
+        if (score >= 1.50) {
+            return gradeForRange(score, 1.64, 1.57, 1.50);
+        } else if (score >= 1.20) {
+            return gradeForRange(score, 1.39, 1.29, 1.20);
+        } else if (score >= 1.00) {
+            return gradeForRange(score, 1.13, 1.06, 1.00);
+        } else if (score >= 0.86) {
+            return gradeForRange(score, 0.95, 0.90, 0.86);
+        } else if (score >= 0.75) {
+            return gradeForRange(score, 0.82, 0.78, 0.75);
+        } else if (score >= 0.67) {
+            return gradeForRange(score, 0.72, 0.69, 0.67);
+        } else if (score >= 0.60) {
+            return gradeForRange(score, 0.64, 0.62, 0.60);
+        } else if (score >= 0.55) {
+            return gradeForRange(score, 0.58, 0.56, 0.55);
+        } else if (score >= 0.46) {
+            return gradeForRange(score, 0.52, 0.49, 0.46);
+        }
+        return null;
+    }
+
+    private String gradeForRange(double score, double goldMin, double silverMin, double bronzeMin) {
+        if (score >= goldMin) {
+            return "G";
+        } else if (score >= silverMin) {
+            return "S";
+        } else if (score >= bronzeMin) {
+            return "B";
+        }
+        return null;
+    }
+
+    private double scoreFromInt(Integer score) {
+        if (score == null) {
+            return 0.0;
+        }
+        return BigDecimal.valueOf(score)
+                .movePointLeft(2)
+                .setScale(2, RoundingMode.HALF_UP)
+                .doubleValue();
+    }
+
+    private record ResolvedTier(String tierCode, String tierGrade) {
+    }
+}
