@@ -1,0 +1,535 @@
+package com.ohgiraffers.dalryeo.integration;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ohgiraffers.dalryeo.auth.entity.User;
+import com.ohgiraffers.dalryeo.auth.entity.UserStatus;
+import com.ohgiraffers.dalryeo.auth.jwt.JwtTokenProvider;
+import com.ohgiraffers.dalryeo.auth.oauth.AppleOAuthValidator;
+import com.ohgiraffers.dalryeo.auth.repository.AuthTokenRepository;
+import com.ohgiraffers.dalryeo.auth.repository.OAuthClientRepository;
+import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
+import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
+import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
+import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
+import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.TemporalAdjusters;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles("test")
+class ApiContractIntegrationTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private RunningRecordRepository runningRecordRepository;
+
+    @Autowired
+    private WeeklyTierRepository weeklyTierRepository;
+
+    @Autowired
+    private OAuthClientRepository oAuthClientRepository;
+
+    @Autowired
+    private AuthTokenRepository authTokenRepository;
+
+    @MockBean
+    private AppleOAuthValidator appleOAuthValidator;
+
+    @BeforeEach
+    void cleanDatabase() {
+        authTokenRepository.deleteAll();
+        oAuthClientRepository.deleteAll();
+        weeklyTierRepository.deleteAll();
+        runningRecordRepository.deleteAll();
+        userRepository.deleteAll();
+    }
+
+    @Test
+    void loginWithApple_keepsTokenResponseContract() throws Exception {
+        when(appleOAuthValidator.validateAndExtractAppleId("identity-token"))
+                .thenReturn("apple-sub-1");
+
+        mockMvc.perform(post("/auth/oauth/apple")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "identityToken": "identity-token"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.accessToken").isString())
+                .andExpect(jsonPath("$.data.refreshToken").isString())
+                .andExpect(jsonPath("$.data.isNewUser").value(true));
+    }
+
+    @Test
+    void refreshToken_keepsTokenResponseContract() throws Exception {
+        JsonNode loginResponse = login("apple-sub-refresh", "identity-refresh");
+        String refreshToken = loginResponse.path("data").path("refreshToken").asText();
+
+        mockMvc.perform(post("/auth/token/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "refreshToken": "%s"
+                                }
+                                """.formatted(refreshToken)))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.accessToken").isString())
+                .andExpect(jsonPath("$.data.refreshToken").isString());
+    }
+
+    @Test
+    void logout_keepsSuccessResponseContract() throws Exception {
+        JsonNode loginResponse = login("apple-sub-logout", "identity-logout");
+        Long userId = userRepository.findAll().get(0).getId();
+        String accessToken = loginResponse.path("data").path("accessToken").asText();
+
+        mockMvc.perform(post("/auth/logout")
+                        .header("Authorization", bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isEmpty());
+
+        assertThat(authTokenRepository.findByUserId(userId)).isEmpty();
+    }
+
+    @Test
+    void withdraw_keepsSuccessResponseContract() throws Exception {
+        JsonNode loginResponse = login("apple-sub-withdraw", "identity-withdraw");
+        User user = userRepository.findAll().get(0);
+        String accessToken = loginResponse.path("data").path("accessToken").asText();
+
+        mockMvc.perform(delete("/auth/withdraw")
+                        .header("Authorization", bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isEmpty());
+
+        User withdrawnUser = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(withdrawnUser.isWithdrawn()).isTrue();
+        assertThat(withdrawnUser.getDeletedAt()).isNotNull();
+    }
+
+    @Test
+    void checkNickname_keepsResponseContract() throws Exception {
+        saveUser("runner-existing");
+
+        mockMvc.perform(get("/onboarding/nickname/check")
+                        .param("nickname", "runner-existing"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.available").value(false));
+    }
+
+    @Test
+    void onboardingSaveAndGet_keepResponseContract() throws Exception {
+        User user = saveUser(null);
+        String accessToken = accessToken(user.getId());
+
+        mockMvc.perform(post("/onboarding")
+                        .header("Authorization", bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "runner1",
+                                  "gender": "F",
+                                  "birth": "1998-05-12",
+                                  "height": 165,
+                                  "weight": 52,
+                                  "profileImage": "profile.png"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isEmpty());
+
+        mockMvc.perform(get("/onboarding")
+                        .header("Authorization", bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.nickname").value("runner1"))
+                .andExpect(jsonPath("$.data.gender").value("F"))
+                .andExpect(jsonPath("$.data.birth").value("1998-05-12"))
+                .andExpect(jsonPath("$.data.height").value(165))
+                .andExpect(jsonPath("$.data.weight").value(52))
+                .andExpect(jsonPath("$.data.profileImage").value("profile.png"));
+    }
+
+    @Test
+    void onboardingUpdate_keepsResponseContract() throws Exception {
+        User user = saveUser("runner-before");
+        ReflectionTestUtils.setField(user, "gender", "F");
+        ReflectionTestUtils.setField(user, "birth", LocalDate.of(1998, 5, 12));
+        ReflectionTestUtils.setField(user, "height", 165);
+        ReflectionTestUtils.setField(user, "weight", 52);
+        userRepository.save(user);
+        String accessToken = accessToken(user.getId());
+
+        mockMvc.perform(put("/onboarding")
+                        .header("Authorization", bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "runner-after",
+                                  "gender": "M",
+                                  "birth": "1997-01-03",
+                                  "height": 178,
+                                  "weight": 70
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isEmpty());
+
+        mockMvc.perform(get("/onboarding")
+                        .header("Authorization", bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.nickname").value("runner-after"))
+                .andExpect(jsonPath("$.data.gender").value("M"))
+                .andExpect(jsonPath("$.data.birth").value("1997-01-03"))
+                .andExpect(jsonPath("$.data.height").value(178))
+                .andExpect(jsonPath("$.data.weight").value(70));
+    }
+
+    @Test
+    void estimateTier_keepsResponseContract() throws Exception {
+        User user = saveUser("runner-tier");
+        String accessToken = accessToken(user.getId());
+        LocalDate weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+
+        mockMvc.perform(post("/onboarding/estimate-tier")
+                        .header("Authorization", bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "distanceKm": 5.0,
+                                  "paceSecPerKm": 300
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.tierCode").value("DEER"))
+                .andExpect(jsonPath("$.data.displayName").value("사슴"))
+                .andExpect(jsonPath("$.data.tierGrade").value("B"))
+                .andExpect(jsonPath("$.data.score").value(1.24));
+
+        WeeklyTier weeklyTier = weeklyTierRepository.findByUserIdAndWeekStartDate(user.getId(), weekStart).orElseThrow();
+        assertThat(weeklyTier.getTierCode()).isEqualTo("DEER");
+        assertThat(weeklyTier.getTierScore()).isEqualTo(124);
+    }
+
+    @Test
+    void saveRecord_keepsResponseContract() throws Exception {
+        User user = saveUser("runner-record");
+        String accessToken = accessToken(user.getId());
+
+        mockMvc.perform(post("/records")
+                        .header("Authorization", bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "platform": "IOS",
+                                  "distanceKm": 5.0,
+                                  "durationSec": 1500,
+                                  "avgPaceSecPerKm": 300,
+                                  "avgHeartRate": 150,
+                                  "caloriesKcal": 300,
+                                  "startAt": "2026-03-31T07:00:00",
+                                  "endAt": "2026-03-31T07:25:00"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.recordId").isNumber());
+    }
+
+    @Test
+    void getRecordSummary_keepsSummaryResponseContract() throws Exception {
+        User user = saveUser(null);
+        saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(2));
+
+        mockMvc.perform(get("/records/summary")
+                        .header("Authorization", bearer(accessToken(user.getId()))))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.currentTier").value("DEER"))
+                .andExpect(jsonPath("$.data.currentTierGrade").value("B"))
+                .andExpect(jsonPath("$.data.weeklyCount").value(1))
+                .andExpect(jsonPath("$.data.weeklyAvgPace").value(300))
+                .andExpect(jsonPath("$.data.weeklyDistance").value(5.0));
+    }
+
+    @Test
+    void getWeeklyRecords_keepsWeeklyRecordsResponseContract() throws Exception {
+        User user = saveUser("runner-weekly");
+        RunningRecord record = saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(3));
+
+        mockMvc.perform(get("/records/weekly")
+                        .header("Authorization", bearer(accessToken(user.getId()))))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.weeklyCount").value(1))
+                .andExpect(jsonPath("$.data.records[0].recordId").value(record.getId()))
+                .andExpect(jsonPath("$.data.records[0].platform").value("IOS"))
+                .andExpect(jsonPath("$.data.records[0].distanceKm").value(5.0))
+                .andExpect(jsonPath("$.data.records[0].tierCode").value("DEER"));
+    }
+
+    @Test
+    void getCurrentWeeklySummary_keepsResponseContract() throws Exception {
+        User user = saveUser("runner-summary");
+        saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(4));
+
+        mockMvc.perform(get("/weekly/summary/current")
+                        .header("Authorization", bearer(accessToken(user.getId()))))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.currentTier").value("DEER"))
+                .andExpect(jsonPath("$.data.currentTierGrade").value("B"))
+                .andExpect(jsonPath("$.data.weeklyCount").value(1))
+                .andExpect(jsonPath("$.data.weeklyAvgPace").value(300))
+                .andExpect(jsonPath("$.data.weeklyDistance").value(5.0));
+    }
+
+    @Test
+    void getWeeklySummaryList_keepsResponseContract() throws Exception {
+        User user = saveUser("runner-summary-list");
+        saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(5));
+        LocalDate weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+
+        mockMvc.perform(get("/weekly/summary/list")
+                        .header("Authorization", bearer(accessToken(user.getId()))))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].weekStart").value(weekStart.toString()))
+                .andExpect(jsonPath("$.data[0].tierCode").value("DEER"))
+                .andExpect(jsonPath("$.data[0].tierGrade").value("B"))
+                .andExpect(jsonPath("$.data[0].runCount").value(1))
+                .andExpect(jsonPath("$.data[0].averagePace").value(300))
+                .andExpect(jsonPath("$.data[0].weeklyDistance").value(5.0));
+    }
+
+    @Test
+    void getCurrentWeeklyTier_keepsWeeklyTierResponseContract() throws Exception {
+        User user = saveUser("runner-weekly-tier");
+        LocalDate weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+
+        weeklyTierRepository.save(WeeklyTier.builder()
+                .userId(user.getId())
+                .weekStartDate(weekStart)
+                .tierCode("CHEETAH")
+                .tierScore(157)
+                .build());
+
+        mockMvc.perform(get("/weekly/tiers/current")
+                        .header("Authorization", bearer(accessToken(user.getId()))))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.weekStartDate").value(weekStart.toString()))
+                .andExpect(jsonPath("$.data.tierCode").value("CHEETAH"))
+                .andExpect(jsonPath("$.data.tierGrade").value("S"))
+                .andExpect(jsonPath("$.data.tierScore").value(1.57));
+    }
+
+    @Test
+    void getWeeklyScoreRanking_keepsResponseContract() throws Exception {
+        User alpha = saveUser("alpha");
+        User beta = saveUser("beta");
+        saveRecord(alpha.getId(), 5.0, 300, LocalDateTime.now().minusHours(2));
+        saveRecord(beta.getId(), 10.0, 300, LocalDateTime.now().minusHours(1));
+
+        mockMvc.perform(get("/ranking/weekly/score"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].rank").value(1))
+                .andExpect(jsonPath("$.data[0].nickname").value("beta"))
+                .andExpect(jsonPath("$.data[0].tierCode").value("DEER"))
+                .andExpect(jsonPath("$.data[0].tierGrade").value("B"))
+                .andExpect(jsonPath("$.data[0].tierScore").value(1.27))
+                .andExpect(jsonPath("$.data[1].rank").value(2))
+                .andExpect(jsonPath("$.data[1].nickname").value("alpha"));
+    }
+
+    @Test
+    void getWeeklyDistanceRanking_keepsResponseContract() throws Exception {
+        User alpha = saveUser("alpha");
+        User beta = saveUser("beta");
+        saveRecord(alpha.getId(), 5.0, 300, LocalDateTime.now().minusHours(2));
+        saveRecord(beta.getId(), 10.0, 300, LocalDateTime.now().minusHours(1));
+
+        mockMvc.perform(get("/ranking/weekly/distance"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].rank").value(1))
+                .andExpect(jsonPath("$.data[0].nickname").value("beta"))
+                .andExpect(jsonPath("$.data[0].weeklyDistance").value(10.0))
+                .andExpect(jsonPath("$.data[1].rank").value(2))
+                .andExpect(jsonPath("$.data[1].nickname").value("alpha"));
+    }
+
+    @Test
+    void getMyRanking_keepsResponseContract() throws Exception {
+        User alpha = saveUser("alpha");
+        User beta = saveUser("beta");
+        saveRecord(alpha.getId(), 5.0, 300, LocalDateTime.now().minusHours(2));
+        saveRecord(beta.getId(), 10.0, 300, LocalDateTime.now().minusHours(1));
+
+        mockMvc.perform(get("/ranking/me")
+                        .header("Authorization", bearer(accessToken(alpha.getId()))))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.nickname").value("alpha"))
+                .andExpect(jsonPath("$.data.scoreRank").value(2))
+                .andExpect(jsonPath("$.data.distanceRank").value(2))
+                .andExpect(jsonPath("$.data.tierCode").value("DEER"))
+                .andExpect(jsonPath("$.data.tierGrade").value("B"))
+                .andExpect(jsonPath("$.data.tierScore").value(1.24))
+                .andExpect(jsonPath("$.data.weeklyAvgPace").value(300))
+                .andExpect(jsonPath("$.data.weeklyDistance").value(5.0));
+    }
+
+    @Test
+    void getAnalysisRecords_keepsResponseContract() throws Exception {
+        User user = saveUser("runner-analysis");
+        RunningRecord record = saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusDays(1));
+
+        mockMvc.perform(get("/analysis/records")
+                        .header("Authorization", bearer(accessToken(user.getId())))
+                        .param("page", "1")
+                        .param("sort", "latest"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.records[0].recordId").value(record.getId()))
+                .andExpect(jsonPath("$.data.records[0].distanceKm").value(5.0))
+                .andExpect(jsonPath("$.data.records[0].durationSec").value(1500))
+                .andExpect(jsonPath("$.data.records[0].avgPaceSecPerKm").value(300))
+                .andExpect(jsonPath("$.data.records[0].bpm").value(150));
+    }
+
+    @Test
+    void getAnalysisRecordDetail_keepsResponseContract() throws Exception {
+        User user = saveUser("runner-analysis-detail");
+        RunningRecord record = saveRecord(user.getId(), 5.0, 300, LocalDateTime.of(2026, 3, 31, 7, 0));
+
+        mockMvc.perform(get("/analysis/records/{recordId}", record.getId())
+                        .header("Authorization", bearer(accessToken(user.getId()))))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.recordId").value(record.getId()))
+                .andExpect(jsonPath("$.data.platform").value("IOS"))
+                .andExpect(jsonPath("$.data.distanceKm").value(5.0))
+                .andExpect(jsonPath("$.data.durationSec").value(1500))
+                .andExpect(jsonPath("$.data.avgPaceSecPerKm").value(300))
+                .andExpect(jsonPath("$.data.avgHeartRate").value(150))
+                .andExpect(jsonPath("$.data.caloriesKcal").value(300))
+                .andExpect(jsonPath("$.data.startAt").value("2026-03-31T07:00:00"))
+                .andExpect(jsonPath("$.data.endAt").value("2026-03-31T07:25:00"));
+    }
+
+    private JsonNode login(String appleSub, String identityToken) throws Exception {
+        when(appleOAuthValidator.validateAndExtractAppleId(identityToken)).thenReturn(appleSub);
+
+        MvcResult result = mockMvc.perform(post("/auth/oauth/apple")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "identityToken": "%s"
+                                }
+                                """.formatted(identityToken)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        return objectMapper.readTree(result.getResponse().getContentAsString());
+    }
+
+    private User saveUser(String nickname) {
+        User user = User.builder()
+                .status(UserStatus.NORMAL)
+                .build();
+        if (nickname != null) {
+            ReflectionTestUtils.setField(user, "nickname", nickname);
+        }
+        return userRepository.save(user);
+    }
+
+    private RunningRecord saveRecord(Long userId, double distanceKm, int avgPaceSecPerKm, LocalDateTime startAt) {
+        return runningRecordRepository.save(RunningRecord.builder()
+                .userId(userId)
+                .platform("IOS")
+                .distanceKm(distanceKm)
+                .durationSec((int) Math.round(distanceKm * avgPaceSecPerKm))
+                .avgPaceSecPerKm(avgPaceSecPerKm)
+                .avgHeartRate(150)
+                .caloriesKcal(300)
+                .startAt(startAt)
+                .endAt(startAt.plusSeconds((long) Math.round(distanceKm * avgPaceSecPerKm)))
+                .build());
+    }
+
+    private String accessToken(Long userId) {
+        return jwtTokenProvider.generateAccessToken(userId);
+    }
+
+    private String bearer(String accessToken) {
+        return "Bearer " + accessToken;
+    }
+}
