@@ -12,9 +12,8 @@ import com.ohgiraffers.dalryeo.record.dto.WeeklySummaryItemResponse;
 import com.ohgiraffers.dalryeo.record.dto.WeeklySummaryResponse;
 import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
+import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
-import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
-import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,8 +35,8 @@ public class RecordService {
 
     private final RunningRecordRepository runningRecordRepository;
     private final UserRepository userRepository;
-    private final WeeklyTierRepository weeklyTierRepository;
     private final TierService tierService;
+    private final CurrentTierResolver currentTierResolver;
 
     /**
      * 러닝 기록 저장
@@ -311,45 +310,15 @@ public class RecordService {
     }
 
     private ResolvedTier resolveCurrentTier(Long userId, LocalDate weekStartDate, List<RunningRecord> weeklyRecords) {
-        if (!weeklyRecords.isEmpty()) {
-            double weeklyTierScore = calculateWeeklyTierScore(weeklyRecords);
-            TierService.TierInfo tierInfo = tierService.resolveByScore(weeklyTierScore);
-            return new ResolvedTier(tierInfo.tierCode(), tierInfo.tierGrade());
-        }
-
-        return weeklyTierRepository.findByUserIdAndWeekStartDate(userId, weekStartDate)
-                .map(this::toResolvedTier)
+        return currentTierResolver.resolve(userId, weekStartDate, weeklyRecords)
+                .map(ResolvedTier::from)
                 .orElseGet(() -> new ResolvedTier("TURTLE", "B"));
     }
 
-    private ResolvedTier toResolvedTier(WeeklyTier weeklyTier) {
-        double score = scoreFromInt(weeklyTier.getTierScore());
-        TierService.TierInfo tierInfo = tierService.resolveByTierCodeAndScore(weeklyTier.getTierCode(), score);
-        String tierGrade = tierInfo.tierGrade();
-        return new ResolvedTier(tierInfo.tierCode(), tierGrade == null ? "B" : tierGrade);
-    }
-
-    private double calculateWeeklyTierScore(List<RunningRecord> records) {
-        if (records.isEmpty()) {
-            return 0.0;
-        }
-
-        double totalScore = records.stream()
-                .mapToDouble(record -> calculateTierScore(record.getDistanceKm(), record.getAvgPaceSecPerKm()))
-                .sum();
-        return round2(totalScore / records.size());
-    }
-
-    private double scoreFromInt(Integer score) {
-        if (score == null) {
-            return 0.0;
-        }
-        return BigDecimal.valueOf(score)
-                .movePointLeft(2)
-                .setScale(2, RoundingMode.HALF_UP)
-                .doubleValue();
-    }
-
     private record ResolvedTier(String tierCode, String tierGrade) {
+        private static ResolvedTier from(CurrentTierResolver.CurrentTier currentTier) {
+            String tierGrade = currentTier.tierGrade();
+            return new ResolvedTier(currentTier.tierCode(), tierGrade == null ? "B" : tierGrade);
+        }
     }
 }

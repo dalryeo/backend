@@ -28,4 +28,6 @@ public class ProfileUpdateRequest {
 
     @NotNull(message = "몸무게는 필수입니다.")
     private Integer weight;
+
+    private String profileImage;
 }

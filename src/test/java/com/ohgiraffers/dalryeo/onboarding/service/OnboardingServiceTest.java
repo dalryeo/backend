@@ -8,6 +8,7 @@ import com.ohgiraffers.dalryeo.onboarding.dto.EstimateTierResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.NicknameCheckResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingRequest;
 import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingResponse;
+import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
 import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
 import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
@@ -41,6 +42,9 @@ class OnboardingServiceTest {
 
     @Mock
     private TierService tierService;
+
+    @Mock
+    private CurrentTierResolver currentTierResolver;
 
     @InjectMocks
     private OnboardingService onboardingService;
@@ -101,7 +105,30 @@ class OnboardingServiceTest {
         assertThat(response.getBirth()).isEqualTo(LocalDate.of(1995, 1, 3));
         assertThat(response.getHeight()).isEqualTo(178);
         assertThat(response.getWeight()).isEqualTo(70);
-        assertThat(response.getProfileImage()).isEqualTo("image2.png");
+        assertThat(response.getDisplayProfileImage()).isEqualTo("image2.png");
+        assertThat(response.getCustomProfileImage()).isEqualTo("image2.png");
+    }
+
+    @Test
+    void getOnboarding_returnsTierDefaultProfileImageWhenCustomProfileImageDoesNotExist() {
+        Long userId = 5L;
+        User user = userWithId(userId);
+        ReflectionTestUtils.setField(user, "nickname", "runner5");
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(currentTierResolver.resolve(userId))
+                .thenReturn(Optional.of(new CurrentTierResolver.CurrentTier(
+                        "DEER",
+                        "사슴",
+                        "B",
+                        1.24,
+                        "/profiles/tiers/deer.jpg"
+                )));
+
+        OnboardingResponse response = onboardingService.getOnboarding(userId);
+
+        assertThat(response.getDisplayProfileImage()).isEqualTo("/profiles/tiers/deer.jpg");
+        assertThat(response.getCustomProfileImage()).isNull();
     }
 
     @Test
@@ -113,7 +140,7 @@ class OnboardingServiceTest {
         when(weeklyTierRepository.findByUserIdAndWeekStartDate(eq(userId), eq(weekStart)))
                 .thenReturn(Optional.empty());
         when(tierService.resolveByScore(1.24))
-                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B"));
+                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.jpg"));
 
         EstimateTierResponse response = onboardingService.estimateTier(userId, request);
 
@@ -147,7 +174,7 @@ class OnboardingServiceTest {
                 .thenReturn(Optional.of(existingWeeklyTier));
         when(weeklyTierRepository.save(existingWeeklyTier)).thenReturn(existingWeeklyTier);
         when(tierService.resolveByScore(1.00))
-                .thenReturn(new TierService.TierInfo("HUSKY", "허스키", "B"));
+                .thenReturn(new TierService.TierInfo("HUSKY", "허스키", "B", "/profiles/tiers/husky.jpg"));
 
         EstimateTierResponse response = onboardingService.estimateTier(userId, request);
 

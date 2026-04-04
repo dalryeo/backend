@@ -80,7 +80,7 @@ class WeeklyTierServiceTest {
         when(weeklyTierRepository.findByUserIdAndWeekStartDate(userId, weekStart))
                 .thenReturn(Optional.of(weeklyTier));
         when(tierService.resolveByTierCodeAndScore("CHEETAH", 1.57))
-                .thenReturn(new TierService.TierInfo("CHEETAH", "치타", "S"));
+                .thenReturn(new TierService.TierInfo("CHEETAH", "치타", "S", "/profiles/tiers/cheetah.jpg"));
 
         WeeklyTierResponse response = weeklyTierService.getCurrentWeeklyTier(userId);
 

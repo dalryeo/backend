@@ -6,9 +6,8 @@ import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
 import com.ohgiraffers.dalryeo.record.dto.RecordSummaryResponse;
 import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
+import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
-import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
-import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -22,6 +21,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
@@ -35,7 +35,7 @@ class RecordServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private WeeklyTierRepository weeklyTierRepository;
+    private CurrentTierResolver currentTierResolver;
 
     @Mock
     private TierService tierService;
@@ -64,8 +64,14 @@ class RecordServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(runningRecordRepository.findByUserIdAndWeekRange(eq(userId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of(runningRecord));
-        when(tierService.resolveByScore(1.24))
-                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B"));
+        when(currentTierResolver.resolve(eq(userId), any(LocalDate.class), anyList()))
+                .thenReturn(Optional.of(new CurrentTierResolver.CurrentTier(
+                        "DEER",
+                        "사슴",
+                        "B",
+                        1.24,
+                        "/profiles/tiers/deer.jpg"
+                )));
 
         RecordSummaryResponse response = recordService.getSummary(userId);
 
@@ -82,20 +88,18 @@ class RecordServiceTest {
         User user = User.builder()
                 .status(UserStatus.NORMAL)
                 .build();
-        WeeklyTier weeklyTier = WeeklyTier.builder()
-                .userId(userId)
-                .weekStartDate(LocalDate.of(2026, 3, 30))
-                .tierCode("FOX")
-                .tierScore(90)
-                .build();
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(runningRecordRepository.findByUserIdAndWeekRange(eq(userId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of());
-        when(weeklyTierRepository.findByUserIdAndWeekStartDate(eq(userId), any(LocalDate.class)))
-                .thenReturn(Optional.of(weeklyTier));
-        when(tierService.resolveByTierCodeAndScore("FOX", 0.90))
-                .thenReturn(new TierService.TierInfo("FOX", "여우", "S"));
+        when(currentTierResolver.resolve(eq(userId), any(LocalDate.class), anyList()))
+                .thenReturn(Optional.of(new CurrentTierResolver.CurrentTier(
+                        "FOX",
+                        "여우",
+                        "S",
+                        0.90,
+                        "/profiles/tiers/fox.jpg"
+                )));
 
         RecordSummaryResponse response = recordService.getSummary(userId);
 

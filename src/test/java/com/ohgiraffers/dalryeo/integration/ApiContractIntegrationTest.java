@@ -211,7 +211,8 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.data.birth").value("1998-05-12"))
                 .andExpect(jsonPath("$.data.height").value(165))
                 .andExpect(jsonPath("$.data.weight").value(52))
-                .andExpect(jsonPath("$.data.profileImage").value("profile.png"));
+                .andExpect(jsonPath("$.data.displayProfileImage").value("profile.png"))
+                .andExpect(jsonPath("$.data.customProfileImage").value("profile.png"));
     }
 
     @Test
@@ -221,6 +222,7 @@ class ApiContractIntegrationTest {
         ReflectionTestUtils.setField(user, "birth", LocalDate.of(1998, 5, 12));
         ReflectionTestUtils.setField(user, "height", 165);
         ReflectionTestUtils.setField(user, "weight", 52);
+        ReflectionTestUtils.setField(user, "profileImage", "https://cdn.example.com/original.png");
         userRepository.save(user);
         String accessToken = accessToken(user.getId());
 
@@ -233,7 +235,8 @@ class ApiContractIntegrationTest {
                                   "gender": "M",
                                   "birth": "1997-01-03",
                                   "height": 178,
-                                  "weight": 70
+                                  "weight": 70,
+                                  "profileImage": "https://cdn.example.com/updated.png"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -247,7 +250,9 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.data.gender").value("M"))
                 .andExpect(jsonPath("$.data.birth").value("1997-01-03"))
                 .andExpect(jsonPath("$.data.height").value(178))
-                .andExpect(jsonPath("$.data.weight").value(70));
+                .andExpect(jsonPath("$.data.weight").value(70))
+                .andExpect(jsonPath("$.data.displayProfileImage").value("https://cdn.example.com/updated.png"))
+                .andExpect(jsonPath("$.data.customProfileImage").value("https://cdn.example.com/updated.png"));
     }
 
     @Test
@@ -276,6 +281,49 @@ class ApiContractIntegrationTest {
         WeeklyTier weeklyTier = weeklyTierRepository.findByUserIdAndWeekStartDate(user.getId(), weekStart).orElseThrow();
         assertThat(weeklyTier.getTierCode()).isEqualTo("DEER");
         assertThat(weeklyTier.getTierScore()).isEqualTo(124);
+    }
+
+    @Test
+    void getOnboarding_returnsTierDefaultProfileImageWhenCustomImageDoesNotExist() throws Exception {
+        User user = saveUser("runner-tier-image");
+        LocalDate weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+
+        weeklyTierRepository.save(WeeklyTier.builder()
+                .userId(user.getId())
+                .weekStartDate(weekStart)
+                .tierCode("DEER")
+                .tierScore(124)
+                .build());
+
+        mockMvc.perform(get("/onboarding")
+                        .header("Authorization", bearer(accessToken(user.getId()))))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.displayProfileImage").value("/profiles/tiers/deer.jpg"))
+                .andExpect(jsonPath("$.data.customProfileImage").isEmpty());
+    }
+
+    @Test
+    void getOnboarding_prefersCurrentWeekRecordTierImageOverWeeklyTierSnapshot() throws Exception {
+        User user = saveUser("runner-tier-priority");
+        LocalDate weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+
+        weeklyTierRepository.save(WeeklyTier.builder()
+                .userId(user.getId())
+                .weekStartDate(weekStart)
+                .tierCode("CHEETAH")
+                .tierScore(157)
+                .build());
+        saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(1));
+
+        mockMvc.perform(get("/onboarding")
+                        .header("Authorization", bearer(accessToken(user.getId()))))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.displayProfileImage").value("/profiles/tiers/deer.jpg"))
+                .andExpect(jsonPath("$.data.customProfileImage").isEmpty());
     }
 
     @Test
@@ -596,6 +644,7 @@ class ApiContractIntegrationTest {
                 .displayName(displayName)
                 .minScore(minScore)
                 .maxScore(maxScore)
+                .defaultProfileImage("/profiles/tiers/" + tierCode.toLowerCase() + ".jpg")
                 .build();
     }
 

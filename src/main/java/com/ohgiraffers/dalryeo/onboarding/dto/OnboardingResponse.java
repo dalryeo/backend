@@ -19,5 +19,6 @@ public class OnboardingResponse {
     private LocalDate birth;
     private Integer height;
     private Integer weight;
-    private String profileImage;
+    private String displayProfileImage;
+    private String customProfileImage;
 }

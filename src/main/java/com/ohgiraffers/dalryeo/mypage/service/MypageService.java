@@ -28,8 +28,16 @@ public class MypageService {
                 request.getGender(),
                 request.getBirth(),
                 request.getHeight(),
-                request.getWeight()
+                request.getWeight(),
+                normalizeProfileImage(request.getProfileImage())
         );
         userRepository.save(user);
+    }
+
+    private String normalizeProfileImage(String profileImage) {
+        if (profileImage == null || profileImage.isBlank()) {
+            return null;
+        }
+        return profileImage;
     }
 }

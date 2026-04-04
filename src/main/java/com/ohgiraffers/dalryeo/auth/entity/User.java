@@ -88,11 +88,12 @@ public class User {
         this.profileImage = profileImage;
     }
 
-    public void updateProfile(String nickname, String gender, LocalDate birth, Integer height, Integer weight) {
+    public void updateProfile(String nickname, String gender, LocalDate birth, Integer height, Integer weight, String profileImage) {
         this.nickname = nickname;
         this.gender = gender;
         this.birth = birth;
         this.height = height;
         this.weight = weight;
+        this.profileImage = profileImage;
     }
 }

@@ -7,6 +7,7 @@ import com.ohgiraffers.dalryeo.onboarding.dto.EstimateTierResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.NicknameCheckResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingRequest;
 import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingResponse;
+import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
 import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
 import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
@@ -28,6 +29,7 @@ public class OnboardingService {
     private final UserRepository userRepository;
     private final WeeklyTierRepository weeklyTierRepository;
     private final TierService tierService;
+    private final CurrentTierResolver currentTierResolver;
 
     /**
      * 닉네임 중복 체크
@@ -53,7 +55,7 @@ public class OnboardingService {
                 request.getBirth(),
                 request.getHeight(),
                 request.getWeight(),
-                request.getProfileImage()
+                normalizeProfileImage(request.getProfileImage())
         );
 
         userRepository.save(user);
@@ -73,7 +75,8 @@ public class OnboardingService {
                 .birth(user.getBirth())
                 .height(user.getHeight())
                 .weight(user.getWeight())
-                .profileImage(user.getProfileImage())
+                .displayProfileImage(resolveDisplayProfileImage(user, userId))
+                .customProfileImage(user.getProfileImage())
                 .build();
     }
 
@@ -162,6 +165,24 @@ public class OnboardingService {
                 .setScale(2, RoundingMode.HALF_UP)
                 .movePointRight(2)
                 .intValue();
+    }
+
+    private String resolveDisplayProfileImage(User user, Long userId) {
+        if (hasText(user.getProfileImage())) {
+            return user.getProfileImage();
+        }
+
+        return currentTierResolver.resolve(userId)
+                .map(CurrentTierResolver.CurrentTier::defaultProfileImage)
+                .orElse(null);
+    }
+
+    private String normalizeProfileImage(String profileImage) {
+        return hasText(profileImage) ? profileImage : null;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
 }

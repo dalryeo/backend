@@ -32,6 +32,9 @@ public class Tier {
     @Column(name = "max_score", nullable = false)
     private Double maxScore;
 
+    @Column(name = "default_profile_image", length = 500)
+    private String defaultProfileImage;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -41,16 +44,18 @@ public class Tier {
     private LocalDateTime updatedAt;
 
     @Builder
-    public Tier(String tierCode, String displayName, Double minScore, Double maxScore) {
+    public Tier(String tierCode, String displayName, Double minScore, Double maxScore, String defaultProfileImage) {
         this.tierCode = tierCode;
         this.displayName = displayName;
         this.minScore = minScore;
         this.maxScore = maxScore;
+        this.defaultProfileImage = defaultProfileImage;
     }
 
-    public void updateMetadata(String displayName, Double minScore, Double maxScore) {
+    public void updateMetadata(String displayName, Double minScore, Double maxScore, String defaultProfileImage) {
         this.displayName = displayName;
         this.minScore = minScore;
         this.maxScore = maxScore;
+        this.defaultProfileImage = defaultProfileImage;
     }
 }

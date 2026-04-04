@@ -29,7 +29,7 @@ public class TierService {
                 .map(TierGrade::getGrade)
                 .orElse(null);
 
-        return new TierInfo(tier.getTierCode(), tier.getDisplayName(), grade);
+        return new TierInfo(tier.getTierCode(), tier.getDisplayName(), grade, tier.getDefaultProfileImage());
     }
 
     public TierInfo resolveByTierCodeAndScore(String tierCode, double score) {
@@ -45,9 +45,9 @@ public class TierService {
                 .map(TierGrade::getGrade)
                 .orElse(null);
 
-        return new TierInfo(tier.getTierCode(), tier.getDisplayName(), grade);
+        return new TierInfo(tier.getTierCode(), tier.getDisplayName(), grade, tier.getDefaultProfileImage());
     }
 
-    public record TierInfo(String tierCode, String displayName, String tierGrade) {
+    public record TierInfo(String tierCode, String displayName, String tierGrade, String defaultProfileImage) {
     }
 }

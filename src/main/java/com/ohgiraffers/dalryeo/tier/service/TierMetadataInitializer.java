@@ -34,9 +34,15 @@ public class TierMetadataInitializer implements ApplicationRunner {
                             .displayName(metadata.displayName())
                             .minScore(metadata.minScore())
                             .maxScore(metadata.maxScore())
+                            .defaultProfileImage(metadata.defaultProfileImage())
                             .build());
 
-            tier.updateMetadata(metadata.displayName(), metadata.minScore(), metadata.maxScore());
+            tier.updateMetadata(
+                    metadata.displayName(),
+                    metadata.minScore(),
+                    metadata.maxScore(),
+                    metadata.defaultProfileImage()
+            );
             tierRepository.save(tier);
         });
     }
@@ -58,16 +64,16 @@ public class TierMetadataInitializer implements ApplicationRunner {
 
     private List<TierMetadata> predefinedTiers() {
         return List.of(
-                new TierMetadata("CHEETAH", "치타", 1.50, 999.99),
-                new TierMetadata("DEER", "사슴", 1.20, 1.49),
-                new TierMetadata("HUSKY", "허스키", 1.00, 1.19),
-                new TierMetadata("FOX", "여우", 0.86, 0.99),
-                new TierMetadata("ROE_DEER", "고라니", 0.75, 0.85),
-                new TierMetadata("SHEEP", "양", 0.67, 0.74),
-                new TierMetadata("RABBIT", "토끼", 0.60, 0.66),
-                new TierMetadata("PANDA", "판다", 0.55, 0.59),
-                new TierMetadata("DUCK", "오리", 0.46, 0.54),
-                new TierMetadata("TURTLE", "거북이", 0.00, 0.45)
+                new TierMetadata("CHEETAH", "치타", 1.50, 999.99, "/profiles/tiers/cheetah.jpg"),
+                new TierMetadata("DEER", "사슴", 1.20, 1.49, "/profiles/tiers/deer.jpg"),
+                new TierMetadata("HUSKY", "허스키", 1.00, 1.19, "/profiles/tiers/husky.jpg"),
+                new TierMetadata("FOX", "여우", 0.86, 0.99, "/profiles/tiers/fox.jpg"),
+                new TierMetadata("ROE_DEER", "고라니", 0.75, 0.85, "/profiles/tiers/roe_deer.jpg"),
+                new TierMetadata("SHEEP", "양", 0.67, 0.74, "/profiles/tiers/sheep.jpg"),
+                new TierMetadata("RABBIT", "토끼", 0.60, 0.66, "/profiles/tiers/rabbit.jpg"),
+                new TierMetadata("PANDA", "판다", 0.55, 0.59, "/profiles/tiers/panda.jpg"),
+                new TierMetadata("DUCK", "오리", 0.46, 0.54, "/profiles/tiers/duck.jpg"),
+                new TierMetadata("TURTLE", "거북이", 0.00, 0.45, "/profiles/tiers/turtle.jpg")
         );
     }
 
@@ -103,7 +109,13 @@ public class TierMetadataInitializer implements ApplicationRunner {
         );
     }
 
-    private record TierMetadata(String tierCode, String displayName, Double minScore, Double maxScore) {
+    private record TierMetadata(
+            String tierCode,
+            String displayName,
+            Double minScore,
+            Double maxScore,
+            String defaultProfileImage
+    ) {
     }
 
     private record TierGradeMetadata(String tierCode, String grade, Double minScore, Double maxScore) {
