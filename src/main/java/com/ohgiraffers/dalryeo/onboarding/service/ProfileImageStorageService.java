@@ -2,6 +2,7 @@ package com.ohgiraffers.dalryeo.onboarding.service;
 
 import com.ohgiraffers.dalryeo.config.ProfileImageStorageProperties;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -16,6 +17,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProfileImageStorageService {
@@ -49,13 +51,11 @@ public class ProfileImageStorageService {
     }
 
     public void deleteStoredProfileImage(String profileImageUrl) {
-        resolveManagedImagePath(profileImageUrl).ifPresent(path -> {
-            try {
-                Files.deleteIfExists(path);
-            } catch (IOException e) {
-                throw new IllegalStateException("프로필 이미지를 삭제할 수 없습니다.", e);
-            }
-        });
+        try {
+            resolveManagedImagePath(profileImageUrl).ifPresent(this::deleteFileBestEffort);
+        } catch (RuntimeException e) {
+            log.warn("프로필 이미지 정리 중 예외가 발생했습니다. profileImageUrl={}", profileImageUrl, e);
+        }
     }
 
     private void validateProfileImage(MultipartFile profileImage) {
@@ -111,6 +111,14 @@ public class ProfileImageStorageService {
         }
 
         return Optional.of(resolvedPath);
+    }
+
+    private void deleteFileBestEffort(Path path) {
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException e) {
+            log.warn("프로필 이미지 파일 삭제에 실패했습니다. path={}", path, e);
+        }
     }
 
     private Path getStorageDirectory() {

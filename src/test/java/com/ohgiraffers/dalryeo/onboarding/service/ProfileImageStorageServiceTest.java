@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ProfileImageStorageServiceTest {
@@ -52,6 +53,19 @@ class ProfileImageStorageServiceTest {
         storageService.deleteStoredProfileImage(imageUrl);
 
         assertThat(Files.exists(storedFile)).isFalse();
+    }
+
+    @Test
+    void deleteStoredProfileImage_doesNotThrowWhenCleanupFails() throws Exception {
+        ProfileImageStorageService storageService = new ProfileImageStorageService(storageProperties());
+        Path nonEmptyDirectory = tempDirectory.resolve("non-empty-directory");
+        Files.createDirectories(nonEmptyDirectory);
+        Files.writeString(nonEmptyDirectory.resolve("child.txt"), "child");
+
+        assertThatCode(() -> storageService.deleteStoredProfileImage("/profiles/custom/non-empty-directory"))
+                .doesNotThrowAnyException();
+
+        assertThat(Files.exists(nonEmptyDirectory)).isTrue();
     }
 
     @Test
