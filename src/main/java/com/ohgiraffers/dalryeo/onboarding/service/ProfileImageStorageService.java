@@ -47,7 +47,7 @@ public class ProfileImageStorageService {
             throw new IllegalStateException("프로필 이미지를 저장할 수 없습니다.", e);
         }
 
-        return normalizedUrlPrefix() + "/" + storedFilename;
+        return profileImageStorageProperties.getNormalizedUrlPrefix() + "/" + storedFilename;
     }
 
     public void deleteStoredProfileImage(String profileImageUrl) {
@@ -93,7 +93,7 @@ public class ProfileImageStorageService {
             return Optional.empty();
         }
 
-        String normalizedUrlPrefix = normalizedUrlPrefix();
+        String normalizedUrlPrefix = profileImageStorageProperties.getNormalizedUrlPrefix();
         String prefixWithSlash = normalizedUrlPrefix + "/";
         if (!profileImageUrl.startsWith(prefixWithSlash)) {
             return Optional.empty();
@@ -122,21 +122,6 @@ public class ProfileImageStorageService {
     }
 
     private Path getStorageDirectory() {
-        return Path.of(profileImageStorageProperties.getUploadDir())
-                .toAbsolutePath()
-                .normalize();
-    }
-
-    private String normalizedUrlPrefix() {
-        String urlPrefix = profileImageStorageProperties.getUrlPrefix();
-        if (!StringUtils.hasText(urlPrefix)) {
-            return "/profiles/custom";
-        }
-
-        String normalized = urlPrefix.startsWith("/") ? urlPrefix : "/" + urlPrefix;
-        if (normalized.endsWith("/")) {
-            return normalized.substring(0, normalized.length() - 1);
-        }
-        return normalized;
+        return profileImageStorageProperties.getUploadDirPath();
     }
 }
