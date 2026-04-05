@@ -24,11 +24,12 @@ public class StaticResourceConfig implements WebMvcConfigurer {
     }
 
     private String profileImageStorageLocation() {
-        return Path.of(profileImageStorageProperties.getUploadDir())
+        String location = Path.of(profileImageStorageProperties.getUploadDir())
                 .toAbsolutePath()
                 .normalize()
                 .toUri()
                 .toString();
+        return location.endsWith("/") ? location : location + "/";
     }
 
     private String normalizedUrlPrefix() {
