@@ -13,6 +13,7 @@ import com.ohgiraffers.dalryeo.auth.oauth.AppleOAuthValidator;
 import com.ohgiraffers.dalryeo.auth.repository.AuthTokenRepository;
 import com.ohgiraffers.dalryeo.auth.repository.OAuthClientRepository;
 import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
+import com.ohgiraffers.dalryeo.onboarding.service.ProfileImageStorageService;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
 import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
 import org.junit.jupiter.api.Test;
@@ -63,6 +64,9 @@ class AuthServiceTest {
 
     @Mock
     private WeeklyTierRepository weeklyTierRepository;
+
+    @Mock
+    private ProfileImageStorageService profileImageStorageService;
 
     @InjectMocks
     private AuthService authService;
@@ -207,6 +211,7 @@ class AuthServiceTest {
     void withdraw_softDeletesUserAndDeletesOwnedData() {
         Long userId = 5L;
         User user = userWithId(userId, UserStatus.NORMAL);
+        ReflectionTestUtils.setField(user, "profileImage", "/profiles/custom/original.png");
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userRepository.save(user)).thenReturn(user);
@@ -217,6 +222,7 @@ class AuthServiceTest {
         verify(weeklyTierRepository).deleteByUserId(userId);
         verify(runningRecordRepository).deleteByUserId(userId);
         verify(userRepository).save(user);
+        verify(profileImageStorageService).deleteStoredProfileImage("/profiles/custom/original.png");
         assertThat(user.isWithdrawn()).isTrue();
         assertThat(user.getDeletedAt()).isNotNull();
     }

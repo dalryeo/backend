@@ -3,9 +3,12 @@ package com.ohgiraffers.dalryeo.mypage.service;
 import com.ohgiraffers.dalryeo.auth.entity.User;
 import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
 import com.ohgiraffers.dalryeo.mypage.dto.ProfileUpdateRequest;
+import com.ohgiraffers.dalryeo.onboarding.service.ProfileImageStorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -13,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class MypageService {
 
     private final UserRepository userRepository;
+    private final ProfileImageStorageService profileImageStorageService;
 
     public void updateProfile(Long userId, ProfileUpdateRequest request) {
         User user = userRepository.findById(userId)
@@ -23,15 +27,22 @@ public class MypageService {
             throw new RuntimeException("이미 사용 중인 닉네임입니다.");
         }
 
+        String previousProfileImage = user.getProfileImage();
+        String newProfileImage = normalizeProfileImage(request.getProfileImage());
+
         user.updateProfile(
                 request.getNickname(),
                 request.getGender(),
                 request.getBirth(),
                 request.getHeight(),
                 request.getWeight(),
-                normalizeProfileImage(request.getProfileImage())
+                newProfileImage
         );
         userRepository.save(user);
+
+        if (!Objects.equals(previousProfileImage, newProfileImage)) {
+            profileImageStorageService.deleteStoredProfileImage(previousProfileImage);
+        }
     }
 
     private String normalizeProfileImage(String profileImage) {

@@ -13,6 +13,7 @@ import com.ohgiraffers.dalryeo.auth.oauth.AppleOAuthValidator;
 import com.ohgiraffers.dalryeo.auth.repository.AuthTokenRepository;
 import com.ohgiraffers.dalryeo.auth.repository.OAuthClientRepository;
 import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
+import com.ohgiraffers.dalryeo.onboarding.service.ProfileImageStorageService;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
 import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +43,7 @@ public class AuthService {
     private final AuthTokenRepository authTokenRepository;
     private final RunningRecordRepository runningRecordRepository;
     private final WeeklyTierRepository weeklyTierRepository;
+    private final ProfileImageStorageService profileImageStorageService;
 
     /**
      * Apple OAuth 로그인 처리
@@ -146,11 +148,13 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new AuthException(AuthErrorCode.REFRESH_TOKEN_MISMATCH));
 
+        String previousProfileImage = user.getProfileImage();
         authTokenRepository.deleteByUserId(userId);
         weeklyTierRepository.deleteByUserId(userId);
         runningRecordRepository.deleteByUserId(userId);
         user.withdraw();
         userRepository.save(user);
+        profileImageStorageService.deleteStoredProfileImage(previousProfileImage);
     }
 
     private void saveRefreshToken(Long userId, String refreshToken) {

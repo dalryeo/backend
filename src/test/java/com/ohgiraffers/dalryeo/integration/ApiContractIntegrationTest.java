@@ -24,20 +24,28 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
+import java.util.Comparator;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -48,6 +56,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class ApiContractIntegrationTest {
+
+    private static final Path TEST_PROFILE_IMAGE_UPLOAD_DIR = Path.of("build/test-uploads/profile-images");
 
     @Autowired
     private MockMvc mockMvc;
@@ -91,6 +101,7 @@ class ApiContractIntegrationTest {
         userRepository.deleteAll();
         tierGradeRepository.deleteAll();
         tierRepository.deleteAll();
+        cleanProfileImageDirectory();
         seedTierMetadata();
     }
 
@@ -253,6 +264,46 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.data.weight").value(70))
                 .andExpect(jsonPath("$.data.displayProfileImage").value("https://cdn.example.com/updated.png"))
                 .andExpect(jsonPath("$.data.customProfileImage").value("https://cdn.example.com/updated.png"));
+    }
+
+    @Test
+    void uploadProfileImage_savesFileAndServesItByReturnedUrl() throws Exception {
+        User user = saveUser("runner-image");
+        String accessToken = accessToken(user.getId());
+        byte[] imageBytes = "fake-png-content".getBytes(StandardCharsets.UTF_8);
+        MockMultipartFile profileImage = new MockMultipartFile(
+                "profileImage",
+                "avatar.png",
+                "image/png",
+                imageBytes
+        );
+
+        MvcResult result = mockMvc.perform(multipart("/onboarding/profile-image")
+                        .file(profileImage)
+                        .header("Authorization", bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.imageUrl", startsWith("/profiles/custom/")))
+                .andReturn();
+
+        String imageUrl = objectMapper.readTree(result.getResponse().getContentAsString())
+                .path("data")
+                .path("imageUrl")
+                .asText();
+
+        mockMvc.perform(get("/onboarding")
+                        .header("Authorization", bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.displayProfileImage").value(imageUrl))
+                .andExpect(jsonPath("$.data.customProfileImage").value(imageUrl));
+
+        mockMvc.perform(get(imageUrl))
+                .andExpect(status().isOk())
+                .andExpect(content().bytes(imageBytes));
+
+        Path storedFile = TEST_PROFILE_IMAGE_UPLOAD_DIR.resolve(imageUrl.substring("/profiles/custom/".length()));
+        assertThat(Files.exists(storedFile)).isTrue();
     }
 
     @Test
@@ -592,6 +643,25 @@ class ApiContractIntegrationTest {
 
     private String bearer(String accessToken) {
         return "Bearer " + accessToken;
+    }
+
+    private void cleanProfileImageDirectory() {
+        if (!Files.exists(TEST_PROFILE_IMAGE_UPLOAD_DIR)) {
+            return;
+        }
+
+        try (var walk = Files.walk(TEST_PROFILE_IMAGE_UPLOAD_DIR)) {
+            walk.sorted(Comparator.reverseOrder())
+                    .forEach(path -> {
+                        try {
+                            Files.deleteIfExists(path);
+                        } catch (IOException e) {
+                            throw new IllegalStateException("테스트 프로필 이미지 디렉터리를 정리할 수 없습니다.", e);
+                        }
+                    });
+        } catch (IOException e) {
+            throw new IllegalStateException("테스트 프로필 이미지 디렉터리를 조회할 수 없습니다.", e);
+        }
     }
 
     private void seedTierMetadata() {
