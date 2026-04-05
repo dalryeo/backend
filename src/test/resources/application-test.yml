@@ -18,8 +18,3 @@ logging:
     root: INFO
     org.hibernate.SQL: INFO
     org.hibernate.type.descriptor.sql.BasicBinder: INFO
-
-app:
-  profile-image:
-    upload-dir: build/test-uploads/profile-images
-    url-prefix: /profiles/custom

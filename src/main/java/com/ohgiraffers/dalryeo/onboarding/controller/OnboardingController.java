@@ -10,15 +10,12 @@ import com.ohgiraffers.dalryeo.onboarding.dto.EstimateTierResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.NicknameCheckResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingRequest;
 import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingResponse;
-import com.ohgiraffers.dalryeo.onboarding.dto.ProfileImageUploadResponse;
 import com.ohgiraffers.dalryeo.onboarding.service.OnboardingService;
 import com.ohgiraffers.dalryeo.mypage.dto.ProfileUpdateRequest;
 import com.ohgiraffers.dalryeo.mypage.service.MypageService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.MediaType;
-import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -68,19 +65,6 @@ public class OnboardingController {
     }
 
     /**
-     * 프로필 이미지 업로드
-     * POST /onboarding/profile-image
-     */
-    @PostMapping(value = "/profile-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public CommonResponse<ProfileImageUploadResponse> uploadProfileImage(
-            @RequestPart("profileImage") MultipartFile profileImage,
-            HttpServletRequest httpRequest) {
-        Long userId = extractUserIdFromRequest(httpRequest);
-        ProfileImageUploadResponse response = onboardingService.uploadProfileImage(userId, profileImage);
-        return CommonResponse.success(response);
-    }
-
-    /**
      * 온보딩 정보 조회
      * GET /onboarding
      */
@@ -115,3 +99,4 @@ public class OnboardingController {
         return jwtTokenProvider.getUserIdFromToken(token);
     }
 }
+

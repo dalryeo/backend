@@ -22,15 +22,5 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.UNAUTHORIZED)
                 .body(CommonResponse.success(error));
     }
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<CommonResponse<Map<String, String>>> handleIllegalArgumentException(IllegalArgumentException e) {
-        Map<String, String> error = new HashMap<>();
-        error.put("code", "BAD_REQUEST");
-        error.put("message", e.getMessage());
-
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(CommonResponse.success(error));
-    }
 }
+

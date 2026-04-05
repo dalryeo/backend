@@ -4,7 +4,6 @@ import com.ohgiraffers.dalryeo.auth.entity.User;
 import com.ohgiraffers.dalryeo.auth.entity.UserStatus;
 import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
 import com.ohgiraffers.dalryeo.mypage.dto.ProfileUpdateRequest;
-import com.ohgiraffers.dalryeo.onboarding.service.ProfileImageStorageService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -24,9 +23,6 @@ class MypageServiceTest {
 
     @Mock
     private UserRepository userRepository;
-
-    @Mock
-    private ProfileImageStorageService profileImageStorageService;
 
     @InjectMocks
     private MypageService mypageService;
@@ -62,7 +58,7 @@ class MypageServiceTest {
     void updateProfile_clearsCustomProfileImageWhenNullIsProvided() {
         Long userId = 2L;
         User user = userWithId(userId);
-        ReflectionTestUtils.setField(user, "profileImage", "/profiles/custom/original.jpg");
+        ReflectionTestUtils.setField(user, "profileImage", "https://cdn.example.com/original.jpg");
         ProfileUpdateRequest request = updateRequest(
                 "runner2",
                 "M",
@@ -79,7 +75,6 @@ class MypageServiceTest {
 
         assertThat(user.getProfileImage()).isNull();
         verify(userRepository).save(user);
-        verify(profileImageStorageService).deleteStoredProfileImage("/profiles/custom/original.jpg");
     }
 
     private User userWithId(Long id) {
