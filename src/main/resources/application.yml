@@ -63,6 +63,9 @@ app:
     apple:
       dev-mode: ${APP_OAUTH_DEV_MODE:true}
       dev-apple-id-prefix: dev_user_
+  profile-image:
+    upload-dir: ${PROFILE_IMAGE_UPLOAD_DIR:uploads/profile-images}
+    url-prefix: /profiles/custom
 
 # 로깅 설정
 logging:

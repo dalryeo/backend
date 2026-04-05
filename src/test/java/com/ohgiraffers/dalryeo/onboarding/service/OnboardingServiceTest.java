@@ -8,6 +8,7 @@ import com.ohgiraffers.dalryeo.onboarding.dto.EstimateTierResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.NicknameCheckResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingRequest;
 import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingResponse;
+import com.ohgiraffers.dalryeo.onboarding.dto.ProfileImageUploadResponse;
 import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
 import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
@@ -18,8 +19,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.nio.charset.StandardCharsets;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.TemporalAdjusters;
@@ -45,6 +48,9 @@ class OnboardingServiceTest {
 
     @Mock
     private CurrentTierResolver currentTierResolver;
+
+    @Mock
+    private ProfileImageStorageService profileImageStorageService;
 
     @InjectMocks
     private OnboardingService onboardingService;
@@ -83,6 +89,29 @@ class OnboardingServiceTest {
         assertThat(user.getWeight()).isEqualTo(52);
         assertThat(user.getProfileImage()).isEqualTo("profile.png");
         verify(userRepository).save(user);
+    }
+
+    @Test
+    void saveOnboarding_deletesManagedProfileImageWhenClearingCustomImage() {
+        Long userId = 6L;
+        User user = userWithId(userId);
+        ReflectionTestUtils.setField(user, "profileImage", "/profiles/custom/original.png");
+        OnboardingRequest request = onboardingRequest(
+                "runner6",
+                "F",
+                LocalDate.of(1998, 5, 12),
+                165,
+                52,
+                null
+        );
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepository.save(user)).thenReturn(user);
+
+        onboardingService.saveOnboarding(userId, request);
+
+        assertThat(user.getProfileImage()).isNull();
+        verify(profileImageStorageService).deleteStoredProfileImage("/profiles/custom/original.png");
     }
 
     @Test
@@ -129,6 +158,30 @@ class OnboardingServiceTest {
 
         assertThat(response.getDisplayProfileImage()).isEqualTo("/profiles/tiers/deer.jpg");
         assertThat(response.getCustomProfileImage()).isNull();
+    }
+
+    @Test
+    void uploadProfileImage_updatesUserWithManagedImageUrl() {
+        Long userId = 7L;
+        User user = userWithId(userId);
+        ReflectionTestUtils.setField(user, "profileImage", "/profiles/custom/old.png");
+        MockMultipartFile profileImage = new MockMultipartFile(
+                "profileImage",
+                "profile.png",
+                "image/png",
+                "image-content".getBytes(StandardCharsets.UTF_8)
+        );
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepository.save(user)).thenReturn(user);
+        when(profileImageStorageService.storeProfileImage(userId, profileImage))
+                .thenReturn("/profiles/custom/new.png");
+
+        ProfileImageUploadResponse response = onboardingService.uploadProfileImage(userId, profileImage);
+
+        assertThat(user.getProfileImage()).isEqualTo("/profiles/custom/new.png");
+        assertThat(response.getImageUrl()).isEqualTo("/profiles/custom/new.png");
+        verify(profileImageStorageService).deleteStoredProfileImage("/profiles/custom/old.png");
     }
 
     @Test
