@@ -2,6 +2,7 @@ package com.ohgiraffers.dalryeo.onboarding.service;
 
 import com.ohgiraffers.dalryeo.config.ProfileImageStorageProperties;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -16,6 +17,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProfileImageStorageService {
@@ -45,17 +47,15 @@ public class ProfileImageStorageService {
             throw new IllegalStateException("프로필 이미지를 저장할 수 없습니다.", e);
         }
 
-        return normalizedUrlPrefix() + "/" + storedFilename;
+        return profileImageStorageProperties.getNormalizedUrlPrefix() + "/" + storedFilename;
     }
 
     public void deleteStoredProfileImage(String profileImageUrl) {
-        resolveManagedImagePath(profileImageUrl).ifPresent(path -> {
-            try {
-                Files.deleteIfExists(path);
-            } catch (IOException e) {
-                throw new IllegalStateException("프로필 이미지를 삭제할 수 없습니다.", e);
-            }
-        });
+        try {
+            resolveManagedImagePath(profileImageUrl).ifPresent(this::deleteFileBestEffort);
+        } catch (RuntimeException e) {
+            log.warn("프로필 이미지 정리 중 예외가 발생했습니다. profileImageUrl={}", profileImageUrl, e);
+        }
     }
 
     private void validateProfileImage(MultipartFile profileImage) {
@@ -93,7 +93,7 @@ public class ProfileImageStorageService {
             return Optional.empty();
         }
 
-        String normalizedUrlPrefix = normalizedUrlPrefix();
+        String normalizedUrlPrefix = profileImageStorageProperties.getNormalizedUrlPrefix();
         String prefixWithSlash = normalizedUrlPrefix + "/";
         if (!profileImageUrl.startsWith(prefixWithSlash)) {
             return Optional.empty();
@@ -113,22 +113,15 @@ public class ProfileImageStorageService {
         return Optional.of(resolvedPath);
     }
 
-    private Path getStorageDirectory() {
-        return Path.of(profileImageStorageProperties.getUploadDir())
-                .toAbsolutePath()
-                .normalize();
+    private void deleteFileBestEffort(Path path) {
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException e) {
+            log.warn("프로필 이미지 파일 삭제에 실패했습니다. path={}", path, e);
+        }
     }
 
-    private String normalizedUrlPrefix() {
-        String urlPrefix = profileImageStorageProperties.getUrlPrefix();
-        if (!StringUtils.hasText(urlPrefix)) {
-            return "/profiles/custom";
-        }
-
-        String normalized = urlPrefix.startsWith("/") ? urlPrefix : "/" + urlPrefix;
-        if (normalized.endsWith("/")) {
-            return normalized.substring(0, normalized.length() - 1);
-        }
-        return normalized;
+    private Path getStorageDirectory() {
+        return profileImageStorageProperties.getUploadDirPath();
     }
 }
