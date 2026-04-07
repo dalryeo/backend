@@ -20,6 +20,7 @@ logging:
     org.hibernate.type.descriptor.sql.BasicBinder: INFO
 
 app:
+  public-base-url: https://api.dalryeo.store
   profile-image:
     upload-dir: build/test-uploads/profile-images
     url-prefix: /profiles/custom

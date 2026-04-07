@@ -59,6 +59,7 @@ jwt:
 
 # Apple OAuth 설정 (향후 확장용)
 app:
+  public-base-url: ${APP_PUBLIC_BASE_URL:https://api.dalryeo.store}
   oauth:
     apple:
       dev-mode: ${APP_OAUTH_DEV_MODE:true}

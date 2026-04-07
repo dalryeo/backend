@@ -347,11 +347,11 @@ class ApiContractIntegrationTest {
                 .build());
 
         mockMvc.perform(get("/onboarding")
-                        .header("Authorization", bearer(accessToken(user.getId()))))
+                .header("Authorization", bearer(accessToken(user.getId()))))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.displayProfileImage").value("/profiles/tiers/deer.jpg"))
+                .andExpect(jsonPath("$.data.displayProfileImage").value("https://api.dalryeo.store/profiles/tiers/deer.jpg"))
                 .andExpect(jsonPath("$.data.customProfileImage").isEmpty());
     }
 
@@ -369,11 +369,11 @@ class ApiContractIntegrationTest {
         saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(1));
 
         mockMvc.perform(get("/onboarding")
-                        .header("Authorization", bearer(accessToken(user.getId()))))
+                .header("Authorization", bearer(accessToken(user.getId()))))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.displayProfileImage").value("/profiles/tiers/deer.jpg"))
+                .andExpect(jsonPath("$.data.displayProfileImage").value("https://api.dalryeo.store/profiles/tiers/deer.jpg"))
                 .andExpect(jsonPath("$.data.customProfileImage").isEmpty());
     }
 

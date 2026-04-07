@@ -17,6 +17,7 @@ import com.ohgiraffers.dalryeo.mypage.service.MypageService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.*;
@@ -30,6 +31,9 @@ public class OnboardingController {
     private final MypageService mypageService;
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtTokenExtractor jwtTokenExtractor;
+
+    @Value("${app.public-base-url:https://api.dalryeo.store}")
+    private String publicBaseUrl;
 
     /**
      * 닉네임 중복 체크
@@ -87,7 +91,7 @@ public class OnboardingController {
     @GetMapping
     public CommonResponse<OnboardingResponse> getOnboarding(HttpServletRequest httpRequest) {
         Long userId = extractUserIdFromRequest(httpRequest);
-        OnboardingResponse response = onboardingService.getOnboarding(userId);
+        OnboardingResponse response = enrichTierDefaultImageUrl(onboardingService.getOnboarding(userId));
         return CommonResponse.success(response);
     }
 
@@ -113,5 +117,39 @@ public class OnboardingController {
             throw new AuthException(AuthErrorCode.REFRESH_TOKEN_EXPIRED);
         }
         return jwtTokenProvider.getUserIdFromToken(token);
+    }
+
+    private OnboardingResponse enrichTierDefaultImageUrl(OnboardingResponse response) {
+        String displayProfileImage = response.getDisplayProfileImage();
+        if (!isTierDefaultImagePath(displayProfileImage)) {
+            return response;
+        }
+
+        return OnboardingResponse.builder()
+                .nickname(response.getNickname())
+                .gender(response.getGender())
+                .birth(response.getBirth())
+                .height(response.getHeight())
+                .weight(response.getWeight())
+                .displayProfileImage(toAbsoluteUrl(displayProfileImage))
+                .customProfileImage(response.getCustomProfileImage())
+                .build();
+    }
+
+    private boolean isTierDefaultImagePath(String path) {
+        return path != null && path.startsWith("/profiles/tiers/");
+    }
+
+    private String toAbsoluteUrl(String path) {
+        return normalizePublicBaseUrl() + path;
+    }
+
+    private String normalizePublicBaseUrl() {
+        if (publicBaseUrl == null || publicBaseUrl.isBlank()) {
+            return "https://api.dalryeo.store";
+        }
+        return publicBaseUrl.endsWith("/")
+                ? publicBaseUrl.substring(0, publicBaseUrl.length() - 1)
+                : publicBaseUrl;
     }
 }
