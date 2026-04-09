@@ -34,7 +34,7 @@ class TierServiceTest {
                 .displayName("사슴")
                 .minScore(1.20)
                 .maxScore(1.49)
-                .defaultProfileImage("/profiles/tiers/deer.jpg")
+                .defaultProfileImage("/profiles/tiers/deer.png")
                 .build();
         TierGrade deerBronze = TierGrade.builder()
                 .tierCode("DEER")
@@ -54,7 +54,7 @@ class TierServiceTest {
         assertThat(result.tierCode()).isEqualTo("DEER");
         assertThat(result.displayName()).isEqualTo("사슴");
         assertThat(result.tierGrade()).isEqualTo("B");
-        assertThat(result.defaultProfileImage()).isEqualTo("/profiles/tiers/deer.jpg");
+        assertThat(result.defaultProfileImage()).isEqualTo("/profiles/tiers/deer.png");
     }
 
     @Test
@@ -64,7 +64,7 @@ class TierServiceTest {
                 .displayName("거북이")
                 .minScore(0.0)
                 .maxScore(0.45)
-                .defaultProfileImage("/profiles/tiers/turtle.jpg")
+                .defaultProfileImage("/profiles/tiers/turtle.png")
                 .build();
 
         when(tierRepository.findById("TURTLE")).thenReturn(Optional.of(turtle));
@@ -77,6 +77,6 @@ class TierServiceTest {
         assertThat(result.tierCode()).isEqualTo("TURTLE");
         assertThat(result.displayName()).isEqualTo("거북이");
         assertThat(result.tierGrade()).isNull();
-        assertThat(result.defaultProfileImage()).isEqualTo("/profiles/tiers/turtle.jpg");
+        assertThat(result.defaultProfileImage()).isEqualTo("/profiles/tiers/turtle.png");
     }
 }

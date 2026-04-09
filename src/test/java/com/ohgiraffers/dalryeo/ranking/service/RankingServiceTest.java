@@ -54,9 +54,9 @@ class RankingServiceTest {
                 record(3L, 20.0, 280)
         ));
         when(tierService.resolveByScore(1.24))
-                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.jpg"));
+                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.png"));
         when(tierService.resolveByScore(1.27))
-                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.jpg"));
+                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.png"));
 
         List<ScoreRankingResponse> response = rankingService.getWeeklyScoreRanking();
 
@@ -82,9 +82,9 @@ class RankingServiceTest {
                 record(2L, 10.0, 300)
         ));
         when(tierService.resolveByScore(1.24))
-                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.jpg"));
+                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.png"));
         when(tierService.resolveByScore(1.27))
-                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.jpg"));
+                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.png"));
 
         List<DistanceRankingResponse> response = rankingService.getWeeklyDistanceRanking();
 
@@ -110,7 +110,7 @@ class RankingServiceTest {
                 record(2L, 10.0, 300)
         ));
         when(tierService.resolveByScore(1.24))
-                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.jpg"));
+                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.png"));
 
         RankingMeResponse response = rankingService.getMyRanking(userId);
 

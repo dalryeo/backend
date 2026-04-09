@@ -50,7 +50,7 @@ class CurrentTierResolverTest {
                 .build();
 
         when(tierService.resolveByScore(1.24))
-                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.jpg"));
+                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.png"));
 
         Optional<CurrentTierResolver.CurrentTier> result = currentTierResolver.resolve(userId, weekStart, List.of(runningRecord));
 
@@ -58,7 +58,7 @@ class CurrentTierResolverTest {
         assertThat(result.get().tierCode()).isEqualTo("DEER");
         assertThat(result.get().tierGrade()).isEqualTo("B");
         assertThat(result.get().score()).isEqualTo(1.24);
-        assertThat(result.get().defaultProfileImage()).isEqualTo("/profiles/tiers/deer.jpg");
+        assertThat(result.get().defaultProfileImage()).isEqualTo("/profiles/tiers/deer.png");
     }
 
     @Test
@@ -75,7 +75,7 @@ class CurrentTierResolverTest {
         when(weeklyTierRepository.findByUserIdAndWeekStartDate(userId, weekStart))
                 .thenReturn(Optional.of(weeklyTier));
         when(tierService.resolveByTierCodeAndScore("FOX", 0.90))
-                .thenReturn(new TierService.TierInfo("FOX", "여우", "S", "/profiles/tiers/fox.jpg"));
+                .thenReturn(new TierService.TierInfo("FOX", "여우", "S", "/profiles/tiers/fox.png"));
 
         Optional<CurrentTierResolver.CurrentTier> result = currentTierResolver.resolve(userId, weekStart, List.of());
 
@@ -83,7 +83,7 @@ class CurrentTierResolverTest {
         assertThat(result.get().tierCode()).isEqualTo("FOX");
         assertThat(result.get().tierGrade()).isEqualTo("S");
         assertThat(result.get().score()).isEqualTo(0.90);
-        assertThat(result.get().defaultProfileImage()).isEqualTo("/profiles/tiers/fox.jpg");
+        assertThat(result.get().defaultProfileImage()).isEqualTo("/profiles/tiers/fox.png");
     }
 
     @Test
