@@ -10,8 +10,6 @@ import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.ProfileImageUploadResponse;
 import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
-import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
-import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,9 +17,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.time.temporal.TemporalAdjusters;
 import java.util.Objects;
 
 @Service
@@ -30,10 +25,10 @@ import java.util.Objects;
 public class OnboardingService {
 
     private final UserRepository userRepository;
-    private final WeeklyTierRepository weeklyTierRepository;
     private final TierService tierService;
     private final CurrentTierResolver currentTierResolver;
     private final ProfileImageStorageService profileImageStorageService;
+    private static final String DEFAULT_ONBOARDING_TIER_CODE = "TURTLE";
 
     /**
      * 닉네임 중복 체크
@@ -122,8 +117,6 @@ public class OnboardingService {
         double score = calculateTierScore(distanceKm, paceSecPerKm);
         TierService.TierInfo tierInfo = tierService.resolveByScore(score);
 
-        saveWeeklyTier(userId, tierInfo, score);
-
         return EstimateTierResponse.builder()
                 .tierCode(tierInfo.tierCode())
                 .displayName(tierInfo.displayName())
@@ -174,29 +167,6 @@ public class OnboardingService {
                 .doubleValue();
     }
 
-    private void saveWeeklyTier(Long userId, TierService.TierInfo tierInfo, double score) {
-        LocalDate weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-        Integer tierScore = toTierScoreInt(score);
-
-        WeeklyTier weeklyTier = weeklyTierRepository.findByUserIdAndWeekStartDate(userId, weekStart)
-                .orElseGet(() -> WeeklyTier.builder()
-                        .userId(userId)
-                        .weekStartDate(weekStart)
-                        .tierCode(tierInfo.tierCode())
-                        .tierScore(tierScore)
-                        .build());
-
-        weeklyTier.updateTier(tierInfo.tierCode(), tierScore);
-        weeklyTierRepository.save(weeklyTier);
-    }
-
-    private Integer toTierScoreInt(double score) {
-        return BigDecimal.valueOf(score)
-                .setScale(2, RoundingMode.HALF_UP)
-                .movePointRight(2)
-                .intValue();
-    }
-
     private String resolveDisplayProfileImage(User user, Long userId) {
         if (hasText(user.getProfileImage())) {
             return user.getProfileImage();
@@ -204,7 +174,23 @@ public class OnboardingService {
 
         return currentTierResolver.resolve(userId)
                 .map(CurrentTierResolver.CurrentTier::defaultProfileImage)
+                .orElseGet(() -> resolveDefaultOnboardingProfileImage(user));
+    }
+
+    private String resolveDefaultOnboardingProfileImage(User user) {
+        if (!isOnboardingCompleted(user)) {
+            return null;
+        }
+        return tierService.findDefaultProfileImageByTierCode(DEFAULT_ONBOARDING_TIER_CODE)
                 .orElse(null);
+    }
+
+    private boolean isOnboardingCompleted(User user) {
+        return hasText(user.getNickname())
+                && hasText(user.getGender())
+                && user.getBirth() != null
+                && user.getHeight() != null
+                && user.getWeight() != null;
     }
 
     private String normalizeProfileImage(String profileImage) {

@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -46,6 +48,11 @@ public class TierService {
                 .orElse(null);
 
         return new TierInfo(tier.getTierCode(), tier.getDisplayName(), grade, tier.getDefaultProfileImage());
+    }
+
+    public Optional<String> findDefaultProfileImageByTierCode(String tierCode) {
+        return tierRepository.findById(tierCode)
+                .map(Tier::getDefaultProfileImage);
     }
 
     public record TierInfo(String tierCode, String displayName, String tierGrade, String defaultProfileImage) {

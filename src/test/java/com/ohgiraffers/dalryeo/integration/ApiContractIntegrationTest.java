@@ -310,7 +310,6 @@ class ApiContractIntegrationTest {
     void estimateTier_keepsResponseContract() throws Exception {
         User user = saveUser("runner-tier");
         String accessToken = accessToken(user.getId());
-        LocalDate weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
 
         mockMvc.perform(post("/onboarding/estimate-tier")
                         .header("Authorization", bearer(accessToken))
@@ -328,10 +327,38 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.data.displayName").value("사슴"))
                 .andExpect(jsonPath("$.data.tierGrade").value("B"))
                 .andExpect(jsonPath("$.data.score").value(1.24));
+        assertThat(weeklyTierRepository.findAll()).isEmpty();
+    }
 
-        WeeklyTier weeklyTier = weeklyTierRepository.findByUserIdAndWeekStartDate(user.getId(), weekStart).orElseThrow();
-        assertThat(weeklyTier.getTierCode()).isEqualTo("DEER");
-        assertThat(weeklyTier.getTierScore()).isEqualTo(124);
+    @Test
+    void getOnboarding_returnsTurtleProfileImageWhenOnboardingCompletedWithoutCurrentTier() throws Exception {
+        User user = saveUser(null);
+        String accessToken = accessToken(user.getId());
+
+        mockMvc.perform(post("/onboarding")
+                        .header("Authorization", bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "runner-turtle",
+                                  "gender": "F",
+                                  "birth": "1998-05-12",
+                                  "height": 165,
+                                  "weight": 52,
+                                  "profileImage": null
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isEmpty());
+
+        mockMvc.perform(get("/onboarding")
+                        .header("Authorization", bearer(accessToken)))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.displayProfileImage").value("https://api.dalryeo.store/profiles/tiers/turtle.jpg"))
+                .andExpect(jsonPath("$.data.customProfileImage").isEmpty());
     }
 
     @Test
