@@ -11,11 +11,8 @@ import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.ProfileImageUploadResponse;
 import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
-import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
-import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -23,15 +20,13 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.nio.charset.StandardCharsets;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.time.temporal.TemporalAdjusters;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -39,9 +34,6 @@ class OnboardingServiceTest {
 
     @Mock
     private UserRepository userRepository;
-
-    @Mock
-    private WeeklyTierRepository weeklyTierRepository;
 
     @Mock
     private TierService tierService;
@@ -161,6 +153,41 @@ class OnboardingServiceTest {
     }
 
     @Test
+    void getOnboarding_returnsTurtleProfileImageWhenOnboardingCompletedWithoutCurrentTier() {
+        Long userId = 6L;
+        User user = userWithId(userId);
+        ReflectionTestUtils.setField(user, "nickname", "runner6");
+        ReflectionTestUtils.setField(user, "gender", "F");
+        ReflectionTestUtils.setField(user, "birth", LocalDate.of(1998, 5, 12));
+        ReflectionTestUtils.setField(user, "height", 165);
+        ReflectionTestUtils.setField(user, "weight", 52);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(currentTierResolver.resolve(userId)).thenReturn(Optional.empty());
+        when(tierService.findDefaultProfileImageByTierCode("TURTLE"))
+                .thenReturn(Optional.of("/profiles/tiers/turtle.jpg"));
+
+        OnboardingResponse response = onboardingService.getOnboarding(userId);
+
+        assertThat(response.getDisplayProfileImage()).isEqualTo("/profiles/tiers/turtle.jpg");
+        assertThat(response.getCustomProfileImage()).isNull();
+    }
+
+    @Test
+    void getOnboarding_returnsNullWhenOnboardingIsIncompleteAndCurrentTierDoesNotExist() {
+        Long userId = 9L;
+        User user = userWithId(userId);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(currentTierResolver.resolve(userId)).thenReturn(Optional.empty());
+
+        OnboardingResponse response = onboardingService.getOnboarding(userId);
+
+        assertThat(response.getDisplayProfileImage()).isNull();
+        assertThat(response.getCustomProfileImage()).isNull();
+    }
+
+    @Test
     void uploadProfileImage_updatesUserWithManagedImageUrl() {
         Long userId = 7L;
         User user = userWithId(userId);
@@ -185,13 +212,9 @@ class OnboardingServiceTest {
     }
 
     @Test
-    void estimateTier_createsWeeklyTierForCurrentWeek() {
+    void estimateTier_returnsResponseWithoutPersistingWeeklyTier() {
         Long userId = 3L;
         EstimateTierRequest request = estimateTierRequest(5.0, 300);
-        LocalDate weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-
-        when(weeklyTierRepository.findByUserIdAndWeekStartDate(eq(userId), eq(weekStart)))
-                .thenReturn(Optional.empty());
         when(tierService.resolveByScore(1.24))
                 .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.jpg"));
 
@@ -201,43 +224,7 @@ class OnboardingServiceTest {
         assertThat(response.getDisplayName()).isEqualTo("사슴");
         assertThat(response.getTierGrade()).isEqualTo("B");
         assertThat(response.getScore()).isEqualTo(1.24);
-
-        ArgumentCaptor<WeeklyTier> weeklyTierCaptor = ArgumentCaptor.forClass(WeeklyTier.class);
-        verify(weeklyTierRepository).save(weeklyTierCaptor.capture());
-        WeeklyTier savedWeeklyTier = weeklyTierCaptor.getValue();
-        assertThat(savedWeeklyTier.getUserId()).isEqualTo(userId);
-        assertThat(savedWeeklyTier.getWeekStartDate()).isEqualTo(weekStart);
-        assertThat(savedWeeklyTier.getTierCode()).isEqualTo("DEER");
-        assertThat(savedWeeklyTier.getTierScore()).isEqualTo(124);
-    }
-
-    @Test
-    void estimateTier_updatesExistingWeeklyTierForCurrentWeek() {
-        Long userId = 4L;
-        EstimateTierRequest request = estimateTierRequest(3.0, 360);
-        LocalDate weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-        WeeklyTier existingWeeklyTier = WeeklyTier.builder()
-                .userId(userId)
-                .weekStartDate(weekStart)
-                .tierCode("PANDA")
-                .tierScore(55)
-                .build();
-
-        when(weeklyTierRepository.findByUserIdAndWeekStartDate(eq(userId), eq(weekStart)))
-                .thenReturn(Optional.of(existingWeeklyTier));
-        when(weeklyTierRepository.save(existingWeeklyTier)).thenReturn(existingWeeklyTier);
-        when(tierService.resolveByScore(1.00))
-                .thenReturn(new TierService.TierInfo("HUSKY", "허스키", "B", "/profiles/tiers/husky.jpg"));
-
-        EstimateTierResponse response = onboardingService.estimateTier(userId, request);
-
-        assertThat(response.getTierCode()).isEqualTo("HUSKY");
-        assertThat(response.getDisplayName()).isEqualTo("허스키");
-        assertThat(response.getTierGrade()).isEqualTo("B");
-        assertThat(response.getScore()).isEqualTo(1.00);
-        assertThat(existingWeeklyTier.getTierCode()).isEqualTo("HUSKY");
-        assertThat(existingWeeklyTier.getTierScore()).isEqualTo(100);
-        verify(weeklyTierRepository).save(existingWeeklyTier);
+        verifyNoInteractions(userRepository, currentTierResolver, profileImageStorageService);
     }
 
     private User userWithId(Long id) {
