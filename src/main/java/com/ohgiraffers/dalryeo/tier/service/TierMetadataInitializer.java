@@ -16,6 +16,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class TierMetadataInitializer implements ApplicationRunner {
 
+    private static final String TIER_PROFILE_IMAGE_BASE_PATH = "/profiles/tiers/";
+    private static final String TIER_PROFILE_IMAGE_EXTENSION = ".png";
+
     private final TierRepository tierRepository;
     private final TierGradeRepository tierGradeRepository;
 
@@ -64,17 +67,21 @@ public class TierMetadataInitializer implements ApplicationRunner {
 
     private List<TierMetadata> predefinedTiers() {
         return List.of(
-                new TierMetadata("CHEETAH", "치타", 1.50, 999.99, "/profiles/tiers/cheetah.png"),
-                new TierMetadata("DEER", "사슴", 1.20, 1.49, "/profiles/tiers/deer.png"),
-                new TierMetadata("HUSKY", "허스키", 1.00, 1.19, "/profiles/tiers/husky.png"),
-                new TierMetadata("FOX", "여우", 0.86, 0.99, "/profiles/tiers/fox.png"),
-                new TierMetadata("WATERDEER", "고라니", 0.75, 0.85, "/profiles/tiers/waterdeer.png"),
-                new TierMetadata("SHEEP", "양", 0.67, 0.74, "/profiles/tiers/sheep.png"),
-                new TierMetadata("RABBIT", "토끼", 0.60, 0.66, "/profiles/tiers/rabbit.png"),
-                new TierMetadata("PANDA", "판다", 0.55, 0.59, "/profiles/tiers/panda.png"),
-                new TierMetadata("DUCK", "오리", 0.46, 0.54, "/profiles/tiers/duck.png"),
-                new TierMetadata("TURTLE", "거북이", 0.00, 0.45, "/profiles/tiers/turtle.png")
+                new TierMetadata("CHEETAH", "치타", 1.50, 999.99, defaultProfileImagePath("CHEETAH")),
+                new TierMetadata("DEER", "사슴", 1.20, 1.49, defaultProfileImagePath("DEER")),
+                new TierMetadata("HUSKY", "허스키", 1.00, 1.19, defaultProfileImagePath("HUSKY")),
+                new TierMetadata("FOX", "여우", 0.86, 0.99, defaultProfileImagePath("FOX")),
+                new TierMetadata("WATERDEER", "고라니", 0.75, 0.85, defaultProfileImagePath("WATERDEER")),
+                new TierMetadata("SHEEP", "양", 0.67, 0.74, defaultProfileImagePath("SHEEP")),
+                new TierMetadata("RABBIT", "토끼", 0.60, 0.66, defaultProfileImagePath("RABBIT")),
+                new TierMetadata("PANDA", "판다", 0.55, 0.59, defaultProfileImagePath("PANDA")),
+                new TierMetadata("DUCK", "오리", 0.46, 0.54, defaultProfileImagePath("DUCK")),
+                new TierMetadata("TURTLE", "거북이", 0.00, 0.45, defaultProfileImagePath("TURTLE"))
         );
+    }
+
+    private String defaultProfileImagePath(String tierCode) {
+        return TIER_PROFILE_IMAGE_BASE_PATH + tierCode.toLowerCase() + TIER_PROFILE_IMAGE_EXTENSION;
     }
 
     private List<TierGradeMetadata> predefinedTierGrades() {
