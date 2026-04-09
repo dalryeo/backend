@@ -357,7 +357,7 @@ class ApiContractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.displayProfileImage").value("https://api.dalryeo.store/profiles/tiers/turtle.jpg"))
+                .andExpect(jsonPath("$.data.displayProfileImage").value("https://api.dalryeo.store/profiles/tiers/turtle.png"))
                 .andExpect(jsonPath("$.data.customProfileImage").isEmpty());
     }
 
@@ -378,7 +378,7 @@ class ApiContractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.displayProfileImage").value("https://api.dalryeo.store/profiles/tiers/deer.jpg"))
+                .andExpect(jsonPath("$.data.displayProfileImage").value("https://api.dalryeo.store/profiles/tiers/deer.png"))
                 .andExpect(jsonPath("$.data.customProfileImage").isEmpty());
     }
 
@@ -400,7 +400,7 @@ class ApiContractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.displayProfileImage").value("https://api.dalryeo.store/profiles/tiers/deer.jpg"))
+                .andExpect(jsonPath("$.data.displayProfileImage").value("https://api.dalryeo.store/profiles/tiers/deer.png"))
                 .andExpect(jsonPath("$.data.customProfileImage").isEmpty());
     }
 
@@ -697,7 +697,7 @@ class ApiContractIntegrationTest {
                 tier("DEER", "사슴", 1.20, 1.49),
                 tier("HUSKY", "허스키", 1.00, 1.19),
                 tier("FOX", "여우", 0.86, 0.99),
-                tier("ROE_DEER", "고라니", 0.75, 0.85),
+                tier("WATERDEER", "고라니", 0.75, 0.85),
                 tier("SHEEP", "양", 0.67, 0.74),
                 tier("RABBIT", "토끼", 0.60, 0.66),
                 tier("PANDA", "판다", 0.55, 0.59),
@@ -717,9 +717,9 @@ class ApiContractIntegrationTest {
                 tierGrade("FOX", "G", 0.95, 0.99),
                 tierGrade("FOX", "S", 0.90, 0.94),
                 tierGrade("FOX", "B", 0.86, 0.89),
-                tierGrade("ROE_DEER", "G", 0.82, 0.85),
-                tierGrade("ROE_DEER", "S", 0.78, 0.81),
-                tierGrade("ROE_DEER", "B", 0.75, 0.77),
+                tierGrade("WATERDEER", "G", 0.82, 0.85),
+                tierGrade("WATERDEER", "S", 0.78, 0.81),
+                tierGrade("WATERDEER", "B", 0.75, 0.77),
                 tierGrade("SHEEP", "G", 0.72, 0.74),
                 tierGrade("SHEEP", "S", 0.69, 0.71),
                 tierGrade("SHEEP", "B", 0.67, 0.68),
@@ -741,8 +741,12 @@ class ApiContractIntegrationTest {
                 .displayName(displayName)
                 .minScore(minScore)
                 .maxScore(maxScore)
-                .defaultProfileImage("/profiles/tiers/" + tierCode.toLowerCase() + ".jpg")
+                .defaultProfileImage(defaultProfileImagePath(tierCode))
                 .build();
+    }
+
+    private String defaultProfileImagePath(String tierCode) {
+        return "/profiles/tiers/" + tierCode.toLowerCase() + ".png";
     }
 
     private TierGrade tierGrade(String tierCode, String grade, double minScore, double maxScore) {

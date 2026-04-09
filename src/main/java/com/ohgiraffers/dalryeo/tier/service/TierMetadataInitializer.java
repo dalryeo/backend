@@ -64,16 +64,16 @@ public class TierMetadataInitializer implements ApplicationRunner {
 
     private List<TierMetadata> predefinedTiers() {
         return List.of(
-                new TierMetadata("CHEETAH", "치타", 1.50, 999.99, "/profiles/tiers/cheetah.jpg"),
-                new TierMetadata("DEER", "사슴", 1.20, 1.49, "/profiles/tiers/deer.jpg"),
-                new TierMetadata("HUSKY", "허스키", 1.00, 1.19, "/profiles/tiers/husky.jpg"),
-                new TierMetadata("FOX", "여우", 0.86, 0.99, "/profiles/tiers/fox.jpg"),
-                new TierMetadata("ROE_DEER", "고라니", 0.75, 0.85, "/profiles/tiers/roe_deer.jpg"),
-                new TierMetadata("SHEEP", "양", 0.67, 0.74, "/profiles/tiers/sheep.jpg"),
-                new TierMetadata("RABBIT", "토끼", 0.60, 0.66, "/profiles/tiers/rabbit.jpg"),
-                new TierMetadata("PANDA", "판다", 0.55, 0.59, "/profiles/tiers/panda.jpg"),
-                new TierMetadata("DUCK", "오리", 0.46, 0.54, "/profiles/tiers/duck.jpg"),
-                new TierMetadata("TURTLE", "거북이", 0.00, 0.45, "/profiles/tiers/turtle.jpg")
+                new TierMetadata("CHEETAH", "치타", 1.50, 999.99, "/profiles/tiers/cheetah.png"),
+                new TierMetadata("DEER", "사슴", 1.20, 1.49, "/profiles/tiers/deer.png"),
+                new TierMetadata("HUSKY", "허스키", 1.00, 1.19, "/profiles/tiers/husky.png"),
+                new TierMetadata("FOX", "여우", 0.86, 0.99, "/profiles/tiers/fox.png"),
+                new TierMetadata("WATERDEER", "고라니", 0.75, 0.85, "/profiles/tiers/waterdeer.png"),
+                new TierMetadata("SHEEP", "양", 0.67, 0.74, "/profiles/tiers/sheep.png"),
+                new TierMetadata("RABBIT", "토끼", 0.60, 0.66, "/profiles/tiers/rabbit.png"),
+                new TierMetadata("PANDA", "판다", 0.55, 0.59, "/profiles/tiers/panda.png"),
+                new TierMetadata("DUCK", "오리", 0.46, 0.54, "/profiles/tiers/duck.png"),
+                new TierMetadata("TURTLE", "거북이", 0.00, 0.45, "/profiles/tiers/turtle.png")
         );
     }
 
@@ -91,9 +91,9 @@ public class TierMetadataInitializer implements ApplicationRunner {
                 new TierGradeMetadata("FOX", "G", 0.95, 0.99),
                 new TierGradeMetadata("FOX", "S", 0.90, 0.94),
                 new TierGradeMetadata("FOX", "B", 0.86, 0.89),
-                new TierGradeMetadata("ROE_DEER", "G", 0.82, 0.85),
-                new TierGradeMetadata("ROE_DEER", "S", 0.78, 0.81),
-                new TierGradeMetadata("ROE_DEER", "B", 0.75, 0.77),
+                new TierGradeMetadata("WATERDEER", "G", 0.82, 0.85),
+                new TierGradeMetadata("WATERDEER", "S", 0.78, 0.81),
+                new TierGradeMetadata("WATERDEER", "B", 0.75, 0.77),
                 new TierGradeMetadata("SHEEP", "G", 0.72, 0.74),
                 new TierGradeMetadata("SHEEP", "S", 0.69, 0.71),
                 new TierGradeMetadata("SHEEP", "B", 0.67, 0.68),

@@ -70,7 +70,7 @@ class RecordServiceTest {
                         "사슴",
                         "B",
                         1.24,
-                        "/profiles/tiers/deer.jpg"
+                        "/profiles/tiers/deer.png"
                 )));
 
         RecordSummaryResponse response = recordService.getSummary(userId);
@@ -98,7 +98,7 @@ class RecordServiceTest {
                         "여우",
                         "S",
                         0.90,
-                        "/profiles/tiers/fox.jpg"
+                        "/profiles/tiers/fox.png"
                 )));
 
         RecordSummaryResponse response = recordService.getSummary(userId);

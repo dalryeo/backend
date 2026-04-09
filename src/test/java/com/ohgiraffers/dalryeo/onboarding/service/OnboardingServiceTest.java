@@ -143,12 +143,12 @@ class OnboardingServiceTest {
                         "사슴",
                         "B",
                         1.24,
-                        "/profiles/tiers/deer.jpg"
+                        "/profiles/tiers/deer.png"
                 )));
 
         OnboardingResponse response = onboardingService.getOnboarding(userId);
 
-        assertThat(response.getDisplayProfileImage()).isEqualTo("/profiles/tiers/deer.jpg");
+        assertThat(response.getDisplayProfileImage()).isEqualTo("/profiles/tiers/deer.png");
         assertThat(response.getCustomProfileImage()).isNull();
     }
 
@@ -165,11 +165,11 @@ class OnboardingServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(currentTierResolver.resolve(userId)).thenReturn(Optional.empty());
         when(tierService.findDefaultProfileImageByTierCode("TURTLE"))
-                .thenReturn(Optional.of("/profiles/tiers/turtle.jpg"));
+                .thenReturn(Optional.of("/profiles/tiers/turtle.png"));
 
         OnboardingResponse response = onboardingService.getOnboarding(userId);
 
-        assertThat(response.getDisplayProfileImage()).isEqualTo("/profiles/tiers/turtle.jpg");
+        assertThat(response.getDisplayProfileImage()).isEqualTo("/profiles/tiers/turtle.png");
         assertThat(response.getCustomProfileImage()).isNull();
     }
 
@@ -216,7 +216,7 @@ class OnboardingServiceTest {
         Long userId = 3L;
         EstimateTierRequest request = estimateTierRequest(5.0, 300);
         when(tierService.resolveByScore(1.24))
-                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.jpg"));
+                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.png"));
 
         EstimateTierResponse response = onboardingService.estimateTier(userId, request);
 

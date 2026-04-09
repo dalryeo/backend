@@ -51,7 +51,7 @@ class TierMetadataInitializerTest {
                 .displayName("old")
                 .minScore(0.0)
                 .maxScore(0.0)
-                .defaultProfileImage("/profiles/tiers/old.jpg")
+                .defaultProfileImage("/profiles/tiers/old.png")
                 .build();
         TierGrade existingTierGrade = TierGrade.builder()
                 .tierCode("DEER")
@@ -83,7 +83,7 @@ class TierMetadataInitializerTest {
         assertThat(existingTier.getDisplayName()).isEqualTo("사슴");
         assertThat(existingTier.getMinScore()).isEqualTo(1.20);
         assertThat(existingTier.getMaxScore()).isEqualTo(1.49);
-        assertThat(existingTier.getDefaultProfileImage()).isEqualTo("/profiles/tiers/deer.jpg");
+        assertThat(existingTier.getDefaultProfileImage()).isEqualTo("/profiles/tiers/deer.png");
         assertThat(existingTierGrade.getMinScore()).isEqualTo(1.20);
         assertThat(existingTierGrade.getMaxScore()).isEqualTo(1.28);
     }
