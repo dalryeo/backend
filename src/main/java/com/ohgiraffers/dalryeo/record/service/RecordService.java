@@ -37,11 +37,14 @@ public class RecordService {
     private final UserRepository userRepository;
     private final TierService tierService;
     private final CurrentTierResolver currentTierResolver;
+    private final RunningRecordValidator runningRecordValidator;
 
     /**
      * 러닝 기록 저장
      */
     public RecordIdResponse saveRecord(Long userId, RunningRecordRequest request) {
+        runningRecordValidator.validate(request, LocalDateTime.now());
+
         RunningRecord record = RunningRecord.builder()
                 .userId(userId)
                 .platform(request.getPlatform())

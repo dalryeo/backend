@@ -431,6 +431,71 @@ class ApiContractIntegrationTest {
     }
 
     @Test
+    void saveRecord_returnsBadRequestWhenDtoValidationFails() throws Exception {
+        User user = saveUser("runner-record-invalid-dto");
+        String accessToken = accessToken(user.getId());
+        long beforeCount = runningRecordRepository.count();
+
+        mockMvc.perform(post("/records")
+                        .header("Authorization", bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "platform": "IOS",
+                                  "distanceKm": 0.05,
+                                  "durationSec": 30,
+                                  "avgPaceSecPerKm": 100,
+                                  "avgHeartRate": 10,
+                                  "caloriesKcal": 0,
+                                  "startAt": "2026-03-31T07:00:00",
+                                  "endAt": "2026-03-31T07:00:30"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.data.message").isString())
+                .andExpect(jsonPath("$.data.errors.distanceKm").value("거리는 0.1km 이상이어야 합니다."))
+                .andExpect(jsonPath("$.data.errors.durationSec").value("시간은 60초 이상이어야 합니다."))
+                .andExpect(jsonPath("$.data.errors.avgPaceSecPerKm").value("평균 페이스는 120초/km 이상이어야 합니다."))
+                .andExpect(jsonPath("$.data.errors.avgHeartRate").value("평균 심박수는 30 이상이어야 합니다."))
+                .andExpect(jsonPath("$.data.errors.caloriesKcal").value("칼로리는 1 이상이어야 합니다."));
+
+        assertThat(runningRecordRepository.count()).isEqualTo(beforeCount);
+    }
+
+    @Test
+    void saveRecord_returnsBadRequestWhenDomainValidationFails() throws Exception {
+        User user = saveUser("runner-record-invalid-domain");
+        String accessToken = accessToken(user.getId());
+        long beforeCount = runningRecordRepository.count();
+
+        mockMvc.perform(post("/records")
+                        .header("Authorization", bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "platform": "IOS",
+                                  "distanceKm": 5.0,
+                                  "durationSec": 1500,
+                                  "avgPaceSecPerKm": 300,
+                                  "avgHeartRate": 150,
+                                  "caloriesKcal": 300,
+                                  "startAt": "2026-03-31T07:00:00",
+                                  "endAt": "2026-03-31T07:00:00"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("RC-001"))
+                .andExpect(jsonPath("$.data.message").value("종료 시간은 시작 시간보다 뒤여야 합니다."));
+
+        assertThat(runningRecordRepository.count()).isEqualTo(beforeCount);
+    }
+
+    @Test
     void getRecordSummary_keepsSummaryResponseContract() throws Exception {
         User user = saveUser(null);
         saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(2));
