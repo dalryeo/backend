@@ -56,15 +56,15 @@ public interface WeeklyUserStatsRepository extends JpaRepository<WeeklyUserStats
                 total_duration_sec = weekly_user_stats.total_duration_sec + EXCLUDED.total_duration_sec,
                 weighted_pace_sum = weekly_user_stats.weighted_pace_sum + EXCLUDED.weighted_pace_sum,
                 tier_score_sum = weekly_user_stats.tier_score_sum + EXCLUDED.tier_score_sum,
-                avg_pace_sec_per_km = CAST(ROUND(
+                avg_pace_sec_per_km = COALESCE(CAST(ROUND(
                     (weekly_user_stats.weighted_pace_sum + EXCLUDED.weighted_pace_sum)
                     / NULLIF(weekly_user_stats.total_distance_km + EXCLUDED.total_distance_km, 0)
-                ) AS INTEGER),
-                tier_score = ROUND(
+                ) AS INTEGER), 0),
+                tier_score = COALESCE(ROUND(
                     (weekly_user_stats.tier_score_sum + EXCLUDED.tier_score_sum)
                     / NULLIF(weekly_user_stats.run_count + EXCLUDED.run_count, 0),
                     2
-                ),
+                ), 0),
                 updated_at = CURRENT_TIMESTAMP
             """, nativeQuery = true)
     void upsertRecordDelta(
