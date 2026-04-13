@@ -18,5 +18,8 @@ public class CommonResponse<T> {
     public static <T> CommonResponse<T> success() {
         return new CommonResponse<>(true, null);
     }
-}
 
+    public static <T> CommonResponse<T> failure(T data) {
+        return new CommonResponse<>(false, data);
+    }
+}

@@ -3,8 +3,12 @@ package com.ohgiraffers.dalryeo.record.service;
 import com.ohgiraffers.dalryeo.auth.entity.User;
 import com.ohgiraffers.dalryeo.auth.entity.UserStatus;
 import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
+import com.ohgiraffers.dalryeo.record.dto.RecordIdResponse;
 import com.ohgiraffers.dalryeo.record.dto.RecordSummaryResponse;
+import com.ohgiraffers.dalryeo.record.dto.RunningRecordRequest;
 import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
+import com.ohgiraffers.dalryeo.record.exception.RecordValidationErrorCode;
+import com.ohgiraffers.dalryeo.record.exception.RecordValidationException;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
 import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
@@ -12,7 +16,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -20,9 +26,12 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -40,8 +49,139 @@ class RecordServiceTest {
     @Mock
     private TierService tierService;
 
+    @Spy
+    private RunningRecordValidator runningRecordValidator = new RunningRecordValidator();
+
     @InjectMocks
     private RecordService recordService;
+
+    @Test
+    void saveRecord_savesRecordWhenRequestIsValid() {
+        Long userId = 1L;
+        LocalDateTime startAt = validPastStartAt();
+        RunningRecordRequest request = request(
+                5.0,
+                1500,
+                300,
+                startAt,
+                startAt.plusMinutes(25)
+        );
+
+        when(runningRecordRepository.save(any(RunningRecord.class))).thenAnswer(invocation -> {
+            RunningRecord record = invocation.getArgument(0);
+            ReflectionTestUtils.setField(record, "id", 100L);
+            return record;
+        });
+
+        RecordIdResponse response = recordService.saveRecord(userId, request);
+
+        assertThat(response.getRecordId()).isEqualTo(100L);
+        verify(runningRecordRepository).save(any(RunningRecord.class));
+    }
+
+    @Test
+    void saveRecord_throwsWhenEndAtIsNotAfterStartAt() {
+        Long userId = 1L;
+        LocalDateTime startAt = validPastStartAt();
+        RunningRecordRequest request = request(
+                5.0,
+                1500,
+                300,
+                startAt,
+                startAt
+        );
+
+        assertThatThrownBy(() -> recordService.saveRecord(userId, request))
+                .isInstanceOf(RecordValidationException.class)
+                .extracting("errorCode")
+                .isEqualTo(RecordValidationErrorCode.INVALID_TIME_RANGE);
+
+        verify(runningRecordRepository, never()).save(any(RunningRecord.class));
+    }
+
+    @Test
+    void saveRecord_throwsWhenDurationDoesNotMatchTimeRange() {
+        Long userId = 1L;
+        LocalDateTime startAt = validPastStartAt();
+        RunningRecordRequest request = request(
+                5.0,
+                1500,
+                300,
+                startAt,
+                startAt.plusMinutes(25).plusSeconds(10)
+        );
+
+        assertThatThrownBy(() -> recordService.saveRecord(userId, request))
+                .isInstanceOf(RecordValidationException.class)
+                .extracting("errorCode")
+                .isEqualTo(RecordValidationErrorCode.INVALID_DURATION);
+
+        verify(runningRecordRepository, never()).save(any(RunningRecord.class));
+    }
+
+    @Test
+    void saveRecord_throwsWhenAveragePaceDoesNotMatchDistanceAndDuration() {
+        Long userId = 1L;
+        LocalDateTime startAt = validPastStartAt();
+        RunningRecordRequest request = request(
+                5.0,
+                1500,
+                330,
+                startAt,
+                startAt.plusMinutes(25)
+        );
+
+        assertThatThrownBy(() -> recordService.saveRecord(userId, request))
+                .isInstanceOf(RecordValidationException.class)
+                .extracting("errorCode")
+                .isEqualTo(RecordValidationErrorCode.INVALID_AVERAGE_PACE);
+
+        verify(runningRecordRepository, never()).save(any(RunningRecord.class));
+    }
+
+    @Test
+    void saveRecord_throwsWhenRecordIsTooFarInFuture() {
+        Long userId = 1L;
+        LocalDateTime startAt = LocalDateTime.now().plusMinutes(6);
+        RunningRecordRequest request = request(
+                5.0,
+                1500,
+                300,
+                startAt,
+                startAt.plusMinutes(25)
+        );
+
+        assertThatThrownBy(() -> recordService.saveRecord(userId, request))
+                .isInstanceOf(RecordValidationException.class)
+                .extracting("errorCode")
+                .isEqualTo(RecordValidationErrorCode.FUTURE_RECORD_NOT_ALLOWED);
+
+        verify(runningRecordRepository, never()).save(any(RunningRecord.class));
+    }
+
+    @Test
+    void saveRecord_allowsBoundaryToleranceForDurationAndAveragePace() {
+        Long userId = 1L;
+        LocalDateTime startAt = validPastStartAt();
+        RunningRecordRequest request = request(
+                5.0,
+                1500,
+                315,
+                startAt,
+                startAt.plusMinutes(25).plusSeconds(5)
+        );
+
+        when(runningRecordRepository.save(any(RunningRecord.class))).thenAnswer(invocation -> {
+            RunningRecord record = invocation.getArgument(0);
+            ReflectionTestUtils.setField(record, "id", 101L);
+            return record;
+        });
+
+        RecordIdResponse response = recordService.saveRecord(userId, request);
+
+        assertThat(response.getRecordId()).isEqualTo(101L);
+        verify(runningRecordRepository).save(any(RunningRecord.class));
+    }
 
     @Test
     void getSummary_usesCurrentWeekRecordsToResolveTier() {
@@ -108,5 +248,28 @@ class RecordServiceTest {
         assertThat(response.getWeeklyCount()).isEqualTo(0);
         assertThat(response.getWeeklyAvgPace()).isEqualTo(0);
         assertThat(response.getWeeklyDistance()).isEqualTo(0.0);
+    }
+
+    private RunningRecordRequest request(
+            double distanceKm,
+            int durationSec,
+            int avgPaceSecPerKm,
+            LocalDateTime startAt,
+            LocalDateTime endAt
+    ) {
+        RunningRecordRequest request = new RunningRecordRequest();
+        ReflectionTestUtils.setField(request, "platform", "IOS");
+        ReflectionTestUtils.setField(request, "distanceKm", distanceKm);
+        ReflectionTestUtils.setField(request, "durationSec", durationSec);
+        ReflectionTestUtils.setField(request, "avgPaceSecPerKm", avgPaceSecPerKm);
+        ReflectionTestUtils.setField(request, "avgHeartRate", 150);
+        ReflectionTestUtils.setField(request, "caloriesKcal", 300);
+        ReflectionTestUtils.setField(request, "startAt", startAt);
+        ReflectionTestUtils.setField(request, "endAt", endAt);
+        return request;
+    }
+
+    private LocalDateTime validPastStartAt() {
+        return LocalDateTime.now().minusMinutes(30);
     }
 }
