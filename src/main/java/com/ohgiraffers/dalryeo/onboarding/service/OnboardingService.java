@@ -9,14 +9,13 @@ import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingRequest;
 import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.ProfileImageUploadResponse;
 import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
+import com.ohgiraffers.dalryeo.tier.service.TierScoreCalculator;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.Objects;
 
 @Service
@@ -28,6 +27,7 @@ public class OnboardingService {
     private final TierService tierService;
     private final CurrentTierResolver currentTierResolver;
     private final ProfileImageStorageService profileImageStorageService;
+    private final TierScoreCalculator tierScoreCalculator;
     private static final String DEFAULT_ONBOARDING_TIER_CODE = "TURTLE";
 
     /**
@@ -114,7 +114,7 @@ public class OnboardingService {
         double distanceKm = request.getDistanceKm();
         int paceSecPerKm = request.getPaceSecPerKm();
 
-        double score = calculateTierScore(distanceKm, paceSecPerKm);
+        double score = tierScoreCalculator.calculateRecordScore(distanceKm, paceSecPerKm);
         TierService.TierInfo tierInfo = tierService.resolveByScore(score);
 
         return EstimateTierResponse.builder()
@@ -123,48 +123,6 @@ public class OnboardingService {
                 .tierGrade(tierInfo.tierGrade())
                 .score(score)
                 .build();
-    }
-
-    /**
-     * 거리와 페이스를 기반으로 티어 점수를 계산합니다.
-     * 실제 비즈니스 로직에 맞게 수정이 필요할 수 있습니다.
-     */
-    private double calculateTierScore(double distanceKm, int paceSecPerKm) {
-        double paceMinutes = round2(paceSecPerKm / 60.0);
-        double baseScore = round2(6.00 / paceMinutes);
-        double distanceWeight = getDistanceWeight(distanceKm);
-        return round2(baseScore * distanceWeight);
-    }
-
-    private double getDistanceWeight(double distanceKm) {
-        if (distanceKm < 1.00) {
-            return 0.50;
-        } else if (distanceKm < 2.00) {
-            return 0.60;
-        } else if (distanceKm < 3.00) {
-            return 0.70;
-        } else if (distanceKm < 5.00) {
-            return 1.00;
-        } else if (distanceKm < 7.00) {
-            return 1.03;
-        } else if (distanceKm < 9.00) {
-            return 1.05;
-        } else if (distanceKm < 11.00) {
-            return 1.06;
-        } else if (distanceKm < 15.00) {
-            return 1.07;
-        } else if (distanceKm < 25.00) {
-            return 1.08;
-        } else if (distanceKm < 40.00) {
-            return 1.09;
-        }
-        return 1.10;
-    }
-
-    private double round2(double value) {
-        return BigDecimal.valueOf(value)
-                .setScale(2, RoundingMode.HALF_UP)
-                .doubleValue();
     }
 
     private String resolveDisplayProfileImage(User user, Long userId) {
