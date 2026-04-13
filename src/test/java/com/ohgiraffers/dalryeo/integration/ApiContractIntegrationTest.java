@@ -10,7 +10,11 @@ import com.ohgiraffers.dalryeo.auth.repository.AuthTokenRepository;
 import com.ohgiraffers.dalryeo.auth.repository.OAuthClientRepository;
 import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
 import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
+import com.ohgiraffers.dalryeo.record.dto.RecordIdResponse;
+import com.ohgiraffers.dalryeo.record.dto.RunningRecordRequest;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
+import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
+import com.ohgiraffers.dalryeo.record.service.RecordService;
 import com.ohgiraffers.dalryeo.tier.entity.Tier;
 import com.ohgiraffers.dalryeo.tier.entity.TierGrade;
 import com.ohgiraffers.dalryeo.tier.repository.TierGradeRepository;
@@ -75,6 +79,12 @@ class ApiContractIntegrationTest {
     private RunningRecordRepository runningRecordRepository;
 
     @Autowired
+    private WeeklyUserStatsRepository weeklyUserStatsRepository;
+
+    @Autowired
+    private RecordService recordService;
+
+    @Autowired
     private WeeklyTierRepository weeklyTierRepository;
 
     @Autowired
@@ -97,6 +107,7 @@ class ApiContractIntegrationTest {
         authTokenRepository.deleteAll();
         oAuthClientRepository.deleteAll();
         weeklyTierRepository.deleteAll();
+        weeklyUserStatsRepository.deleteAll();
         runningRecordRepository.deleteAll();
         userRepository.deleteAll();
         tierGradeRepository.deleteAll();
@@ -428,6 +439,14 @@ class ApiContractIntegrationTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.recordId").isNumber());
+
+        LocalDate weekStart = LocalDate.of(2026, 3, 30);
+        var weeklyStats = weeklyUserStatsRepository.findByUserIdAndWeekStartDate(user.getId(), weekStart)
+                .orElseThrow();
+        assertThat(weeklyStats.getRunCount()).isEqualTo(1);
+        assertThat(weeklyStats.totalDistanceAsDouble()).isEqualTo(5.0);
+        assertThat(weeklyStats.getAvgPaceSecPerKm()).isEqualTo(300);
+        assertThat(weeklyStats.tierScoreAsDouble()).isEqualTo(1.24);
     }
 
     @Test
@@ -435,6 +454,7 @@ class ApiContractIntegrationTest {
         User user = saveUser("runner-record-invalid-dto");
         String accessToken = accessToken(user.getId());
         long beforeCount = runningRecordRepository.count();
+        long beforeStatsCount = weeklyUserStatsRepository.count();
 
         mockMvc.perform(post("/records")
                         .header("Authorization", bearer(accessToken))
@@ -463,6 +483,7 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.data.errors.caloriesKcal").value("칼로리는 1 이상이어야 합니다."));
 
         assertThat(runningRecordRepository.count()).isEqualTo(beforeCount);
+        assertThat(weeklyUserStatsRepository.count()).isEqualTo(beforeStatsCount);
     }
 
     @Test
@@ -470,6 +491,7 @@ class ApiContractIntegrationTest {
         User user = saveUser("runner-record-invalid-domain");
         String accessToken = accessToken(user.getId());
         long beforeCount = runningRecordRepository.count();
+        long beforeStatsCount = weeklyUserStatsRepository.count();
 
         mockMvc.perform(post("/records")
                         .header("Authorization", bearer(accessToken))
@@ -493,6 +515,7 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.data.message").value("종료 시간은 시작 시간보다 뒤여야 합니다."));
 
         assertThat(runningRecordRepository.count()).isEqualTo(beforeCount);
+        assertThat(weeklyUserStatsRepository.count()).isEqualTo(beforeStatsCount);
     }
 
     @Test
@@ -716,17 +739,18 @@ class ApiContractIntegrationTest {
     }
 
     private RunningRecord saveRecord(Long userId, double distanceKm, int avgPaceSecPerKm, LocalDateTime startAt) {
-        return runningRecordRepository.save(RunningRecord.builder()
-                .userId(userId)
-                .platform("IOS")
-                .distanceKm(distanceKm)
-                .durationSec((int) Math.round(distanceKm * avgPaceSecPerKm))
-                .avgPaceSecPerKm(avgPaceSecPerKm)
-                .avgHeartRate(150)
-                .caloriesKcal(300)
-                .startAt(startAt)
-                .endAt(startAt.plusSeconds((long) Math.round(distanceKm * avgPaceSecPerKm)))
-                .build());
+        RunningRecordRequest request = new RunningRecordRequest();
+        ReflectionTestUtils.setField(request, "platform", "IOS");
+        ReflectionTestUtils.setField(request, "distanceKm", distanceKm);
+        ReflectionTestUtils.setField(request, "durationSec", (int) Math.round(distanceKm * avgPaceSecPerKm));
+        ReflectionTestUtils.setField(request, "avgPaceSecPerKm", avgPaceSecPerKm);
+        ReflectionTestUtils.setField(request, "avgHeartRate", 150);
+        ReflectionTestUtils.setField(request, "caloriesKcal", 300);
+        ReflectionTestUtils.setField(request, "startAt", startAt);
+        ReflectionTestUtils.setField(request, "endAt", startAt.plusSeconds((long) Math.round(distanceKm * avgPaceSecPerKm)));
+
+        RecordIdResponse response = recordService.saveRecord(userId, request);
+        return runningRecordRepository.findById(response.getRecordId()).orElseThrow();
     }
 
     private String accessToken(Long userId) {

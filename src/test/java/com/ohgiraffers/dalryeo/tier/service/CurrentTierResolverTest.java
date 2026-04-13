@@ -1,13 +1,14 @@
 package com.ohgiraffers.dalryeo.tier.service;
 
 import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
-import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
+import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
 import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
@@ -22,13 +23,16 @@ import static org.mockito.Mockito.when;
 class CurrentTierResolverTest {
 
     @Mock
-    private RunningRecordRepository runningRecordRepository;
+    private WeeklyUserStatsRepository weeklyUserStatsRepository;
 
     @Mock
     private WeeklyTierRepository weeklyTierRepository;
 
     @Mock
     private TierService tierService;
+
+    @Spy
+    private TierScoreCalculator tierScoreCalculator = new TierScoreCalculator();
 
     @InjectMocks
     private CurrentTierResolver currentTierResolver;

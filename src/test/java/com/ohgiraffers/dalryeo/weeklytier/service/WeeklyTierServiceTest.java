@@ -1,6 +1,7 @@
 package com.ohgiraffers.dalryeo.weeklytier.service;
 
-import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
+import com.ohgiraffers.dalryeo.record.entity.WeeklyUserStats;
+import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
 import com.ohgiraffers.dalryeo.weeklytier.dto.WeeklyTierResponse;
 import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
@@ -13,13 +14,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
+import java.math.BigDecimal;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -29,7 +28,7 @@ class WeeklyTierServiceTest {
     private WeeklyTierRepository weeklyTierRepository;
 
     @Mock
-    private RunningRecordRepository runningRecordRepository;
+    private WeeklyUserStatsRepository weeklyUserStatsRepository;
 
     @Mock
     private TierService tierService;
@@ -40,9 +39,10 @@ class WeeklyTierServiceTest {
     @Test
     void getCurrentWeeklyTier_returnsNullWhenCurrentWeekRecordExists() {
         Long userId = 1L;
+        LocalDate weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
 
-        when(runningRecordRepository.existsByUserIdAndWeekRange(eq(userId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(true);
+        when(weeklyUserStatsRepository.findByUserIdAndWeekStartDate(userId, weekStart))
+                .thenReturn(Optional.of(weeklyStats(userId, weekStart)));
 
         WeeklyTierResponse response = weeklyTierService.getCurrentWeeklyTier(userId);
 
@@ -54,8 +54,8 @@ class WeeklyTierServiceTest {
         Long userId = 2L;
         LocalDate weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
 
-        when(runningRecordRepository.existsByUserIdAndWeekRange(eq(userId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(false);
+        when(weeklyUserStatsRepository.findByUserIdAndWeekStartDate(userId, weekStart))
+                .thenReturn(Optional.empty());
         when(weeklyTierRepository.findByUserIdAndWeekStartDate(userId, weekStart))
                 .thenReturn(Optional.empty());
 
@@ -75,8 +75,8 @@ class WeeklyTierServiceTest {
                 .tierScore(157)
                 .build();
 
-        when(runningRecordRepository.existsByUserIdAndWeekRange(eq(userId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(false);
+        when(weeklyUserStatsRepository.findByUserIdAndWeekStartDate(userId, weekStart))
+                .thenReturn(Optional.empty());
         when(weeklyTierRepository.findByUserIdAndWeekStartDate(userId, weekStart))
                 .thenReturn(Optional.of(weeklyTier));
         when(tierService.resolveByTierCodeAndScore("CHEETAH", 1.57))
@@ -89,5 +89,19 @@ class WeeklyTierServiceTest {
         assertThat(response.getTierCode()).isEqualTo("CHEETAH");
         assertThat(response.getTierGrade()).isEqualTo("S");
         assertThat(response.getTierScore()).isEqualTo(1.57);
+    }
+
+    private WeeklyUserStats weeklyStats(Long userId, LocalDate weekStart) {
+        return WeeklyUserStats.builder()
+                .userId(userId)
+                .weekStartDate(weekStart)
+                .runCount(1)
+                .totalDistanceKm(BigDecimal.valueOf(5.000))
+                .totalDurationSec(1500)
+                .weightedPaceSum(BigDecimal.valueOf(1500.000))
+                .avgPaceSecPerKm(300)
+                .tierScoreSum(BigDecimal.valueOf(1.24))
+                .tierScore(BigDecimal.valueOf(1.24))
+                .build();
     }
 }
