@@ -58,12 +58,13 @@ class RecordServiceTest {
     @Test
     void saveRecord_savesRecordWhenRequestIsValid() {
         Long userId = 1L;
+        LocalDateTime startAt = validPastStartAt();
         RunningRecordRequest request = request(
                 5.0,
                 1500,
                 300,
-                LocalDateTime.of(2026, 4, 10, 7, 0),
-                LocalDateTime.of(2026, 4, 10, 7, 25)
+                startAt,
+                startAt.plusMinutes(25)
         );
 
         when(runningRecordRepository.save(any(RunningRecord.class))).thenAnswer(invocation -> {
@@ -81,7 +82,7 @@ class RecordServiceTest {
     @Test
     void saveRecord_throwsWhenEndAtIsNotAfterStartAt() {
         Long userId = 1L;
-        LocalDateTime startAt = LocalDateTime.of(2026, 4, 10, 7, 0);
+        LocalDateTime startAt = validPastStartAt();
         RunningRecordRequest request = request(
                 5.0,
                 1500,
@@ -101,12 +102,13 @@ class RecordServiceTest {
     @Test
     void saveRecord_throwsWhenDurationDoesNotMatchTimeRange() {
         Long userId = 1L;
+        LocalDateTime startAt = validPastStartAt();
         RunningRecordRequest request = request(
                 5.0,
                 1500,
                 300,
-                LocalDateTime.of(2026, 4, 10, 7, 0),
-                LocalDateTime.of(2026, 4, 10, 7, 25, 10)
+                startAt,
+                startAt.plusMinutes(25).plusSeconds(10)
         );
 
         assertThatThrownBy(() -> recordService.saveRecord(userId, request))
@@ -120,12 +122,13 @@ class RecordServiceTest {
     @Test
     void saveRecord_throwsWhenAveragePaceDoesNotMatchDistanceAndDuration() {
         Long userId = 1L;
+        LocalDateTime startAt = validPastStartAt();
         RunningRecordRequest request = request(
                 5.0,
                 1500,
                 330,
-                LocalDateTime.of(2026, 4, 10, 7, 0),
-                LocalDateTime.of(2026, 4, 10, 7, 25)
+                startAt,
+                startAt.plusMinutes(25)
         );
 
         assertThatThrownBy(() -> recordService.saveRecord(userId, request))
@@ -159,12 +162,13 @@ class RecordServiceTest {
     @Test
     void saveRecord_allowsBoundaryToleranceForDurationAndAveragePace() {
         Long userId = 1L;
+        LocalDateTime startAt = validPastStartAt();
         RunningRecordRequest request = request(
                 5.0,
                 1500,
                 315,
-                LocalDateTime.of(2026, 4, 10, 7, 0),
-                LocalDateTime.of(2026, 4, 10, 7, 25, 5)
+                startAt,
+                startAt.plusMinutes(25).plusSeconds(5)
         );
 
         when(runningRecordRepository.save(any(RunningRecord.class))).thenAnswer(invocation -> {
@@ -263,5 +267,9 @@ class RecordServiceTest {
         ReflectionTestUtils.setField(request, "startAt", startAt);
         ReflectionTestUtils.setField(request, "endAt", endAt);
         return request;
+    }
+
+    private LocalDateTime validPastStartAt() {
+        return LocalDateTime.now().minusMinutes(30);
     }
 }
