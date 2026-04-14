@@ -431,8 +431,8 @@ class ApiContractIntegrationTest {
                                   "avgPaceSecPerKm": 300,
                                   "avgHeartRate": 150,
                                   "caloriesKcal": 300,
-                                  "startAt": "2026-03-31T07:00:00",
-                                  "endAt": "2026-03-31T07:25:00"
+                                  "startAt": "2026-03-31T07:00:00+09:00",
+                                  "endAt": "2026-03-31T07:25:00+09:00"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -467,8 +467,8 @@ class ApiContractIntegrationTest {
                                   "avgPaceSecPerKm": 100,
                                   "avgHeartRate": 10,
                                   "caloriesKcal": 0,
-                                  "startAt": "2026-03-31T07:00:00",
-                                  "endAt": "2026-03-31T07:00:30"
+                                  "startAt": "2026-03-31T07:00:00+09:00",
+                                  "endAt": "2026-03-31T07:00:30+09:00"
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
@@ -504,8 +504,8 @@ class ApiContractIntegrationTest {
                                   "avgPaceSecPerKm": 300,
                                   "avgHeartRate": 150,
                                   "caloriesKcal": 300,
-                                  "startAt": "2026-03-31T07:00:00",
-                                  "endAt": "2026-03-31T07:00:00"
+                                  "startAt": "2026-03-31T07:00:00+09:00",
+                                  "endAt": "2026-03-31T07:00:00+09:00"
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
@@ -516,6 +516,36 @@ class ApiContractIntegrationTest {
 
         assertThat(runningRecordRepository.count()).isEqualTo(beforeCount);
         assertThat(weeklyUserStatsRepository.count()).isEqualTo(beforeStatsCount);
+    }
+
+    @Test
+    void saveRecord_returnsBadRequestWhenDateTimeOffsetIsMissing() throws Exception {
+        User user = saveUser("runner-record-missing-offset");
+        String accessToken = accessToken(user.getId());
+        long beforeCount = runningRecordRepository.count();
+
+        mockMvc.perform(post("/records")
+                        .header("Authorization", bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "platform": "IOS",
+                                  "distanceKm": 5.0,
+                                  "durationSec": 1500,
+                                  "avgPaceSecPerKm": 300,
+                                  "avgHeartRate": 150,
+                                  "caloriesKcal": 300,
+                                  "startAt": "2026-03-31T07:00:00",
+                                  "endAt": "2026-03-31T07:25:00"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.data.message").value("요청 본문을 읽을 수 없습니다."));
+
+        assertThat(runningRecordRepository.count()).isEqualTo(beforeCount);
     }
 
     @Test

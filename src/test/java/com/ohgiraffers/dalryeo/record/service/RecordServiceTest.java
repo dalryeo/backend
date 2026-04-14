@@ -15,6 +15,7 @@ import com.ohgiraffers.dalryeo.tier.service.TierScoreCalculator;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -23,6 +24,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -37,6 +40,8 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class RecordServiceTest {
+
+    private static final ZoneId SERVICE_ZONE_ID = ZoneId.of("Asia/Seoul");
 
     @Mock
     private RunningRecordRepository runningRecordRepository;
@@ -65,7 +70,7 @@ class RecordServiceTest {
     @Test
     void saveRecord_savesRecordWhenRequestIsValid() {
         Long userId = 1L;
-        LocalDateTime startAt = validPastStartAt();
+        OffsetDateTime startAt = validPastStartAt();
         RunningRecordRequest request = request(
                 5.0,
                 1500,
@@ -82,15 +87,20 @@ class RecordServiceTest {
 
         RecordIdResponse response = recordService.saveRecord(userId, request);
 
+        ArgumentCaptor<RunningRecord> recordCaptor = ArgumentCaptor.forClass(RunningRecord.class);
         assertThat(response.getRecordId()).isEqualTo(100L);
-        verify(runningRecordRepository).save(any(RunningRecord.class));
+        verify(runningRecordRepository).save(recordCaptor.capture());
+        assertThat(recordCaptor.getValue().getStartAt())
+                .isEqualTo(startAt.atZoneSameInstant(SERVICE_ZONE_ID).toLocalDateTime());
+        assertThat(recordCaptor.getValue().getEndAt())
+                .isEqualTo(startAt.plusMinutes(25).atZoneSameInstant(SERVICE_ZONE_ID).toLocalDateTime());
         verify(weeklyUserStatsService).applyRecord(any(RunningRecord.class));
     }
 
     @Test
     void saveRecord_throwsWhenEndAtIsNotAfterStartAt() {
         Long userId = 1L;
-        LocalDateTime startAt = validPastStartAt();
+        OffsetDateTime startAt = validPastStartAt();
         RunningRecordRequest request = request(
                 5.0,
                 1500,
@@ -110,7 +120,7 @@ class RecordServiceTest {
     @Test
     void saveRecord_throwsWhenDurationDoesNotMatchTimeRange() {
         Long userId = 1L;
-        LocalDateTime startAt = validPastStartAt();
+        OffsetDateTime startAt = validPastStartAt();
         RunningRecordRequest request = request(
                 5.0,
                 1500,
@@ -130,7 +140,7 @@ class RecordServiceTest {
     @Test
     void saveRecord_throwsWhenAveragePaceDoesNotMatchDistanceAndDuration() {
         Long userId = 1L;
-        LocalDateTime startAt = validPastStartAt();
+        OffsetDateTime startAt = validPastStartAt();
         RunningRecordRequest request = request(
                 5.0,
                 1500,
@@ -150,7 +160,7 @@ class RecordServiceTest {
     @Test
     void saveRecord_throwsWhenRecordIsTooFarInFuture() {
         Long userId = 1L;
-        LocalDateTime startAt = LocalDateTime.now().plusMinutes(6);
+        OffsetDateTime startAt = OffsetDateTime.now().plusMinutes(6);
         RunningRecordRequest request = request(
                 5.0,
                 1500,
@@ -170,7 +180,7 @@ class RecordServiceTest {
     @Test
     void saveRecord_allowsBoundaryToleranceForDurationAndAveragePace() {
         Long userId = 1L;
-        LocalDateTime startAt = validPastStartAt();
+        OffsetDateTime startAt = validPastStartAt();
         RunningRecordRequest request = request(
                 5.0,
                 1500,
@@ -265,8 +275,8 @@ class RecordServiceTest {
             double distanceKm,
             int durationSec,
             int avgPaceSecPerKm,
-            LocalDateTime startAt,
-            LocalDateTime endAt
+            OffsetDateTime startAt,
+            OffsetDateTime endAt
     ) {
         RunningRecordRequest request = new RunningRecordRequest();
         ReflectionTestUtils.setField(request, "platform", "IOS");
@@ -280,7 +290,7 @@ class RecordServiceTest {
         return request;
     }
 
-    private LocalDateTime validPastStartAt() {
-        return LocalDateTime.now().minusMinutes(30);
+    private OffsetDateTime validPastStartAt() {
+        return OffsetDateTime.now(SERVICE_ZONE_ID).minusMinutes(30);
     }
 }

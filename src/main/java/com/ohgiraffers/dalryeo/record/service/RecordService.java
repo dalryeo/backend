@@ -21,8 +21,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +35,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 public class RecordService {
+
+    private static final ZoneId SERVICE_ZONE_ID = ZoneId.of("Asia/Seoul");
 
     private final RunningRecordRepository runningRecordRepository;
     private final UserRepository userRepository;
@@ -45,7 +50,7 @@ public class RecordService {
      * 러닝 기록 저장
      */
     public RecordIdResponse saveRecord(Long userId, RunningRecordRequest request) {
-        runningRecordValidator.validate(request, LocalDateTime.now());
+        runningRecordValidator.validate(request, Instant.now());
 
         RunningRecord record = RunningRecord.builder()
                 .userId(userId)
@@ -55,8 +60,8 @@ public class RecordService {
                 .avgPaceSecPerKm(request.getAvgPaceSecPerKm())
                 .avgHeartRate(request.getAvgHeartRate())
                 .caloriesKcal(request.getCaloriesKcal())
-                .startAt(request.getStartAt())
-                .endAt(request.getEndAt())
+                .startAt(toServiceLocalDateTime(request.getStartAt()))
+                .endAt(toServiceLocalDateTime(request.getEndAt()))
                 .build();
 
         RunningRecord savedRecord = runningRecordRepository.save(record);
@@ -65,6 +70,11 @@ public class RecordService {
         return RecordIdResponse.builder()
                 .recordId(savedRecord.getId())
                 .build();
+    }
+
+    private LocalDateTime toServiceLocalDateTime(OffsetDateTime dateTime) {
+        return dateTime.atZoneSameInstant(SERVICE_ZONE_ID)
+                .toLocalDateTime();
     }
 
     /**
