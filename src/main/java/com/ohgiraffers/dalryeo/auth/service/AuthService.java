@@ -15,6 +15,7 @@ import com.ohgiraffers.dalryeo.auth.repository.OAuthClientRepository;
 import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
 import com.ohgiraffers.dalryeo.onboarding.service.ProfileImageStorageService;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
+import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +43,7 @@ public class AuthService {
     private final OAuthClientRepository oAuthClientRepository;
     private final AuthTokenRepository authTokenRepository;
     private final RunningRecordRepository runningRecordRepository;
+    private final WeeklyUserStatsRepository weeklyUserStatsRepository;
     private final WeeklyTierRepository weeklyTierRepository;
     private final ProfileImageStorageService profileImageStorageService;
 
@@ -151,6 +153,7 @@ public class AuthService {
         String previousProfileImage = user.getProfileImage();
         authTokenRepository.deleteByUserId(userId);
         weeklyTierRepository.deleteByUserId(userId);
+        weeklyUserStatsRepository.deleteByUserId(userId);
         runningRecordRepository.deleteByUserId(userId);
         user.withdraw();
         userRepository.save(user);

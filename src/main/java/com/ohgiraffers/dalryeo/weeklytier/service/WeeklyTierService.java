@@ -1,6 +1,7 @@
 package com.ohgiraffers.dalryeo.weeklytier.service;
 
-import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
+import com.ohgiraffers.dalryeo.record.entity.WeeklyUserStats;
+import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
 import com.ohgiraffers.dalryeo.weeklytier.dto.WeeklyTierResponse;
 import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
@@ -13,7 +14,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
 import java.util.Optional;
 
@@ -23,18 +23,16 @@ import java.util.Optional;
 public class WeeklyTierService {
 
     private final WeeklyTierRepository weeklyTierRepository;
-    private final RunningRecordRepository runningRecordRepository;
+    private final WeeklyUserStatsRepository weeklyUserStatsRepository;
     private final TierService tierService;
 
     @Transactional(readOnly = true)
     public WeeklyTierResponse getCurrentWeeklyTier(Long userId) {
         LocalDate weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-        LocalDateTime startDateTime = weekStart.atStartOfDay();
-        LocalDateTime endDateTime = weekStart.plusDays(7).atStartOfDay();
-
-        boolean hasWeeklyRecords = runningRecordRepository.existsByUserIdAndWeekRange(
-                userId, startDateTime, endDateTime);
-        if (hasWeeklyRecords) {
+        boolean hasCurrentWeeklyStats = weeklyUserStatsRepository.findByUserIdAndWeekStartDate(userId, weekStart)
+                .filter(WeeklyUserStats::hasRecords)
+                .isPresent();
+        if (hasCurrentWeeklyStats) {
             return null;
         }
 

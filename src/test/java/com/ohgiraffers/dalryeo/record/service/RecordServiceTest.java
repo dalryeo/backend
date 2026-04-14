@@ -11,6 +11,7 @@ import com.ohgiraffers.dalryeo.record.exception.RecordValidationErrorCode;
 import com.ohgiraffers.dalryeo.record.exception.RecordValidationException;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
 import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
+import com.ohgiraffers.dalryeo.tier.service.TierScoreCalculator;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -49,8 +50,14 @@ class RecordServiceTest {
     @Mock
     private TierService tierService;
 
+    @Mock
+    private WeeklyUserStatsService weeklyUserStatsService;
+
     @Spy
     private RunningRecordValidator runningRecordValidator = new RunningRecordValidator();
+
+    @Spy
+    private TierScoreCalculator tierScoreCalculator = new TierScoreCalculator();
 
     @InjectMocks
     private RecordService recordService;
@@ -77,6 +84,7 @@ class RecordServiceTest {
 
         assertThat(response.getRecordId()).isEqualTo(100L);
         verify(runningRecordRepository).save(any(RunningRecord.class));
+        verify(weeklyUserStatsService).applyRecord(any(RunningRecord.class));
     }
 
     @Test
@@ -181,6 +189,7 @@ class RecordServiceTest {
 
         assertThat(response.getRecordId()).isEqualTo(101L);
         verify(runningRecordRepository).save(any(RunningRecord.class));
+        verify(weeklyUserStatsService).applyRecord(any(RunningRecord.class));
     }
 
     @Test
@@ -189,6 +198,7 @@ class RecordServiceTest {
         User user = User.builder()
                 .status(UserStatus.NORMAL)
                 .build();
+        ReflectionTestUtils.setField(user, "id", userId);
         RunningRecord runningRecord = RunningRecord.builder()
                 .userId(userId)
                 .platform("IOS")
@@ -228,6 +238,7 @@ class RecordServiceTest {
         User user = User.builder()
                 .status(UserStatus.NORMAL)
                 .build();
+        ReflectionTestUtils.setField(user, "id", userId);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(runningRecordRepository.findByUserIdAndWeekRange(eq(userId), any(LocalDateTime.class), any(LocalDateTime.class)))

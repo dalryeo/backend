@@ -6,8 +6,8 @@ import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
 import com.ohgiraffers.dalryeo.ranking.dto.DistanceRankingResponse;
 import com.ohgiraffers.dalryeo.ranking.dto.RankingMeResponse;
 import com.ohgiraffers.dalryeo.ranking.dto.ScoreRankingResponse;
-import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
-import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
+import com.ohgiraffers.dalryeo.record.entity.WeeklyUserStats;
+import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,20 +16,22 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.time.LocalDateTime;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class RankingServiceTest {
 
     @Mock
-    private RunningRecordRepository runningRecordRepository;
+    private WeeklyUserStatsRepository weeklyUserStatsRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -41,21 +43,18 @@ class RankingServiceTest {
     private RankingService rankingService;
 
     @Test
-    void getWeeklyScoreRanking_returnsOnlyActiveRankedUsersInDescendingScoreOrder() {
+    void getWeeklyScoreRanking_returnsRankedUsersFromWeeklyStatsInDescendingScoreOrder() {
         User alpha = user(1L, "alpha", UserStatus.NORMAL);
         User beta = user(2L, "beta", UserStatus.NORMAL);
-        User withdrawn = user(3L, "withdrawn", UserStatus.WITHDRAWN);
-        User noNickname = user(4L, null, UserStatus.NORMAL);
+        WeeklyUserStats betaStats = weeklyStats(2L, 10.0, 300, 1.27);
+        WeeklyUserStats alphaStats = weeklyStats(1L, 5.0, 300, 1.24);
 
-        when(userRepository.findAll()).thenReturn(List.of(alpha, beta, withdrawn, noNickname));
-        when(runningRecordRepository.findByWeekRange(any(), any())).thenReturn(List.of(
-                record(1L, 5.0, 300),
-                record(2L, 10.0, 300),
-                record(3L, 20.0, 280)
-        ));
-        when(tierService.resolveByScore(1.24))
-                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.png"));
+        when(weeklyUserStatsRepository.findScoreRankingRows(any(LocalDate.class), eq(100)))
+                .thenReturn(List.of(betaStats, alphaStats));
+        when(userRepository.findAllById(List.of(2L, 1L))).thenReturn(List.of(beta, alpha));
         when(tierService.resolveByScore(1.27))
+                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.png"));
+        when(tierService.resolveByScore(1.24))
                 .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.png"));
 
         List<ScoreRankingResponse> response = rankingService.getWeeklyScoreRanking();
@@ -72,18 +71,18 @@ class RankingServiceTest {
     }
 
     @Test
-    void getWeeklyDistanceRanking_returnsOnlyActiveRankedUsersInDescendingDistanceOrder() {
+    void getWeeklyDistanceRanking_returnsRankedUsersFromWeeklyStatsInDescendingDistanceOrder() {
         User alpha = user(1L, "alpha", UserStatus.NORMAL);
         User beta = user(2L, "beta", UserStatus.NORMAL);
+        WeeklyUserStats betaStats = weeklyStats(2L, 10.0, 300, 1.27);
+        WeeklyUserStats alphaStats = weeklyStats(1L, 5.0, 300, 1.24);
 
-        when(userRepository.findAll()).thenReturn(List.of(alpha, beta));
-        when(runningRecordRepository.findByWeekRange(any(), any())).thenReturn(List.of(
-                record(1L, 5.0, 300),
-                record(2L, 10.0, 300)
-        ));
-        when(tierService.resolveByScore(1.24))
-                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.png"));
+        when(weeklyUserStatsRepository.findDistanceRankingRows(any(LocalDate.class), eq(100)))
+                .thenReturn(List.of(betaStats, alphaStats));
+        when(userRepository.findAllById(List.of(2L, 1L))).thenReturn(List.of(beta, alpha));
         when(tierService.resolveByScore(1.27))
+                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.png"));
+        when(tierService.resolveByScore(1.24))
                 .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.png"));
 
         List<DistanceRankingResponse> response = rankingService.getWeeklyDistanceRanking();
@@ -98,17 +97,26 @@ class RankingServiceTest {
     }
 
     @Test
-    void getMyRanking_returnsMyRanksAndWeeklyStats() {
+    void getMyRanking_returnsMyRanksAndWeeklyStatsFromCountQueries() {
         Long userId = 1L;
         User alpha = user(1L, "alpha", UserStatus.NORMAL);
-        User beta = user(2L, "beta", UserStatus.NORMAL);
+        WeeklyUserStats alphaStats = weeklyStats(1L, 5.0, 300, 1.24);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(alpha));
-        when(userRepository.findAll()).thenReturn(List.of(alpha, beta));
-        when(runningRecordRepository.findByWeekRange(any(), any())).thenReturn(List.of(
-                record(1L, 5.0, 300),
-                record(2L, 10.0, 300)
-        ));
+        when(weeklyUserStatsRepository.findByUserIdAndWeekStartDate(eq(userId), any(LocalDate.class)))
+                .thenReturn(Optional.of(alphaStats));
+        when(weeklyUserStatsRepository.countAheadForScoreRank(
+                any(LocalDate.class),
+                eq(BigDecimal.valueOf(1.24)),
+                eq(BigDecimal.valueOf(5.000).setScale(3)),
+                eq(userId)
+        )).thenReturn(1L);
+        when(weeklyUserStatsRepository.countAheadForDistanceRank(
+                any(LocalDate.class),
+                eq(BigDecimal.valueOf(5.000).setScale(3)),
+                eq(BigDecimal.valueOf(1.24)),
+                eq(userId)
+        )).thenReturn(1L);
         when(tierService.resolveByScore(1.24))
                 .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.png"));
 
@@ -145,17 +153,18 @@ class RankingServiceTest {
         return user;
     }
 
-    private RunningRecord record(Long userId, double distanceKm, int avgPaceSecPerKm) {
-        return RunningRecord.builder()
+    private WeeklyUserStats weeklyStats(Long userId, double distanceKm, int avgPaceSecPerKm, double tierScore) {
+        BigDecimal distance = BigDecimal.valueOf(distanceKm).setScale(3);
+        return WeeklyUserStats.builder()
                 .userId(userId)
-                .platform("IOS")
-                .distanceKm(distanceKm)
-                .durationSec((int) Math.round(distanceKm * avgPaceSecPerKm))
+                .weekStartDate(LocalDate.of(2026, 3, 30))
+                .runCount(1)
+                .totalDistanceKm(distance)
+                .totalDurationSec((int) Math.round(distanceKm * avgPaceSecPerKm))
+                .weightedPaceSum(distance.multiply(BigDecimal.valueOf(avgPaceSecPerKm)).setScale(3))
                 .avgPaceSecPerKm(avgPaceSecPerKm)
-                .avgHeartRate(150)
-                .caloriesKcal(300)
-                .startAt(LocalDateTime.of(2026, 3, 31, 7, 0))
-                .endAt(LocalDateTime.of(2026, 3, 31, 7, 30))
+                .tierScoreSum(BigDecimal.valueOf(tierScore))
+                .tierScore(BigDecimal.valueOf(tierScore))
                 .build();
     }
 }

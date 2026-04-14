@@ -10,11 +10,13 @@ import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingRequest;
 import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.ProfileImageUploadResponse;
 import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
+import com.ohgiraffers.dalryeo.tier.service.TierScoreCalculator;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -43,6 +45,9 @@ class OnboardingServiceTest {
 
     @Mock
     private ProfileImageStorageService profileImageStorageService;
+
+    @Spy
+    private TierScoreCalculator tierScoreCalculator = new TierScoreCalculator();
 
     @InjectMocks
     private OnboardingService onboardingService;

@@ -15,6 +15,7 @@ import com.ohgiraffers.dalryeo.auth.repository.OAuthClientRepository;
 import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
 import com.ohgiraffers.dalryeo.onboarding.service.ProfileImageStorageService;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
+import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -64,6 +65,9 @@ class AuthServiceTest {
 
     @Mock
     private WeeklyTierRepository weeklyTierRepository;
+
+    @Mock
+    private WeeklyUserStatsRepository weeklyUserStatsRepository;
 
     @Mock
     private ProfileImageStorageService profileImageStorageService;
@@ -220,6 +224,7 @@ class AuthServiceTest {
 
         verify(authTokenRepository).deleteByUserId(userId);
         verify(weeklyTierRepository).deleteByUserId(userId);
+        verify(weeklyUserStatsRepository).deleteByUserId(userId);
         verify(runningRecordRepository).deleteByUserId(userId);
         verify(userRepository).save(user);
         verify(profileImageStorageService).deleteStoredProfileImage("/profiles/custom/original.png");
