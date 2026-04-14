@@ -15,6 +15,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -24,6 +25,8 @@ import static org.mockito.Mockito.doThrow;
 @SpringBootTest
 @ActiveProfiles("test")
 class RecordSaveTransactionIntegrationTest {
+
+    private static final ZoneOffset TEST_ZONE_OFFSET = ZoneOffset.ofHours(9);
 
     @Autowired
     private RecordService recordService;
@@ -73,8 +76,8 @@ class RecordSaveTransactionIntegrationTest {
         ReflectionTestUtils.setField(request, "avgPaceSecPerKm", 300);
         ReflectionTestUtils.setField(request, "avgHeartRate", 150);
         ReflectionTestUtils.setField(request, "caloriesKcal", 300);
-        ReflectionTestUtils.setField(request, "startAt", startAt);
-        ReflectionTestUtils.setField(request, "endAt", startAt.plusSeconds(1500));
+        ReflectionTestUtils.setField(request, "startAt", startAt.atOffset(TEST_ZONE_OFFSET));
+        ReflectionTestUtils.setField(request, "endAt", startAt.plusSeconds(1500).atOffset(TEST_ZONE_OFFSET));
         return request;
     }
 }

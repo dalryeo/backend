@@ -17,12 +17,15 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @ActiveProfiles("test")
 class RecordAggregationIntegrationTest {
+
+    private static final ZoneOffset TEST_ZONE_OFFSET = ZoneOffset.ofHours(9);
 
     @Autowired
     private RecordService recordService;
@@ -84,8 +87,8 @@ class RecordAggregationIntegrationTest {
         ReflectionTestUtils.setField(request, "avgPaceSecPerKm", avgPaceSecPerKm);
         ReflectionTestUtils.setField(request, "avgHeartRate", 150);
         ReflectionTestUtils.setField(request, "caloriesKcal", 300);
-        ReflectionTestUtils.setField(request, "startAt", startAt);
-        ReflectionTestUtils.setField(request, "endAt", startAt.plusSeconds(durationSec));
+        ReflectionTestUtils.setField(request, "startAt", startAt.atOffset(TEST_ZONE_OFFSET));
+        ReflectionTestUtils.setField(request, "endAt", startAt.plusSeconds(durationSec).atOffset(TEST_ZONE_OFFSET));
         return request;
     }
 }
