@@ -11,7 +11,7 @@ import jakarta.validation.constraints.Positive;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Getter
 @NoArgsConstructor
@@ -46,10 +46,10 @@ public class RunningRecordRequest {
     private Integer caloriesKcal;
 
     @NotNull(message = "시작 시간은 필수입니다.")
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
-    private LocalDateTime startAt;
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ssXXX")
+    private OffsetDateTime startAt;
 
     @NotNull(message = "종료 시간은 필수입니다.")
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
-    private LocalDateTime endAt;
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ssXXX")
+    private OffsetDateTime endAt;
 }
