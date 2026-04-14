@@ -11,6 +11,9 @@ import com.ohgiraffers.dalryeo.onboarding.dto.ProfileImageUploadResponse;
 import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
 import com.ohgiraffers.dalryeo.tier.service.TierScoreCalculator;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
+import com.ohgiraffers.dalryeo.user.exception.UserErrorCode;
+import com.ohgiraffers.dalryeo.user.exception.UserException;
+import com.ohgiraffers.dalryeo.user.service.UserLookupService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +27,7 @@ import java.util.Objects;
 public class OnboardingService {
 
     private final UserRepository userRepository;
+    private final UserLookupService userLookupService;
     private final TierService tierService;
     private final CurrentTierResolver currentTierResolver;
     private final ProfileImageStorageService profileImageStorageService;
@@ -45,8 +49,9 @@ public class OnboardingService {
      * 온보딩 정보 저장
      */
     public void saveOnboarding(Long userId, OnboardingRequest request) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+        User user = userLookupService.getActiveById(userId);
+
+        validateNicknameAvailable(request.getNickname(), user.getNickname());
 
         String previousProfileImage = user.getProfileImage();
         String newProfileImage = normalizeProfileImage(request.getProfileImage());
@@ -65,8 +70,7 @@ public class OnboardingService {
     }
 
     public ProfileImageUploadResponse uploadProfileImage(Long userId, MultipartFile profileImage) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+        User user = userLookupService.getActiveById(userId);
 
         String previousProfileImage = user.getProfileImage();
         String storedProfileImage = profileImageStorageService.storeProfileImage(userId, profileImage);
@@ -91,8 +95,7 @@ public class OnboardingService {
      */
     @Transactional(readOnly = true)
     public OnboardingResponse getOnboarding(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+        User user = userLookupService.getActiveById(userId);
 
         return OnboardingResponse.builder()
                 .nickname(user.getNickname())
@@ -153,6 +156,12 @@ public class OnboardingService {
 
     private String normalizeProfileImage(String profileImage) {
         return hasText(profileImage) ? profileImage : null;
+    }
+
+    private void validateNicknameAvailable(String newNickname, String currentNickname) {
+        if (newNickname != null && !newNickname.equals(currentNickname) && userRepository.existsByNickname(newNickname)) {
+            throw new UserException(UserErrorCode.DUPLICATED_NICKNAME);
+        }
     }
 
     private void deletePreviousManagedProfileImage(String previousProfileImage, String newProfileImage) {

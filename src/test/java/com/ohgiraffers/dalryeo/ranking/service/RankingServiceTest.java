@@ -9,6 +9,9 @@ import com.ohgiraffers.dalryeo.ranking.dto.ScoreRankingResponse;
 import com.ohgiraffers.dalryeo.record.entity.WeeklyUserStats;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
+import com.ohgiraffers.dalryeo.user.exception.UserErrorCode;
+import com.ohgiraffers.dalryeo.user.exception.UserException;
+import com.ohgiraffers.dalryeo.user.service.UserLookupService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -35,6 +38,9 @@ class RankingServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private UserLookupService userLookupService;
 
     @Mock
     private TierService tierService;
@@ -102,7 +108,7 @@ class RankingServiceTest {
         User alpha = user(1L, "alpha", UserStatus.NORMAL);
         WeeklyUserStats alphaStats = weeklyStats(1L, 5.0, 300, 1.24);
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(alpha));
+        when(userLookupService.getActiveById(userId)).thenReturn(alpha);
         when(weeklyUserStatsRepository.findByUserIdAndWeekStartDate(eq(userId), any(LocalDate.class)))
                 .thenReturn(Optional.of(alphaStats));
         when(weeklyUserStatsRepository.countAheadForScoreRank(
@@ -135,13 +141,14 @@ class RankingServiceTest {
     @Test
     void getMyRanking_throwsWhenUserIsWithdrawn() {
         Long userId = 10L;
-        User withdrawn = user(userId, "withdrawn", UserStatus.WITHDRAWN);
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(withdrawn));
+        when(userLookupService.getActiveById(userId))
+                .thenThrow(new UserException(UserErrorCode.WITHDRAWN_USER));
 
         assertThatThrownBy(() -> rankingService.getMyRanking(userId))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("탈퇴한 사용자입니다.");
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode")
+                .isEqualTo(UserErrorCode.WITHDRAWN_USER);
     }
 
     private User user(Long id, String nickname, UserStatus status) {

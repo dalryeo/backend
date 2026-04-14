@@ -12,6 +12,9 @@ import com.ohgiraffers.dalryeo.onboarding.dto.ProfileImageUploadResponse;
 import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
 import com.ohgiraffers.dalryeo.tier.service.TierScoreCalculator;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
+import com.ohgiraffers.dalryeo.user.exception.UserErrorCode;
+import com.ohgiraffers.dalryeo.user.exception.UserException;
+import com.ohgiraffers.dalryeo.user.service.UserLookupService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -26,6 +29,7 @@ import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -36,6 +40,9 @@ class OnboardingServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private UserLookupService userLookupService;
 
     @Mock
     private TierService tierService;
@@ -74,7 +81,7 @@ class OnboardingServiceTest {
                 "profile.png"
         );
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userLookupService.getActiveById(userId)).thenReturn(user);
         when(userRepository.save(user)).thenReturn(user);
 
         onboardingService.saveOnboarding(userId, request);
@@ -86,6 +93,28 @@ class OnboardingServiceTest {
         assertThat(user.getWeight()).isEqualTo(52);
         assertThat(user.getProfileImage()).isEqualTo("profile.png");
         verify(userRepository).save(user);
+    }
+
+    @Test
+    void saveOnboarding_throwsWhenNicknameAlreadyExists() {
+        Long userId = 10L;
+        User user = userWithId(userId);
+        OnboardingRequest request = onboardingRequest(
+                "taken",
+                "F",
+                LocalDate.of(1998, 5, 12),
+                165,
+                52,
+                null
+        );
+
+        when(userLookupService.getActiveById(userId)).thenReturn(user);
+        when(userRepository.existsByNickname("taken")).thenReturn(true);
+
+        assertThatThrownBy(() -> onboardingService.saveOnboarding(userId, request))
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode")
+                .isEqualTo(UserErrorCode.DUPLICATED_NICKNAME);
     }
 
     @Test
@@ -102,7 +131,7 @@ class OnboardingServiceTest {
                 null
         );
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userLookupService.getActiveById(userId)).thenReturn(user);
         when(userRepository.save(user)).thenReturn(user);
 
         onboardingService.saveOnboarding(userId, request);
@@ -122,7 +151,7 @@ class OnboardingServiceTest {
         ReflectionTestUtils.setField(user, "weight", 70);
         ReflectionTestUtils.setField(user, "profileImage", "image2.png");
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userLookupService.getActiveById(userId)).thenReturn(user);
 
         OnboardingResponse response = onboardingService.getOnboarding(userId);
 
@@ -141,7 +170,7 @@ class OnboardingServiceTest {
         User user = userWithId(userId);
         ReflectionTestUtils.setField(user, "nickname", "runner5");
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userLookupService.getActiveById(userId)).thenReturn(user);
         when(currentTierResolver.resolve(userId))
                 .thenReturn(Optional.of(new CurrentTierResolver.CurrentTier(
                         "DEER",
@@ -167,7 +196,7 @@ class OnboardingServiceTest {
         ReflectionTestUtils.setField(user, "height", 165);
         ReflectionTestUtils.setField(user, "weight", 52);
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userLookupService.getActiveById(userId)).thenReturn(user);
         when(currentTierResolver.resolve(userId)).thenReturn(Optional.empty());
         when(tierService.findDefaultProfileImageByTierCode("TURTLE"))
                 .thenReturn(Optional.of("/profiles/tiers/turtle.png"));
@@ -183,7 +212,7 @@ class OnboardingServiceTest {
         Long userId = 9L;
         User user = userWithId(userId);
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userLookupService.getActiveById(userId)).thenReturn(user);
         when(currentTierResolver.resolve(userId)).thenReturn(Optional.empty());
 
         OnboardingResponse response = onboardingService.getOnboarding(userId);
@@ -204,7 +233,7 @@ class OnboardingServiceTest {
                 "image-content".getBytes(StandardCharsets.UTF_8)
         );
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userLookupService.getActiveById(userId)).thenReturn(user);
         when(userRepository.save(user)).thenReturn(user);
         when(profileImageStorageService.storeProfileImage(userId, profileImage))
                 .thenReturn("/profiles/custom/new.png");

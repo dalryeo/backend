@@ -5,6 +5,9 @@ import com.ohgiraffers.dalryeo.auth.entity.UserStatus;
 import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
 import com.ohgiraffers.dalryeo.mypage.dto.ProfileUpdateRequest;
 import com.ohgiraffers.dalryeo.onboarding.service.ProfileImageStorageService;
+import com.ohgiraffers.dalryeo.user.exception.UserErrorCode;
+import com.ohgiraffers.dalryeo.user.exception.UserException;
+import com.ohgiraffers.dalryeo.user.service.UserLookupService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -16,6 +19,7 @@ import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -24,6 +28,9 @@ class MypageServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private UserLookupService userLookupService;
 
     @Mock
     private ProfileImageStorageService profileImageStorageService;
@@ -44,7 +51,7 @@ class MypageServiceTest {
                 "https://cdn.example.com/custom.jpg"
         );
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userLookupService.getActiveById(userId)).thenReturn(user);
         when(userRepository.save(user)).thenReturn(user);
 
         mypageService.updateProfile(userId, request);
@@ -72,7 +79,7 @@ class MypageServiceTest {
                 null
         );
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userLookupService.getActiveById(userId)).thenReturn(user);
         when(userRepository.save(user)).thenReturn(user);
 
         mypageService.updateProfile(userId, request);
@@ -80,6 +87,29 @@ class MypageServiceTest {
         assertThat(user.getProfileImage()).isNull();
         verify(userRepository).save(user);
         verify(profileImageStorageService).deleteStoredProfileImage("/profiles/custom/original.jpg");
+    }
+
+    @Test
+    void updateProfile_throwsWhenNicknameAlreadyExists() {
+        Long userId = 3L;
+        User user = userWithId(userId);
+        ReflectionTestUtils.setField(user, "nickname", "current");
+        ProfileUpdateRequest request = updateRequest(
+                "taken",
+                "F",
+                LocalDate.of(1998, 5, 12),
+                165,
+                52,
+                null
+        );
+
+        when(userLookupService.getActiveById(userId)).thenReturn(user);
+        when(userRepository.existsByNickname("taken")).thenReturn(true);
+
+        assertThatThrownBy(() -> mypageService.updateProfile(userId, request))
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode")
+                .isEqualTo(UserErrorCode.DUPLICATED_NICKNAME);
     }
 
     private User userWithId(Long id) {

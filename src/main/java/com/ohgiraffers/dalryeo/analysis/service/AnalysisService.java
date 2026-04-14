@@ -5,6 +5,7 @@ import com.ohgiraffers.dalryeo.analysis.dto.RecordListItemResponse;
 import com.ohgiraffers.dalryeo.analysis.dto.RecordListResponse;
 import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
+import com.ohgiraffers.dalryeo.user.service.UserLookupService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -24,12 +25,15 @@ import java.util.stream.Collectors;
 public class AnalysisService {
 
     private final RunningRecordRepository runningRecordRepository;
+    private final UserLookupService userLookupService;
 
     /**
      * 전체 기록 조회 (페이징, 정렬, 기간 필터 지원)
      */
     @Transactional(readOnly = true)
     public RecordListResponse getRecords(Long userId, Integer page, String sort, String period) {
+        userLookupService.getActiveById(userId);
+
         // 정렬 설정
         Sort sortOption = Sort.by(Sort.Direction.DESC, "startAt");
         if ("latest".equalsIgnoreCase(sort)) {
@@ -83,6 +87,8 @@ public class AnalysisService {
      */
     @Transactional(readOnly = true)
     public RecordDetailResponse getRecordDetail(Long userId, Long recordId) {
+        userLookupService.getActiveById(userId);
+
         RunningRecord record = runningRecordRepository.findByIdAndUserId(recordId, userId)
                 .orElseThrow(() -> new RuntimeException("기록을 찾을 수 없습니다."));
 
@@ -99,4 +105,3 @@ public class AnalysisService {
                 .build();
     }
 }
-

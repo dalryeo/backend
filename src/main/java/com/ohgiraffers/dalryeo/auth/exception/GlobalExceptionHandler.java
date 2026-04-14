@@ -2,6 +2,7 @@ package com.ohgiraffers.dalryeo.auth.exception;
 
 import com.ohgiraffers.dalryeo.common.CommonResponse;
 import com.ohgiraffers.dalryeo.record.exception.RecordValidationException;
+import com.ohgiraffers.dalryeo.user.exception.UserException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -28,6 +29,16 @@ public class GlobalExceptionHandler {
     public ResponseEntity<CommonResponse<Map<String, Object>>> handleRecordValidationException(RecordValidationException e) {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
+                .body(CommonResponse.failure(errorBody(
+                        e.getErrorCode().getCode(),
+                        e.getErrorCode().getMessage()
+                )));
+    }
+
+    @ExceptionHandler(UserException.class)
+    public ResponseEntity<CommonResponse<Map<String, Object>>> handleUserException(UserException e) {
+        return ResponseEntity
+                .status(e.getErrorCode().getStatus())
                 .body(CommonResponse.failure(errorBody(
                         e.getErrorCode().getCode(),
                         e.getErrorCode().getMessage()

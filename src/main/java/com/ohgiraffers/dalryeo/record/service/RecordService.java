@@ -1,7 +1,6 @@
 package com.ohgiraffers.dalryeo.record.service;
 
 import com.ohgiraffers.dalryeo.auth.entity.User;
-import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
 import com.ohgiraffers.dalryeo.record.dto.RecordIdResponse;
 import com.ohgiraffers.dalryeo.record.dto.RecordSummaryResponse;
 import com.ohgiraffers.dalryeo.record.dto.RunningRecordRequest;
@@ -16,6 +15,7 @@ import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
 import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
 import com.ohgiraffers.dalryeo.tier.service.TierScoreCalculator;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
+import com.ohgiraffers.dalryeo.user.service.UserLookupService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,7 +39,7 @@ public class RecordService {
     private static final ZoneId SERVICE_ZONE_ID = ZoneId.of("Asia/Seoul");
 
     private final RunningRecordRepository runningRecordRepository;
-    private final UserRepository userRepository;
+    private final UserLookupService userLookupService;
     private final TierService tierService;
     private final CurrentTierResolver currentTierResolver;
     private final RunningRecordValidator runningRecordValidator;
@@ -51,6 +51,7 @@ public class RecordService {
      */
     public RecordIdResponse saveRecord(Long userId, RunningRecordRequest request) {
         runningRecordValidator.validate(request, Instant.now());
+        userLookupService.getActiveById(userId);
 
         RunningRecord record = RunningRecord.builder()
                 .userId(userId)
@@ -82,8 +83,7 @@ public class RecordService {
      */
     @Transactional(readOnly = true)
     public RecordSummaryResponse getSummary(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+        User user = userLookupService.getActiveById(userId);
 
         LocalDate weekStart = currentWeekStart();
         return weeklyUserStatsService.findByUserIdAndWeekStartDate(userId, weekStart)
@@ -173,8 +173,7 @@ public class RecordService {
      */
     @Transactional(readOnly = true)
     public WeeklySummaryResponse getCurrentWeeklySummary(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+        User user = userLookupService.getActiveById(userId);
 
         LocalDate weekStart = currentWeekStart();
         return weeklyUserStatsService.findByUserIdAndWeekStartDate(userId, weekStart)
@@ -187,8 +186,7 @@ public class RecordService {
      */
     @Transactional(readOnly = true)
     public List<WeeklySummaryItemResponse> getWeeklySummaryList(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+        User user = userLookupService.getActiveById(userId);
 
         LocalDate createdAt = user.getCreatedAt() != null
                 ? user.getCreatedAt().toLocalDate()
@@ -219,6 +217,8 @@ public class RecordService {
      */
     @Transactional(readOnly = true)
     public WeeklyRecordListResponse getWeeklyRecords(Long userId) {
+        userLookupService.getActiveById(userId);
+
         // 이번 주 시작일과 종료일 계산 (월요일 ~ 일요일)
         LocalDate today = LocalDate.now();
         LocalDate weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
