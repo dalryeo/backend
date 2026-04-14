@@ -16,6 +16,8 @@ import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
 import com.ohgiraffers.dalryeo.onboarding.service.ProfileImageStorageService;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
+import com.ohgiraffers.dalryeo.user.exception.UserErrorCode;
+import com.ohgiraffers.dalryeo.user.exception.UserException;
 import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -77,7 +79,7 @@ public class AuthService {
             isNewUser = true;
         } else {
             user = userRepository.findById(oAuthClient.getUserId())
-                    .orElseThrow(() -> new RuntimeException("OAuth 사용자 매핑이 올바르지 않습니다."));
+                    .orElseThrow(() -> new UserException(UserErrorCode.OAUTH_USER_MAPPING_INVALID));
             if (user.isWithdrawn()) {
                 user.reactivate();
                 user = userRepository.save(user);

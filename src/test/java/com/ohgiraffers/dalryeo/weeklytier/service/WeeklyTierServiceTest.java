@@ -3,6 +3,7 @@ package com.ohgiraffers.dalryeo.weeklytier.service;
 import com.ohgiraffers.dalryeo.record.entity.WeeklyUserStats;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
+import com.ohgiraffers.dalryeo.user.service.UserLookupService;
 import com.ohgiraffers.dalryeo.weeklytier.dto.WeeklyTierResponse;
 import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
 import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
@@ -32,6 +33,9 @@ class WeeklyTierServiceTest {
 
     @Mock
     private TierService tierService;
+
+    @Mock
+    private UserLookupService userLookupService;
 
     @InjectMocks
     private WeeklyTierService weeklyTierService;

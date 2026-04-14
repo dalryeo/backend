@@ -8,6 +8,7 @@ import com.ohgiraffers.dalryeo.ranking.dto.ScoreRankingResponse;
 import com.ohgiraffers.dalryeo.record.entity.WeeklyUserStats;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
+import com.ohgiraffers.dalryeo.user.service.UserLookupService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +31,7 @@ public class RankingService {
 
     private final WeeklyUserStatsRepository weeklyUserStatsRepository;
     private final UserRepository userRepository;
+    private final UserLookupService userLookupService;
     private final TierService tierService;
 
     /**
@@ -70,12 +72,7 @@ public class RankingService {
      * 내 랭킹 조회
      */
     public RankingMeResponse getMyRanking(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
-
-        if (user.isWithdrawn()) {
-            throw new RuntimeException("탈퇴한 사용자입니다.");
-        }
+        User user = userLookupService.getActiveById(userId);
 
         LocalDate weekStart = currentWeekStart();
         return weeklyUserStatsRepository.findByUserIdAndWeekStartDate(userId, weekStart)

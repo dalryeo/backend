@@ -280,6 +280,60 @@ class ApiContractIntegrationTest {
     }
 
     @Test
+    void onboardingUpdate_returnsConflictWhenNicknameAlreadyExists() throws Exception {
+        saveUser("runner-taken");
+        User user = saveUser("runner-before-conflict");
+        String accessToken = accessToken(user.getId());
+
+        mockMvc.perform(put("/onboarding")
+                        .header("Authorization", bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "runner-taken",
+                                  "gender": "M",
+                                  "birth": "1997-01-03",
+                                  "height": 178,
+                                  "weight": 70,
+                                  "profileImage": null
+                                }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("USER-003"))
+                .andExpect(jsonPath("$.data.message").value("이미 사용 중인 닉네임입니다."));
+    }
+
+    @Test
+    void getOnboarding_returnsNotFoundWhenTokenUserDoesNotExist() throws Exception {
+        String accessToken = accessToken(999_999L);
+
+        mockMvc.perform(get("/onboarding")
+                        .header("Authorization", bearer(accessToken)))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("USER-001"))
+                .andExpect(jsonPath("$.data.message").value("사용자를 찾을 수 없습니다."));
+    }
+
+    @Test
+    void getMyRanking_returnsForbiddenWhenUserIsWithdrawn() throws Exception {
+        User user = saveUser("runner-withdrawn");
+        user.withdraw();
+        userRepository.save(user);
+
+        mockMvc.perform(get("/ranking/me")
+                        .header("Authorization", bearer(accessToken(user.getId()))))
+                .andExpect(status().isForbidden())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("USER-002"))
+                .andExpect(jsonPath("$.data.message").value("탈퇴한 사용자입니다."));
+    }
+
+    @Test
     void uploadProfileImage_savesFileAndServesItByReturnedUrl() throws Exception {
         User user = saveUser("runner-image");
         String accessToken = accessToken(user.getId());

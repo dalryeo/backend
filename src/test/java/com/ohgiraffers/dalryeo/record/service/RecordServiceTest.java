@@ -2,7 +2,6 @@ package com.ohgiraffers.dalryeo.record.service;
 
 import com.ohgiraffers.dalryeo.auth.entity.User;
 import com.ohgiraffers.dalryeo.auth.entity.UserStatus;
-import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
 import com.ohgiraffers.dalryeo.record.dto.RecordIdResponse;
 import com.ohgiraffers.dalryeo.record.dto.RecordSummaryResponse;
 import com.ohgiraffers.dalryeo.record.dto.RunningRecordRequest;
@@ -13,6 +12,9 @@ import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
 import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
 import com.ohgiraffers.dalryeo.tier.service.TierScoreCalculator;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
+import com.ohgiraffers.dalryeo.user.exception.UserErrorCode;
+import com.ohgiraffers.dalryeo.user.exception.UserException;
+import com.ohgiraffers.dalryeo.user.service.UserLookupService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -47,7 +49,7 @@ class RecordServiceTest {
     private RunningRecordRepository runningRecordRepository;
 
     @Mock
-    private UserRepository userRepository;
+    private UserLookupService userLookupService;
 
     @Mock
     private CurrentTierResolver currentTierResolver;
@@ -79,6 +81,7 @@ class RecordServiceTest {
                 startAt.plusMinutes(25)
         );
 
+        when(userLookupService.getActiveById(userId)).thenReturn(user(userId));
         when(runningRecordRepository.save(any(RunningRecord.class))).thenAnswer(invocation -> {
             RunningRecord record = invocation.getArgument(0);
             ReflectionTestUtils.setField(record, "id", 100L);
@@ -95,6 +98,29 @@ class RecordServiceTest {
         assertThat(recordCaptor.getValue().getEndAt())
                 .isEqualTo(startAt.plusMinutes(25).atZoneSameInstant(SERVICE_ZONE_ID).toLocalDateTime());
         verify(weeklyUserStatsService).applyRecord(any(RunningRecord.class));
+    }
+
+    @Test
+    void saveRecord_checksActiveUserBeforeRecordValidation() {
+        Long userId = 99L;
+        OffsetDateTime startAt = validPastStartAt();
+        RunningRecordRequest request = request(
+                5.0,
+                1500,
+                300,
+                startAt,
+                startAt
+        );
+
+        when(userLookupService.getActiveById(userId))
+                .thenThrow(new UserException(UserErrorCode.USER_NOT_FOUND));
+
+        assertThatThrownBy(() -> recordService.saveRecord(userId, request))
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode")
+                .isEqualTo(UserErrorCode.USER_NOT_FOUND);
+
+        verify(runningRecordRepository, never()).save(any(RunningRecord.class));
     }
 
     @Test
@@ -189,6 +215,7 @@ class RecordServiceTest {
                 startAt.plusMinutes(25).plusSeconds(5)
         );
 
+        when(userLookupService.getActiveById(userId)).thenReturn(user(userId));
         when(runningRecordRepository.save(any(RunningRecord.class))).thenAnswer(invocation -> {
             RunningRecord record = invocation.getArgument(0);
             ReflectionTestUtils.setField(record, "id", 101L);
@@ -205,10 +232,7 @@ class RecordServiceTest {
     @Test
     void getSummary_usesCurrentWeekRecordsToResolveTier() {
         Long userId = 1L;
-        User user = User.builder()
-                .status(UserStatus.NORMAL)
-                .build();
-        ReflectionTestUtils.setField(user, "id", userId);
+        User user = user(userId);
         RunningRecord runningRecord = RunningRecord.builder()
                 .userId(userId)
                 .platform("IOS")
@@ -221,7 +245,7 @@ class RecordServiceTest {
                 .endAt(LocalDateTime.of(2026, 3, 31, 7, 25))
                 .build();
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userLookupService.getActiveById(userId)).thenReturn(user);
         when(runningRecordRepository.findByUserIdAndWeekRange(eq(userId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of(runningRecord));
         when(currentTierResolver.resolve(eq(userId), any(LocalDate.class), anyList()))
@@ -245,12 +269,9 @@ class RecordServiceTest {
     @Test
     void getSummary_fallsBackToWeeklyTierWhenNoCurrentWeekRecordsExist() {
         Long userId = 2L;
-        User user = User.builder()
-                .status(UserStatus.NORMAL)
-                .build();
-        ReflectionTestUtils.setField(user, "id", userId);
+        User user = user(userId);
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userLookupService.getActiveById(userId)).thenReturn(user);
         when(runningRecordRepository.findByUserIdAndWeekRange(eq(userId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of());
         when(currentTierResolver.resolve(eq(userId), any(LocalDate.class), anyList()))
@@ -292,5 +313,13 @@ class RecordServiceTest {
 
     private OffsetDateTime validPastStartAt() {
         return OffsetDateTime.now(SERVICE_ZONE_ID).minusMinutes(30);
+    }
+
+    private User user(Long userId) {
+        User user = User.builder()
+                .status(UserStatus.NORMAL)
+                .build();
+        ReflectionTestUtils.setField(user, "id", userId);
+        return user;
     }
 }
