@@ -4,8 +4,6 @@ import com.ohgiraffers.dalryeo.auth.entity.User;
 import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
 import com.ohgiraffers.dalryeo.mypage.dto.ProfileUpdateRequest;
 import com.ohgiraffers.dalryeo.onboarding.service.ProfileImageStorageService;
-import com.ohgiraffers.dalryeo.user.exception.UserErrorCode;
-import com.ohgiraffers.dalryeo.user.exception.UserException;
 import com.ohgiraffers.dalryeo.user.service.UserLookupService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,10 +23,7 @@ public class MypageService {
     public void updateProfile(Long userId, ProfileUpdateRequest request) {
         User user = userLookupService.getActiveById(userId);
 
-        String nickname = request.getNickname();
-        if (nickname != null && !nickname.equals(user.getNickname()) && userRepository.existsByNickname(nickname)) {
-            throw new UserException(UserErrorCode.DUPLICATED_NICKNAME);
-        }
+        userLookupService.validateNicknameAvailable(request.getNickname(), user.getNickname());
 
         String previousProfileImage = user.getProfileImage();
         String newProfileImage = normalizeProfileImage(request.getProfileImage());

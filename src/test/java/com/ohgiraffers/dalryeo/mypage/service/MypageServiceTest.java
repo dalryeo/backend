@@ -20,6 +20,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -104,7 +105,9 @@ class MypageServiceTest {
         );
 
         when(userLookupService.getActiveById(userId)).thenReturn(user);
-        when(userRepository.existsByNickname("taken")).thenReturn(true);
+        doThrow(new UserException(UserErrorCode.DUPLICATED_NICKNAME))
+                .when(userLookupService)
+                .validateNicknameAvailable("taken", "current");
 
         assertThatThrownBy(() -> mypageService.updateProfile(userId, request))
                 .isInstanceOf(UserException.class)

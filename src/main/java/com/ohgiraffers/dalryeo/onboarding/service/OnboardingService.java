@@ -11,8 +11,6 @@ import com.ohgiraffers.dalryeo.onboarding.dto.ProfileImageUploadResponse;
 import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
 import com.ohgiraffers.dalryeo.tier.service.TierScoreCalculator;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
-import com.ohgiraffers.dalryeo.user.exception.UserErrorCode;
-import com.ohgiraffers.dalryeo.user.exception.UserException;
 import com.ohgiraffers.dalryeo.user.service.UserLookupService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -51,7 +49,7 @@ public class OnboardingService {
     public void saveOnboarding(Long userId, OnboardingRequest request) {
         User user = userLookupService.getActiveById(userId);
 
-        validateNicknameAvailable(request.getNickname(), user.getNickname());
+        userLookupService.validateNicknameAvailable(request.getNickname(), user.getNickname());
 
         String previousProfileImage = user.getProfileImage();
         String newProfileImage = normalizeProfileImage(request.getProfileImage());
@@ -156,12 +154,6 @@ public class OnboardingService {
 
     private String normalizeProfileImage(String profileImage) {
         return hasText(profileImage) ? profileImage : null;
-    }
-
-    private void validateNicknameAvailable(String newNickname, String currentNickname) {
-        if (newNickname != null && !newNickname.equals(currentNickname) && userRepository.existsByNickname(newNickname)) {
-            throw new UserException(UserErrorCode.DUPLICATED_NICKNAME);
-        }
     }
 
     private void deletePreviousManagedProfileImage(String previousProfileImage, String newProfileImage) {

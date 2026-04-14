@@ -27,4 +27,10 @@ public class UserLookupService {
         }
         return user;
     }
+
+    public void validateNicknameAvailable(String newNickname, String currentNickname) {
+        if (newNickname != null && !newNickname.equals(currentNickname) && userRepository.existsByNickname(newNickname)) {
+            throw new UserException(UserErrorCode.DUPLICATED_NICKNAME);
+        }
+    }
 }

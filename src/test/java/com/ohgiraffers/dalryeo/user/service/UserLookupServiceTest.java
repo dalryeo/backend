@@ -66,4 +66,19 @@ class UserLookupServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(UserErrorCode.WITHDRAWN_USER);
     }
+
+    @Test
+    void validateNicknameAvailable_doesNothingWhenNicknameIsSameAsCurrentNickname() {
+        userLookupService.validateNicknameAvailable("runner", "runner");
+    }
+
+    @Test
+    void validateNicknameAvailable_throwsWhenNicknameAlreadyExists() {
+        when(userRepository.existsByNickname("taken")).thenReturn(true);
+
+        assertThatThrownBy(() -> userLookupService.validateNicknameAvailable("taken", "current"))
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode")
+                .isEqualTo(UserErrorCode.DUPLICATED_NICKNAME);
+    }
 }

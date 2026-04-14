@@ -31,6 +31,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -109,7 +110,9 @@ class OnboardingServiceTest {
         );
 
         when(userLookupService.getActiveById(userId)).thenReturn(user);
-        when(userRepository.existsByNickname("taken")).thenReturn(true);
+        doThrow(new UserException(UserErrorCode.DUPLICATED_NICKNAME))
+                .when(userLookupService)
+                .validateNicknameAvailable("taken", null);
 
         assertThatThrownBy(() -> onboardingService.saveOnboarding(userId, request))
                 .isInstanceOf(UserException.class)
