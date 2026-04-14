@@ -50,8 +50,8 @@ public class RecordService {
      * 러닝 기록 저장
      */
     public RecordIdResponse saveRecord(Long userId, RunningRecordRequest request) {
-        runningRecordValidator.validate(request, Instant.now());
         userLookupService.getActiveById(userId);
+        runningRecordValidator.validate(request, Instant.now());
 
         RunningRecord record = RunningRecord.builder()
                 .userId(userId)

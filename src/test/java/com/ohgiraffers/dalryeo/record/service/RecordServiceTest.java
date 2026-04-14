@@ -12,6 +12,8 @@ import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
 import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
 import com.ohgiraffers.dalryeo.tier.service.TierScoreCalculator;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
+import com.ohgiraffers.dalryeo.user.exception.UserErrorCode;
+import com.ohgiraffers.dalryeo.user.exception.UserException;
 import com.ohgiraffers.dalryeo.user.service.UserLookupService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -96,6 +98,29 @@ class RecordServiceTest {
         assertThat(recordCaptor.getValue().getEndAt())
                 .isEqualTo(startAt.plusMinutes(25).atZoneSameInstant(SERVICE_ZONE_ID).toLocalDateTime());
         verify(weeklyUserStatsService).applyRecord(any(RunningRecord.class));
+    }
+
+    @Test
+    void saveRecord_checksActiveUserBeforeRecordValidation() {
+        Long userId = 99L;
+        OffsetDateTime startAt = validPastStartAt();
+        RunningRecordRequest request = request(
+                5.0,
+                1500,
+                300,
+                startAt,
+                startAt
+        );
+
+        when(userLookupService.getActiveById(userId))
+                .thenThrow(new UserException(UserErrorCode.USER_NOT_FOUND));
+
+        assertThatThrownBy(() -> recordService.saveRecord(userId, request))
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode")
+                .isEqualTo(UserErrorCode.USER_NOT_FOUND);
+
+        verify(runningRecordRepository, never()).save(any(RunningRecord.class));
     }
 
     @Test
