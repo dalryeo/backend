@@ -41,6 +41,7 @@ import java.nio.file.Path;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.temporal.TemporalAdjusters;
 import java.util.Comparator;
 
@@ -62,6 +63,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ApiContractIntegrationTest {
 
     private static final Path TEST_PROFILE_IMAGE_UPLOAD_DIR = Path.of("build/test-uploads/profile-images");
+    private static final ZoneOffset TEST_ZONE_OFFSET = ZoneOffset.ofHours(9);
 
     @Autowired
     private MockMvc mockMvc;
@@ -776,8 +778,8 @@ class ApiContractIntegrationTest {
         ReflectionTestUtils.setField(request, "avgPaceSecPerKm", avgPaceSecPerKm);
         ReflectionTestUtils.setField(request, "avgHeartRate", 150);
         ReflectionTestUtils.setField(request, "caloriesKcal", 300);
-        ReflectionTestUtils.setField(request, "startAt", startAt);
-        ReflectionTestUtils.setField(request, "endAt", startAt.plusSeconds((long) Math.round(distanceKm * avgPaceSecPerKm)));
+        ReflectionTestUtils.setField(request, "startAt", startAt.atOffset(TEST_ZONE_OFFSET));
+        ReflectionTestUtils.setField(request, "endAt", startAt.plusSeconds((long) Math.round(distanceKm * avgPaceSecPerKm)).atOffset(TEST_ZONE_OFFSET));
 
         RecordIdResponse response = recordService.saveRecord(userId, request);
         return runningRecordRepository.findById(response.getRecordId()).orElseThrow();
