@@ -59,8 +59,8 @@ public class RecordService {
                 .distanceKm(request.getDistanceKm())
                 .durationSec(request.getDurationSec())
                 .avgPaceSecPerKm(request.getAvgPaceSecPerKm())
-                .avgHeartRate(request.getAvgHeartRate())
-                .caloriesKcal(request.getCaloriesKcal())
+                .avgHeartRate(normalizeOptionalMeasuredValue(request.getAvgHeartRate()))
+                .caloriesKcal(normalizeOptionalMeasuredValue(request.getCaloriesKcal()))
                 .startAt(toServiceLocalDateTime(request.getStartAt()))
                 .endAt(toServiceLocalDateTime(request.getEndAt()))
                 .build();
@@ -71,6 +71,10 @@ public class RecordService {
         return RecordIdResponse.builder()
                 .recordId(savedRecord.getId())
                 .build();
+    }
+
+    private Integer normalizeOptionalMeasuredValue(Integer value) {
+        return value != null && value == 0 ? null : value;
     }
 
     private LocalDateTime toServiceLocalDateTime(OffsetDateTime dateTime) {

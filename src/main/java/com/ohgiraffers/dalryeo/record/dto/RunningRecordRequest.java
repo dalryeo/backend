@@ -37,12 +37,8 @@ public class RunningRecordRequest {
     @Max(value = 3600, message = "평균 페이스는 3600초/km 이하여야 합니다.")
     private Integer avgPaceSecPerKm;
 
-    @Min(value = 30, message = "평균 심박수는 30 이상이어야 합니다.")
-    @Max(value = 240, message = "평균 심박수는 240 이하여야 합니다.")
     private Integer avgHeartRate;
 
-    @Min(value = 1, message = "칼로리는 1 이상이어야 합니다.")
-    @Max(value = 10000, message = "칼로리는 10000 이하여야 합니다.")
     private Integer caloriesKcal;
 
     @NotNull(message = "시작 시간은 필수입니다.")
