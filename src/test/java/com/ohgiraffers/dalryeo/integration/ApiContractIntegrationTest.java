@@ -12,6 +12,8 @@ import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
 import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
 import com.ohgiraffers.dalryeo.record.dto.RecordIdResponse;
 import com.ohgiraffers.dalryeo.record.dto.RunningRecordRequest;
+import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEventProcessor;
+import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEventRepository;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.record.service.RecordService;
@@ -84,6 +86,12 @@ class ApiContractIntegrationTest {
     private WeeklyUserStatsRepository weeklyUserStatsRepository;
 
     @Autowired
+    private RecordOutboxEventRepository recordOutboxEventRepository;
+
+    @Autowired
+    private RecordOutboxEventProcessor recordOutboxEventProcessor;
+
+    @Autowired
     private RecordService recordService;
 
     @Autowired
@@ -109,6 +117,7 @@ class ApiContractIntegrationTest {
         authTokenRepository.deleteAll();
         oAuthClientRepository.deleteAll();
         weeklyTierRepository.deleteAll();
+        recordOutboxEventRepository.deleteAll();
         weeklyUserStatsRepository.deleteAll();
         runningRecordRepository.deleteAll();
         userRepository.deleteAll();
@@ -496,6 +505,8 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.recordId").isNumber());
 
+        recordOutboxEventProcessor.processDueEvents(10, 300);
+
         LocalDate weekStart = LocalDate.of(2026, 3, 30);
         var weeklyStats = weeklyUserStatsRepository.findByUserIdAndWeekStartDate(user.getId(), weekStart)
                 .orElseThrow();
@@ -834,6 +845,7 @@ class ApiContractIntegrationTest {
         ReflectionTestUtils.setField(request, "endAt", startAt.plusSeconds((long) Math.round(distanceKm * avgPaceSecPerKm)).atOffset(TEST_ZONE_OFFSET));
 
         RecordIdResponse response = recordService.saveRecord(userId, request);
+        recordOutboxEventProcessor.processDueEvents(10, 300);
         return runningRecordRepository.findById(response.getRecordId()).orElseThrow();
     }
 

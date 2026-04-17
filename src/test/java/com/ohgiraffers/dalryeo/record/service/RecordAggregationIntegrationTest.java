@@ -5,6 +5,9 @@ import com.ohgiraffers.dalryeo.auth.entity.UserStatus;
 import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
 import com.ohgiraffers.dalryeo.record.dto.RunningRecordRequest;
 import com.ohgiraffers.dalryeo.record.entity.WeeklyUserStats;
+import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEventProcessor;
+import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEventRepository;
+import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEventStatus;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,10 +40,17 @@ class RecordAggregationIntegrationTest {
     private WeeklyUserStatsRepository weeklyUserStatsRepository;
 
     @Autowired
+    private RecordOutboxEventRepository recordOutboxEventRepository;
+
+    @Autowired
+    private RecordOutboxEventProcessor recordOutboxEventProcessor;
+
+    @Autowired
     private UserRepository userRepository;
 
     @BeforeEach
     void cleanDatabase() {
+        recordOutboxEventRepository.deleteAll();
         weeklyUserStatsRepository.deleteAll();
         runningRecordRepository.deleteAll();
         userRepository.deleteAll();
@@ -63,12 +73,18 @@ class RecordAggregationIntegrationTest {
                 LocalDateTime.of(2026, 4, 1, 7, 0)
         ));
 
+        int processedCount = recordOutboxEventProcessor.processDueEvents(10, 300);
+
         WeeklyUserStats stats = weeklyUserStatsRepository.findByUserIdAndWeekStartDate(
                 user.getId(),
                 LocalDate.of(2026, 3, 30)
         ).orElseThrow();
 
+        assertThat(processedCount).isEqualTo(2);
         assertThat(runningRecordRepository.count()).isEqualTo(2);
+        assertThat(recordOutboxEventRepository.findAll())
+                .extracting("status")
+                .containsOnly(RecordOutboxEventStatus.DONE);
         assertThat(stats.getRunCount()).isEqualTo(2);
         assertThat(stats.getTotalDistanceKm()).isEqualByComparingTo(BigDecimal.valueOf(15.000).setScale(3));
         assertThat(stats.getTotalDurationSec()).isEqualTo(4500);

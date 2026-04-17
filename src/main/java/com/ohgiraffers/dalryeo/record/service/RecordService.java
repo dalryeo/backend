@@ -11,6 +11,8 @@ import com.ohgiraffers.dalryeo.record.dto.WeeklySummaryItemResponse;
 import com.ohgiraffers.dalryeo.record.dto.WeeklySummaryResponse;
 import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
 import com.ohgiraffers.dalryeo.record.entity.WeeklyUserStats;
+import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEvent;
+import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEventRepository;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
 import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
 import com.ohgiraffers.dalryeo.tier.service.TierScoreCalculator;
@@ -40,6 +42,7 @@ public class RecordService {
 
     private final RunningRecordRepository runningRecordRepository;
     private final UserLookupService userLookupService;
+    private final RecordOutboxEventRepository recordOutboxEventRepository;
     private final TierService tierService;
     private final CurrentTierResolver currentTierResolver;
     private final RunningRecordValidator runningRecordValidator;
@@ -66,7 +69,10 @@ public class RecordService {
                 .build();
 
         RunningRecord savedRecord = runningRecordRepository.save(record);
-        weeklyUserStatsService.applyRecord(savedRecord);
+        recordOutboxEventRepository.save(RecordOutboxEvent.weeklyStatsUpdateRequested(
+                savedRecord.getId(),
+                LocalDateTime.now()
+        ));
 
         return RecordIdResponse.builder()
                 .recordId(savedRecord.getId())
