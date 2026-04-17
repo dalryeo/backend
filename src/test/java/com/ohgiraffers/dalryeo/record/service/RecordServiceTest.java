@@ -230,6 +230,35 @@ class RecordServiceTest {
     }
 
     @Test
+    void saveRecord_normalizesZeroOptionalSensorValuesToNull() {
+        Long userId = 1L;
+        OffsetDateTime startAt = validPastStartAt();
+        RunningRecordRequest request = request(
+                5.0,
+                1500,
+                300,
+                startAt,
+                startAt.plusMinutes(25)
+        );
+        ReflectionTestUtils.setField(request, "avgHeartRate", 0);
+        ReflectionTestUtils.setField(request, "caloriesKcal", 0);
+
+        when(userLookupService.getActiveById(userId)).thenReturn(user(userId));
+        when(runningRecordRepository.save(any(RunningRecord.class))).thenAnswer(invocation -> {
+            RunningRecord record = invocation.getArgument(0);
+            ReflectionTestUtils.setField(record, "id", 102L);
+            return record;
+        });
+
+        recordService.saveRecord(userId, request);
+
+        ArgumentCaptor<RunningRecord> recordCaptor = ArgumentCaptor.forClass(RunningRecord.class);
+        verify(runningRecordRepository).save(recordCaptor.capture());
+        assertThat(recordCaptor.getValue().getAvgHeartRate()).isNull();
+        assertThat(recordCaptor.getValue().getCaloriesKcal()).isNull();
+    }
+
+    @Test
     void getSummary_usesCurrentWeekRecordsToResolveTier() {
         Long userId = 1L;
         User user = user(userId);

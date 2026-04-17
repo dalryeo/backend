@@ -534,9 +534,7 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.data.message").isString())
                 .andExpect(jsonPath("$.data.errors.distanceKm").value("거리는 0.1km 이상이어야 합니다."))
                 .andExpect(jsonPath("$.data.errors.durationSec").value("시간은 60초 이상이어야 합니다."))
-                .andExpect(jsonPath("$.data.errors.avgPaceSecPerKm").value("평균 페이스는 120초/km 이상이어야 합니다."))
-                .andExpect(jsonPath("$.data.errors.avgHeartRate").value("평균 심박수는 30 이상이어야 합니다."))
-                .andExpect(jsonPath("$.data.errors.caloriesKcal").value("칼로리는 1 이상이어야 합니다."));
+                .andExpect(jsonPath("$.data.errors.avgPaceSecPerKm").value("평균 페이스는 120초/km 이상이어야 합니다."));
 
         assertThat(runningRecordRepository.count()).isEqualTo(beforeCount);
         assertThat(weeklyUserStatsRepository.count()).isEqualTo(beforeStatsCount);
