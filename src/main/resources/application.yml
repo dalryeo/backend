@@ -98,3 +98,15 @@ sentry:
   environment: ${SENTRY_ENVIRONMENT:prod}
   release: ${SENTRY_RELEASE:local}
   send-default-pii: false
+
+record:
+  outbox:
+    scheduler:
+      enabled: ${RECORD_OUTBOX_SCHEDULER_ENABLED:true}
+      fixed-delay-ms: ${RECORD_OUTBOX_SCHEDULER_FIXED_DELAY_MS:5000}
+      batch-size: ${RECORD_OUTBOX_SCHEDULER_BATCH_SIZE:20}
+      stale-timeout-seconds: ${RECORD_OUTBOX_STALE_TIMEOUT_SECONDS:300}
+    retry:
+      max-attempts: ${RECORD_OUTBOX_RETRY_MAX_ATTEMPTS:10}
+      base-delay-seconds: ${RECORD_OUTBOX_RETRY_BASE_DELAY_SECONDS:30}
+      max-delay-seconds: ${RECORD_OUTBOX_RETRY_MAX_DELAY_SECONDS:1800}

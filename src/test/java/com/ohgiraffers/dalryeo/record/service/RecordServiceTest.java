@@ -8,6 +8,10 @@ import com.ohgiraffers.dalryeo.record.dto.RunningRecordRequest;
 import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
 import com.ohgiraffers.dalryeo.record.exception.RecordValidationErrorCode;
 import com.ohgiraffers.dalryeo.record.exception.RecordValidationException;
+import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEvent;
+import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEventRepository;
+import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEventStatus;
+import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEventType;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
 import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
 import com.ohgiraffers.dalryeo.tier.service.TierScoreCalculator;
@@ -47,6 +51,9 @@ class RecordServiceTest {
 
     @Mock
     private RunningRecordRepository runningRecordRepository;
+
+    @Mock
+    private RecordOutboxEventRepository recordOutboxEventRepository;
 
     @Mock
     private UserLookupService userLookupService;
@@ -91,13 +98,18 @@ class RecordServiceTest {
         RecordIdResponse response = recordService.saveRecord(userId, request);
 
         ArgumentCaptor<RunningRecord> recordCaptor = ArgumentCaptor.forClass(RunningRecord.class);
+        ArgumentCaptor<RecordOutboxEvent> outboxCaptor = ArgumentCaptor.forClass(RecordOutboxEvent.class);
         assertThat(response.getRecordId()).isEqualTo(100L);
         verify(runningRecordRepository).save(recordCaptor.capture());
         assertThat(recordCaptor.getValue().getStartAt())
                 .isEqualTo(startAt.atZoneSameInstant(SERVICE_ZONE_ID).toLocalDateTime());
         assertThat(recordCaptor.getValue().getEndAt())
                 .isEqualTo(startAt.plusMinutes(25).atZoneSameInstant(SERVICE_ZONE_ID).toLocalDateTime());
-        verify(weeklyUserStatsService).applyRecord(any(RunningRecord.class));
+        verify(recordOutboxEventRepository).save(outboxCaptor.capture());
+        assertThat(outboxCaptor.getValue().getEventType())
+                .isEqualTo(RecordOutboxEventType.WEEKLY_STATS_UPDATE_REQUESTED);
+        assertThat(outboxCaptor.getValue().getAggregateId()).isEqualTo(100L);
+        assertThat(outboxCaptor.getValue().getStatus()).isEqualTo(RecordOutboxEventStatus.PENDING);
     }
 
     @Test
@@ -226,7 +238,7 @@ class RecordServiceTest {
 
         assertThat(response.getRecordId()).isEqualTo(101L);
         verify(runningRecordRepository).save(any(RunningRecord.class));
-        verify(weeklyUserStatsService).applyRecord(any(RunningRecord.class));
+        verify(recordOutboxEventRepository).save(any(RecordOutboxEvent.class));
     }
 
     @Test

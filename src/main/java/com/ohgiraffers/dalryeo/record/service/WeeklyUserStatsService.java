@@ -6,7 +6,6 @@ import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.tier.service.TierScoreCalculator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -25,7 +24,7 @@ public class WeeklyUserStatsService {
     private final WeeklyUserStatsRepository weeklyUserStatsRepository;
     private final TierScoreCalculator tierScoreCalculator;
 
-    @Transactional(propagation = Propagation.MANDATORY)
+    @Transactional
     public void applyRecord(RunningRecord record) {
         LocalDate weekStartDate = resolveWeekStart(record);
         BigDecimal distanceKm = decimal(record.getDistanceKm(), 3);
