@@ -66,6 +66,10 @@ class ApiContractIntegrationTest {
 
     private static final Path TEST_PROFILE_IMAGE_UPLOAD_DIR = Path.of("build/test-uploads/profile-images");
     private static final ZoneOffset TEST_ZONE_OFFSET = ZoneOffset.ofHours(9);
+    private static final String INVALID_REQUEST_BODY_MESSAGE = "요청 본문 형식이 올바르지 않습니다.";
+    private static final String INVALID_OFFSET_DATE_TIME_MESSAGE =
+            "시간 값은 timezone offset을 포함해야 합니다. 예: 2026-04-14T12:13:09+09:00";
+    private static final String INVALID_NUMBER_MESSAGE = "숫자 형식으로 입력해야 합니다.";
 
     @Autowired
     private MockMvc mockMvc;
@@ -588,6 +592,7 @@ class ApiContractIntegrationTest {
         User user = saveUser("runner-record-missing-offset");
         String accessToken = accessToken(user.getId());
         long beforeCount = runningRecordRepository.count();
+        long beforeStatsCount = weeklyUserStatsRepository.count();
 
         mockMvc.perform(post("/records")
                         .header("Authorization", bearer(accessToken))
@@ -608,9 +613,70 @@ class ApiContractIntegrationTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.data.code").value("BAD_REQUEST"))
-                .andExpect(jsonPath("$.data.message").value("요청 본문을 읽을 수 없습니다."));
+                .andExpect(jsonPath("$.data.message").value(INVALID_REQUEST_BODY_MESSAGE))
+                .andExpect(jsonPath("$.data.errors.startAt").value(INVALID_OFFSET_DATE_TIME_MESSAGE));
 
         assertThat(runningRecordRepository.count()).isEqualTo(beforeCount);
+        assertThat(weeklyUserStatsRepository.count()).isEqualTo(beforeStatsCount);
+    }
+
+    @Test
+    void saveRecord_returnsBadRequestWhenNumberFieldTypeIsInvalid() throws Exception {
+        User user = saveUser("runner-record-invalid-number");
+        String accessToken = accessToken(user.getId());
+        long beforeCount = runningRecordRepository.count();
+        long beforeStatsCount = weeklyUserStatsRepository.count();
+
+        mockMvc.perform(post("/records")
+                        .header("Authorization", bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "platform": "IOS",
+                                  "distanceKm": "fast",
+                                  "durationSec": 1500,
+                                  "avgPaceSecPerKm": 300,
+                                  "avgHeartRate": 150,
+                                  "caloriesKcal": 300,
+                                  "startAt": "2026-03-31T07:00:00+09:00",
+                                  "endAt": "2026-03-31T07:25:00+09:00"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.data.message").value(INVALID_REQUEST_BODY_MESSAGE))
+                .andExpect(jsonPath("$.data.errors.distanceKm").value(INVALID_NUMBER_MESSAGE));
+
+        assertThat(runningRecordRepository.count()).isEqualTo(beforeCount);
+        assertThat(weeklyUserStatsRepository.count()).isEqualTo(beforeStatsCount);
+    }
+
+    @Test
+    void saveRecord_returnsBadRequestWhenJsonSyntaxIsInvalid() throws Exception {
+        User user = saveUser("runner-record-invalid-json");
+        String accessToken = accessToken(user.getId());
+        long beforeCount = runningRecordRepository.count();
+        long beforeStatsCount = weeklyUserStatsRepository.count();
+
+        mockMvc.perform(post("/records")
+                        .header("Authorization", bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "platform": "IOS",
+                                  "distanceKm": 5.0,
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.data.message").value(INVALID_REQUEST_BODY_MESSAGE))
+                .andExpect(jsonPath("$.data.errors").doesNotExist());
+
+        assertThat(runningRecordRepository.count()).isEqualTo(beforeCount);
+        assertThat(weeklyUserStatsRepository.count()).isEqualTo(beforeStatsCount);
     }
 
     @Test
