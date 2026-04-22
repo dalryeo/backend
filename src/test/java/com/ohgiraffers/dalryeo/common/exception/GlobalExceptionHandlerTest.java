@@ -1,6 +1,8 @@
-package com.ohgiraffers.dalryeo.auth.exception;
+package com.ohgiraffers.dalryeo.common.exception;
 
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
+import com.ohgiraffers.dalryeo.auth.exception.AuthErrorCode;
+import com.ohgiraffers.dalryeo.auth.exception.AuthException;
 import com.ohgiraffers.dalryeo.common.CommonResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -19,8 +21,33 @@ class GlobalExceptionHandlerTest {
     private static final String INVALID_OFFSET_DATE_TIME_MESSAGE =
             "시간 값은 timezone offset을 포함해야 합니다. 예: 2026-04-14T12:13:09+09:00";
     private static final String INVALID_NUMBER_MESSAGE = "숫자 형식으로 입력해야 합니다.";
+    private static final String CUSTOM_AUTH_MESSAGE = "커스텀 인증 예외 메시지";
 
     private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
+
+    @Test
+    void handleBusinessException_returnsConfiguredStatusCodeAndErrorCode() {
+        ResponseEntity<CommonResponse<Map<String, Object>>> response =
+                handler.handleBusinessException(new AuthException(AuthErrorCode.REFRESH_TOKEN_EXPIRED));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        Map<String, Object> data = response.getBody().getData();
+        assertThat(data)
+                .containsEntry("code", "AC-006")
+                .containsEntry("message", "refreshToken 만료");
+    }
+
+    @Test
+    void handleBusinessException_usesExceptionMessageWhenProvided() {
+        ResponseEntity<CommonResponse<Map<String, Object>>> response =
+                handler.handleBusinessException(new AuthException(AuthErrorCode.REFRESH_TOKEN_EXPIRED, CUSTOM_AUTH_MESSAGE));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        Map<String, Object> data = response.getBody().getData();
+        assertThat(data)
+                .containsEntry("code", "AC-006")
+                .containsEntry("message", CUSTOM_AUTH_MESSAGE);
+    }
 
     @Test
     void handleHttpMessageNotReadableException_returnsFieldErrorWhenOffsetDateTimeFormatIsInvalid() {
