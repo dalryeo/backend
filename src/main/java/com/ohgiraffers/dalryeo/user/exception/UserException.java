@@ -1,14 +1,12 @@
 package com.ohgiraffers.dalryeo.user.exception;
 
+import com.ohgiraffers.dalryeo.common.exception.BusinessException;
 import lombok.Getter;
 
 @Getter
-public class UserException extends RuntimeException {
-
-    private final UserErrorCode errorCode;
+public class UserException extends BusinessException {
 
     public UserException(UserErrorCode errorCode) {
-        super(errorCode.getMessage());
-        this.errorCode = errorCode;
+        super(errorCode);
     }
 }
