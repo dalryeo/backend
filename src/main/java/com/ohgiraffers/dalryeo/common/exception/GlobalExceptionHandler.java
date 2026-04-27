@@ -12,6 +12,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -27,6 +28,8 @@ public class GlobalExceptionHandler {
     private static final String INVALID_REQUEST_VALUE_MESSAGE = "요청 값의 형식이 올바르지 않습니다.";
     private static final String INVALID_OFFSET_DATE_TIME_MESSAGE =
             "시간 값은 timezone offset을 포함해야 합니다. 예: 2026-04-14T12:13:09+09:00";
+    private static final String INVALID_LOCAL_DATE_MESSAGE =
+            "날짜 값은 yyyy-MM-dd 형식이어야 합니다. 예: 2001-01-01";
     private static final String INVALID_NUMBER_MESSAGE = "숫자 형식으로 입력해야 합니다.";
     private static final String INVALID_BOOLEAN_MESSAGE = "true 또는 false로 입력해야 합니다.";
     private static final String INVALID_ENUM_MESSAGE = "허용된 값 중 하나로 입력해야 합니다.";
@@ -151,6 +154,9 @@ public class GlobalExceptionHandler {
         }
         if (OffsetDateTime.class.equals(targetType)) {
             return INVALID_OFFSET_DATE_TIME_MESSAGE;
+        }
+        if (LocalDate.class.equals(targetType)) {
+            return INVALID_LOCAL_DATE_MESSAGE;
         }
         if (isNumberType(targetType)) {
             return INVALID_NUMBER_MESSAGE;

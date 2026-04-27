@@ -4,12 +4,17 @@ import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.ohgiraffers.dalryeo.auth.exception.AuthErrorCode;
 import com.ohgiraffers.dalryeo.auth.exception.AuthException;
 import com.ohgiraffers.dalryeo.common.CommonResponse;
+import com.ohgiraffers.dalryeo.record.exception.RecordValidationErrorCode;
+import com.ohgiraffers.dalryeo.record.exception.RecordValidationException;
+import com.ohgiraffers.dalryeo.user.exception.UserErrorCode;
+import com.ohgiraffers.dalryeo.user.exception.UserException;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.mock.http.MockHttpInputMessage;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Map;
 
@@ -20,6 +25,8 @@ class GlobalExceptionHandlerTest {
     private static final String INVALID_REQUEST_BODY_MESSAGE = "요청 본문 형식이 올바르지 않습니다.";
     private static final String INVALID_OFFSET_DATE_TIME_MESSAGE =
             "시간 값은 timezone offset을 포함해야 합니다. 예: 2026-04-14T12:13:09+09:00";
+    private static final String INVALID_LOCAL_DATE_MESSAGE =
+            "날짜 값은 yyyy-MM-dd 형식이어야 합니다. 예: 2001-01-01";
     private static final String INVALID_NUMBER_MESSAGE = "숫자 형식으로 입력해야 합니다.";
     private static final String CUSTOM_AUTH_MESSAGE = "커스텀 인증 예외 메시지";
 
@@ -50,6 +57,30 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void handleBusinessException_returnsConfiguredStatusCodeAndErrorCodeForUserException() {
+        ResponseEntity<CommonResponse<Map<String, Object>>> response =
+                handler.handleBusinessException(new UserException(UserErrorCode.USER_NOT_FOUND));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        Map<String, Object> data = response.getBody().getData();
+        assertThat(data)
+                .containsEntry("code", "USER-001")
+                .containsEntry("message", "사용자를 찾을 수 없습니다.");
+    }
+
+    @Test
+    void handleBusinessException_returnsConfiguredStatusCodeAndErrorCodeForRecordValidationException() {
+        ResponseEntity<CommonResponse<Map<String, Object>>> response =
+                handler.handleBusinessException(new RecordValidationException(RecordValidationErrorCode.INVALID_DURATION));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        Map<String, Object> data = response.getBody().getData();
+        assertThat(data)
+                .containsEntry("code", "RC-002")
+                .containsEntry("message", "기록 시간과 시작/종료 시각이 일치하지 않습니다.");
+    }
+
+    @Test
     void handleHttpMessageNotReadableException_returnsFieldErrorWhenOffsetDateTimeFormatIsInvalid() {
         InvalidFormatException cause = invalidFormatException("startAt", "2026-03-31T07:00:00", OffsetDateTime.class);
 
@@ -77,6 +108,21 @@ class GlobalExceptionHandlerTest {
                 .containsEntry("code", "BAD_REQUEST")
                 .containsEntry("message", INVALID_REQUEST_BODY_MESSAGE);
         assertThat(errors(data)).containsEntry("distanceKm", INVALID_NUMBER_MESSAGE);
+    }
+
+    @Test
+    void handleHttpMessageNotReadableException_returnsFieldErrorWhenLocalDateFormatIsInvalid() {
+        InvalidFormatException cause = invalidFormatException("birth", "1998/05/12", LocalDate.class);
+
+        ResponseEntity<CommonResponse<Map<String, Object>>> response =
+                handler.handleHttpMessageNotReadableException(messageNotReadableException(cause));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        Map<String, Object> data = response.getBody().getData();
+        assertThat(data)
+                .containsEntry("code", "BAD_REQUEST")
+                .containsEntry("message", INVALID_REQUEST_BODY_MESSAGE);
+        assertThat(errors(data)).containsEntry("birth", INVALID_LOCAL_DATE_MESSAGE);
     }
 
     @Test

@@ -111,6 +111,14 @@ public class AuthService {
             throw new AuthException(AuthErrorCode.REFRESH_TOKEN_EXPIRED);
         }
 
+        Long tokenUserId = jwtTokenProvider.getUserIdFromToken(refreshToken);
+        User user = userRepository.findById(tokenUserId)
+                .orElseThrow(() -> new AuthException(AuthErrorCode.REFRESH_TOKEN_MISMATCH));
+
+        if (user.isWithdrawn()) {
+            throw new UserException(UserErrorCode.WITHDRAWN_USER);
+        }
+
         String refreshTokenHash = hashRefreshToken(refreshToken);
         AuthToken authToken = authTokenRepository.findByRefreshTokenHash(refreshTokenHash)
                 .orElseThrow(() -> new AuthException(AuthErrorCode.REFRESH_TOKEN_MISMATCH));
@@ -118,11 +126,8 @@ public class AuthService {
             throw new AuthException(AuthErrorCode.REFRESH_TOKEN_EXPIRED);
         }
 
-        User user = userRepository.findById(authToken.getUserId())
-                .orElseThrow(() -> new AuthException(AuthErrorCode.REFRESH_TOKEN_MISMATCH));
-
-        if (user.isWithdrawn()) {
-            throw new AuthException(AuthErrorCode.WITHDRAWN_USER);
+        if (!authToken.getUserId().equals(user.getId())) {
+            throw new AuthException(AuthErrorCode.REFRESH_TOKEN_MISMATCH);
         }
 
         String newAccessToken = jwtTokenProvider.generateAccessToken(user.getId());

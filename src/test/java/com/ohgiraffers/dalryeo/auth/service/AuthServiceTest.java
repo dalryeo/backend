@@ -16,6 +16,8 @@ import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
 import com.ohgiraffers.dalryeo.onboarding.service.ProfileImageStorageService;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
+import com.ohgiraffers.dalryeo.user.exception.UserErrorCode;
+import com.ohgiraffers.dalryeo.user.exception.UserException;
 import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -162,9 +164,10 @@ class AuthServiceTest {
                 .build();
 
         when(jwtTokenProvider.validateToken(currentRefreshToken)).thenReturn(true);
+        when(jwtTokenProvider.getUserIdFromToken(currentRefreshToken)).thenReturn(userId);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(authTokenRepository.findByRefreshTokenHash(sha256(currentRefreshToken)))
                 .thenReturn(Optional.of(existingAuthToken));
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(jwtTokenProvider.generateAccessToken(userId)).thenReturn(newAccessToken);
         when(jwtTokenProvider.generateRefreshToken(userId)).thenReturn(newRefreshToken);
         when(jwtTokenProvider.getExpiration(newRefreshToken)).thenReturn(newRefreshExpiry);
@@ -195,6 +198,25 @@ class AuthServiceTest {
                 .isInstanceOf(AuthException.class)
                 .extracting("errorCode")
                 .isEqualTo(AuthErrorCode.REFRESH_TOKEN_EXPIRED);
+
+        verify(authTokenRepository, never()).findByRefreshTokenHash(any());
+    }
+
+    @Test
+    void refreshToken_throwsUserExceptionWhenWithdrawnUserRefreshTokenWasDeleted() {
+        Long userId = 5L;
+        String refreshToken = "deleted-refresh-token";
+        RefreshTokenRequest request = refreshTokenRequest(refreshToken);
+        User withdrawnUser = userWithId(userId, UserStatus.WITHDRAWN);
+
+        when(jwtTokenProvider.validateToken(refreshToken)).thenReturn(true);
+        when(jwtTokenProvider.getUserIdFromToken(refreshToken)).thenReturn(userId);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(withdrawnUser));
+
+        assertThatThrownBy(() -> authService.refreshToken(request))
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode")
+                .isEqualTo(UserErrorCode.WITHDRAWN_USER);
 
         verify(authTokenRepository, never()).findByRefreshTokenHash(any());
     }
