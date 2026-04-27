@@ -201,6 +201,24 @@ class ApiContractIntegrationTest {
     }
 
     @Test
+    void refreshToken_returnsNotFoundWhenTokenUserDoesNotExist() throws Exception {
+        String refreshToken = jwtTokenProvider.generateRefreshToken(999_999L);
+
+        mockMvc.perform(post("/auth/token/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "refreshToken": "%s"
+                                }
+                                """.formatted(refreshToken)))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("USER-001"))
+                .andExpect(jsonPath("$.data.message").value("사용자를 찾을 수 없습니다."));
+    }
+
+    @Test
     void logout_keepsSuccessResponseContract() throws Exception {
         String appleSub = "apple-sub-logout";
         JsonNode loginResponse = login(appleSub, "identity-logout");

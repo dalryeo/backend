@@ -203,6 +203,24 @@ class AuthServiceTest {
     }
 
     @Test
+    void refreshToken_throwsUserExceptionWhenTokenUserDoesNotExist() {
+        Long userId = 404L;
+        String refreshToken = "missing-user-refresh-token";
+        RefreshTokenRequest request = refreshTokenRequest(refreshToken);
+
+        when(jwtTokenProvider.validateToken(refreshToken)).thenReturn(true);
+        when(jwtTokenProvider.getUserIdFromToken(refreshToken)).thenReturn(userId);
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.refreshToken(request))
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode")
+                .isEqualTo(UserErrorCode.USER_NOT_FOUND);
+
+        verify(authTokenRepository, never()).findByRefreshTokenHash(any());
+    }
+
+    @Test
     void refreshToken_throwsUserExceptionWhenWithdrawnUserRefreshTokenWasDeleted() {
         Long userId = 5L;
         String refreshToken = "deleted-refresh-token";

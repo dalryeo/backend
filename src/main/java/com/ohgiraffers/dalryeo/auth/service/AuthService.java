@@ -113,7 +113,7 @@ public class AuthService {
 
         Long tokenUserId = jwtTokenProvider.getUserIdFromToken(refreshToken);
         User user = userRepository.findById(tokenUserId)
-                .orElseThrow(() -> new AuthException(AuthErrorCode.REFRESH_TOKEN_MISMATCH));
+                .orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
 
         if (user.isWithdrawn()) {
             throw new UserException(UserErrorCode.WITHDRAWN_USER);
