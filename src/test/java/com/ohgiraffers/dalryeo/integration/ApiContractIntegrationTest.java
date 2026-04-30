@@ -171,9 +171,56 @@ class ApiContractIntegrationTest {
     }
 
     @Test
+    void refreshToken_returnsForbiddenWhenUserIsWithdrawn() throws Exception {
+        String appleSub = "apple-sub-refresh-withdrawn";
+        JsonNode loginResponse = login(appleSub, "identity-refresh-withdrawn");
+        String accessToken = loginResponse.path("data").path("accessToken").asText();
+        String refreshToken = loginResponse.path("data").path("refreshToken").asText();
+        User user = findUserByAppleSub(appleSub);
+
+        mockMvc.perform(delete("/auth/withdraw")
+                        .header("Authorization", bearer(accessToken)))
+                .andExpect(status().isOk());
+
+        assertThat(authTokenRepository.findByUserId(user.getId())).isEmpty();
+
+        mockMvc.perform(post("/auth/token/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "refreshToken": "%s"
+                                }
+                                """.formatted(refreshToken)))
+                .andExpect(status().isForbidden())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("USER-002"))
+                .andExpect(jsonPath("$.data.message").value("탈퇴한 사용자입니다."));
+    }
+
+    @Test
+    void refreshToken_returnsNotFoundWhenTokenUserDoesNotExist() throws Exception {
+        String refreshToken = jwtTokenProvider.generateRefreshToken(999_999L);
+
+        mockMvc.perform(post("/auth/token/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "refreshToken": "%s"
+                                }
+                                """.formatted(refreshToken)))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("USER-001"))
+                .andExpect(jsonPath("$.data.message").value("사용자를 찾을 수 없습니다."));
+    }
+
+    @Test
     void logout_keepsSuccessResponseContract() throws Exception {
-        JsonNode loginResponse = login("apple-sub-logout", "identity-logout");
-        Long userId = userRepository.findAll().get(0).getId();
+        String appleSub = "apple-sub-logout";
+        JsonNode loginResponse = login(appleSub, "identity-logout");
+        Long userId = findUserByAppleSub(appleSub).getId();
         String accessToken = loginResponse.path("data").path("accessToken").asText();
 
         mockMvc.perform(post("/auth/logout")
@@ -188,8 +235,9 @@ class ApiContractIntegrationTest {
 
     @Test
     void withdraw_keepsSuccessResponseContract() throws Exception {
-        JsonNode loginResponse = login("apple-sub-withdraw", "identity-withdraw");
-        User user = userRepository.findAll().get(0);
+        String appleSub = "apple-sub-withdraw";
+        JsonNode loginResponse = login(appleSub, "identity-withdraw");
+        User user = findUserByAppleSub(appleSub);
         String accessToken = loginResponse.path("data").path("accessToken").asText();
 
         mockMvc.perform(delete("/auth/withdraw")
@@ -408,6 +456,28 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.data.tierGrade").value("B"))
                 .andExpect(jsonPath("$.data.score").value(1.24));
         assertThat(weeklyTierRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    void estimateTier_returnsForbiddenWhenUserIsWithdrawn() throws Exception {
+        User user = saveUser("runner-tier-withdrawn");
+        user.withdraw();
+        userRepository.save(user);
+
+        mockMvc.perform(post("/onboarding/estimate-tier")
+                        .header("Authorization", bearer(accessToken(user.getId())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "distanceKm": 5.0,
+                                  "paceSecPerKm": 300
+                                }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("USER-002"))
+                .andExpect(jsonPath("$.data.message").value("탈퇴한 사용자입니다."));
     }
 
     @Test
@@ -887,6 +957,13 @@ class ApiContractIntegrationTest {
                 .andReturn();
 
         return objectMapper.readTree(result.getResponse().getContentAsString());
+    }
+
+    private User findUserByAppleSub(String appleSub) {
+        Long userId = oAuthClientRepository.findByProviderAndProviderId("APPLE", appleSub)
+                .orElseThrow()
+                .getUserId();
+        return userRepository.findById(userId).orElseThrow();
     }
 
     private User saveUser(String nickname) {

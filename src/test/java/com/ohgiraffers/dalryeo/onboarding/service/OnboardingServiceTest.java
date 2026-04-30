@@ -251,7 +251,9 @@ class OnboardingServiceTest {
     @Test
     void estimateTier_returnsResponseWithoutPersistingWeeklyTier() {
         Long userId = 3L;
+        User user = userWithId(userId);
         EstimateTierRequest request = estimateTierRequest(5.0, 300);
+        when(userLookupService.getActiveById(userId)).thenReturn(user);
         when(tierService.resolveByScore(1.24))
                 .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.png"));
 
@@ -262,6 +264,22 @@ class OnboardingServiceTest {
         assertThat(response.getTierGrade()).isEqualTo("B");
         assertThat(response.getScore()).isEqualTo(1.24);
         verifyNoInteractions(userRepository, currentTierResolver, profileImageStorageService);
+    }
+
+    @Test
+    void estimateTier_throwsWhenUserIsWithdrawn() {
+        Long userId = 11L;
+        EstimateTierRequest request = estimateTierRequest(5.0, 300);
+        doThrow(new UserException(UserErrorCode.WITHDRAWN_USER))
+                .when(userLookupService)
+                .getActiveById(userId);
+
+        assertThatThrownBy(() -> onboardingService.estimateTier(userId, request))
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode")
+                .isEqualTo(UserErrorCode.WITHDRAWN_USER);
+
+        verifyNoInteractions(tierService);
     }
 
     private User userWithId(Long id) {
