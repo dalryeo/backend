@@ -112,6 +112,8 @@ public class OnboardingService {
      */
     @Transactional
     public EstimateTierResponse estimateTier(Long userId, EstimateTierRequest request) {
+        userLookupService.getActiveById(userId);
+
         double distanceKm = request.getDistanceKm();
         int paceSecPerKm = request.getPaceSecPerKm();
 

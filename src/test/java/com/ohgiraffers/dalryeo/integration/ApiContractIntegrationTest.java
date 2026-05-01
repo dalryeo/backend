@@ -487,6 +487,28 @@ class ApiContractIntegrationTest {
     }
 
     @Test
+    void estimateTier_returnsForbiddenWhenUserIsWithdrawn() throws Exception {
+        User user = saveUser("runner-tier-withdrawn");
+        user.withdraw();
+        userRepository.save(user);
+
+        mockMvc.perform(post("/onboarding/estimate-tier")
+                        .header("Authorization", bearer(accessToken(user.getId())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "distanceKm": 5.0,
+                                  "paceSecPerKm": 300
+                                }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("USER-002"))
+                .andExpect(jsonPath("$.data.message").value("탈퇴한 사용자입니다."));
+    }
+
+    @Test
     void getOnboarding_returnsTurtleProfileImageWhenOnboardingCompletedWithoutCurrentTier() throws Exception {
         User user = saveUser(null);
         String accessToken = accessToken(user.getId());
