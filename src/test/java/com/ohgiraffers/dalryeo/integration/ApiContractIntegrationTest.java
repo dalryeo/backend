@@ -69,6 +69,8 @@ class ApiContractIntegrationTest {
     private static final String INVALID_REQUEST_BODY_MESSAGE = "요청 본문 형식이 올바르지 않습니다.";
     private static final String INVALID_OFFSET_DATE_TIME_MESSAGE =
             "시간 값은 timezone offset을 포함해야 합니다. 예: 2026-04-14T12:13:09+09:00";
+    private static final String INVALID_LOCAL_DATE_MESSAGE =
+            "날짜 값은 yyyy-MM-dd 형식이어야 합니다. 예: 2001-01-01";
     private static final String INVALID_NUMBER_MESSAGE = "숫자 형식으로 입력해야 합니다.";
 
     @Autowired
@@ -364,6 +366,32 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.data.code").value("USER-003"))
                 .andExpect(jsonPath("$.data.message").value("이미 사용 중인 닉네임입니다."));
+    }
+
+    @Test
+    void onboardingSave_returnsBadRequestWhenBirthFormatIsInvalid() throws Exception {
+        User user = saveUser(null);
+        String accessToken = accessToken(user.getId());
+
+        mockMvc.perform(post("/onboarding")
+                        .header("Authorization", bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "runner-invalid-birth",
+                                  "gender": "F",
+                                  "birth": "1998/05/12",
+                                  "height": 165,
+                                  "weight": 52,
+                                  "profileImage": null
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.data.message").value(INVALID_REQUEST_BODY_MESSAGE))
+                .andExpect(jsonPath("$.data.errors.birth").value(INVALID_LOCAL_DATE_MESSAGE));
     }
 
     @Test

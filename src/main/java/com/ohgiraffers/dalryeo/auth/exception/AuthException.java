@@ -1,19 +1,16 @@
 package com.ohgiraffers.dalryeo.auth.exception;
 
+import com.ohgiraffers.dalryeo.common.exception.BusinessException;
 import lombok.Getter;
 
 @Getter
-public class AuthException extends RuntimeException {
-    private final AuthErrorCode errorCode;
+public class AuthException extends BusinessException {
 
     public AuthException(AuthErrorCode errorCode) {
-        super(errorCode.getMessage());
-        this.errorCode = errorCode;
+        super(errorCode);
     }
 
     public AuthException(AuthErrorCode errorCode, String message) {
-        super(message);
-        this.errorCode = errorCode;
+        super(errorCode, message);
     }
 }
-
