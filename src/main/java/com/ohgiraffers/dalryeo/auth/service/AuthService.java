@@ -18,6 +18,7 @@ import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.user.exception.UserErrorCode;
 import com.ohgiraffers.dalryeo.user.exception.UserException;
+import com.ohgiraffers.dalryeo.user.service.UserLookupService;
 import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +43,7 @@ public class AuthService {
     private final AppleOAuthValidator appleOAuthValidator;
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
+    private final UserLookupService userLookupService;
     private final OAuthClientRepository oAuthClientRepository;
     private final AuthTokenRepository authTokenRepository;
     private final RunningRecordRepository runningRecordRepository;
@@ -112,12 +114,7 @@ public class AuthService {
         }
 
         Long tokenUserId = jwtTokenProvider.getUserIdFromToken(refreshToken);
-        User user = userRepository.findById(tokenUserId)
-                .orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
-
-        if (user.isWithdrawn()) {
-            throw new UserException(UserErrorCode.WITHDRAWN_USER);
-        }
+        User user = userLookupService.getActiveById(tokenUserId);
 
         String refreshTokenHash = hashRefreshToken(refreshToken);
         AuthToken authToken = authTokenRepository.findByRefreshTokenHash(refreshTokenHash)

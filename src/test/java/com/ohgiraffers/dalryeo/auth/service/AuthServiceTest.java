@@ -18,6 +18,7 @@ import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.user.exception.UserErrorCode;
 import com.ohgiraffers.dalryeo.user.exception.UserException;
+import com.ohgiraffers.dalryeo.user.service.UserLookupService;
 import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -73,6 +74,9 @@ class AuthServiceTest {
 
     @Mock
     private ProfileImageStorageService profileImageStorageService;
+
+    @Mock
+    private UserLookupService userLookupService;
 
     @InjectMocks
     private AuthService authService;
@@ -165,7 +169,7 @@ class AuthServiceTest {
 
         when(jwtTokenProvider.validateToken(currentRefreshToken)).thenReturn(true);
         when(jwtTokenProvider.getUserIdFromToken(currentRefreshToken)).thenReturn(userId);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userLookupService.getActiveById(userId)).thenReturn(user);
         when(authTokenRepository.findByRefreshTokenHash(sha256(currentRefreshToken)))
                 .thenReturn(Optional.of(existingAuthToken));
         when(jwtTokenProvider.generateAccessToken(userId)).thenReturn(newAccessToken);
@@ -210,7 +214,8 @@ class AuthServiceTest {
 
         when(jwtTokenProvider.validateToken(refreshToken)).thenReturn(true);
         when(jwtTokenProvider.getUserIdFromToken(refreshToken)).thenReturn(userId);
-        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+        when(userLookupService.getActiveById(userId))
+                .thenThrow(new UserException(UserErrorCode.USER_NOT_FOUND));
 
         assertThatThrownBy(() -> authService.refreshToken(request))
                 .isInstanceOf(UserException.class)
@@ -225,11 +230,11 @@ class AuthServiceTest {
         Long userId = 5L;
         String refreshToken = "deleted-refresh-token";
         RefreshTokenRequest request = refreshTokenRequest(refreshToken);
-        User withdrawnUser = userWithId(userId, UserStatus.WITHDRAWN);
 
         when(jwtTokenProvider.validateToken(refreshToken)).thenReturn(true);
         when(jwtTokenProvider.getUserIdFromToken(refreshToken)).thenReturn(userId);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(withdrawnUser));
+        when(userLookupService.getActiveById(userId))
+                .thenThrow(new UserException(UserErrorCode.WITHDRAWN_USER));
 
         assertThatThrownBy(() -> authService.refreshToken(request))
                 .isInstanceOf(UserException.class)
