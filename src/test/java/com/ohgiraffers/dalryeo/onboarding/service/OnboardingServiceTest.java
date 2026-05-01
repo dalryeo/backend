@@ -279,7 +279,7 @@ class OnboardingServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(UserErrorCode.WITHDRAWN_USER);
 
-        verifyNoInteractions(tierService);
+        verifyNoInteractions(tierScoreCalculator, tierService);
     }
 
     private User userWithId(Long id) {
