@@ -154,6 +154,25 @@ class ApiContractIntegrationTest {
     }
 
     @Test
+    void loginWithApple_returnsUnauthorizedWhenIdentityTokenVerificationFails() throws Exception {
+        when(appleOAuthValidator.validateAndExtractAppleId("invalid-identity-token"))
+                .thenThrow(new RuntimeException("Apple identityToken validation failed"));
+
+        mockMvc.perform(post("/auth/oauth/apple")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "identityToken": "invalid-identity-token"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("AC-003"))
+                .andExpect(jsonPath("$.data.message").value("OAuth 토큰 검증 실패"));
+    }
+
+    @Test
     void refreshToken_keepsTokenResponseContract() throws Exception {
         JsonNode loginResponse = login("apple-sub-refresh", "identity-refresh");
         String refreshToken = loginResponse.path("data").path("refreshToken").asText();

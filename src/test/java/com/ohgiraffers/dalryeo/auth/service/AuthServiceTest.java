@@ -153,6 +153,23 @@ class AuthServiceTest {
     }
 
     @Test
+    void loginWithApple_throwsAuthExceptionWhenAppleTokenVerificationFails() {
+        String identityToken = "invalid-identity-token";
+
+        when(appleOAuthValidator.validateAndExtractAppleId(identityToken))
+                .thenThrow(new RuntimeException("Apple identityToken validation failed"));
+
+        assertThatThrownBy(() -> authService.loginWithApple(identityToken))
+                .isInstanceOf(AuthException.class)
+                .extracting("errorCode")
+                .isEqualTo(AuthErrorCode.OAUTH_TOKEN_VERIFICATION_FAILED);
+
+        verify(oAuthClientRepository, never()).findByProviderAndProviderId(any(), any());
+        verify(userRepository, never()).save(any(User.class));
+        verify(authTokenRepository, never()).save(any(AuthToken.class));
+    }
+
+    @Test
     void refreshToken_rotatesRefreshTokenForActiveUser() {
         Long userId = 3L;
         String currentRefreshToken = "current-refresh-token";
