@@ -1,6 +1,7 @@
 package com.ohgiraffers.dalryeo.auth.oauth;
 
 import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.crypto.RSASSAVerifier;
 import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.RSAKey;
@@ -38,6 +39,8 @@ public class AppleOAuthValidator {
             throw new RuntimeException("Apple identityToken kid is required");
         }
 
+        validateAlgorithm(signedJWT);
+
         RSAKey rsaKey = getRsaKey(keyId);
         verifySignature(signedJWT, rsaKey, keyId);
 
@@ -54,6 +57,17 @@ public class AppleOAuthValidator {
         } catch (ParseException e) {
             log.warn("Apple identityToken validation failed. reason=invalid_format");
             throw new RuntimeException("Invalid Apple identityToken format", e);
+        }
+    }
+
+    private void validateAlgorithm(SignedJWT signedJWT) {
+        JWSAlgorithm algorithm = signedJWT.getHeader().getAlgorithm();
+        if (!JWSAlgorithm.RS256.equals(algorithm)) {
+            log.warn(
+                    "Apple identityToken validation failed. reason=invalid_algorithm alg={}",
+                    sanitizeClaimForLog(algorithm == null ? null : algorithm.getName())
+            );
+            throw new RuntimeException("Invalid Apple identityToken algorithm");
         }
     }
 

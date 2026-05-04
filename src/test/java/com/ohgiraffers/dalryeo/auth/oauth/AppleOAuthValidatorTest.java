@@ -78,6 +78,15 @@ class AppleOAuthValidatorTest {
     }
 
     @Test
+    void validateAndExtractAppleId_failsForNonRs256Algorithm() throws Exception {
+        String identityToken = signedToken(claimsBuilder(), rsaKey, "kid-1", JWSAlgorithm.RS512);
+
+        assertThatThrownBy(() -> validator.validateAndExtractAppleId(identityToken))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Invalid Apple identityToken algorithm");
+    }
+
+    @Test
     void validateAndExtractAppleId_failsForInvalidIssuer() throws Exception {
         String identityToken = signedToken(claimsBuilder().issuer("https://attacker.example"), rsaKey, "kid-1");
 
@@ -152,7 +161,16 @@ class AppleOAuthValidatorTest {
     }
 
     private String signedToken(JWTClaimsSet.Builder claimsBuilder, RSAKey signingKey, String keyId) throws Exception {
-        JWSHeader.Builder headerBuilder = new JWSHeader.Builder(JWSAlgorithm.RS256);
+        return signedToken(claimsBuilder, signingKey, keyId, JWSAlgorithm.RS256);
+    }
+
+    private String signedToken(
+            JWTClaimsSet.Builder claimsBuilder,
+            RSAKey signingKey,
+            String keyId,
+            JWSAlgorithm algorithm
+    ) throws Exception {
+        JWSHeader.Builder headerBuilder = new JWSHeader.Builder(algorithm);
         if (keyId != null) {
             headerBuilder.keyID(keyId);
         }
