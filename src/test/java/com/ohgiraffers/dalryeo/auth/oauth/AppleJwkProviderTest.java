@@ -1,0 +1,159 @@
+package com.ohgiraffers.dalryeo.auth.oauth;
+
+import com.nimbusds.jose.jwk.JWK;
+import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
+import com.ohgiraffers.dalryeo.config.AppleOAuthProperties;
+import org.junit.jupiter.api.Test;
+
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+class AppleJwkProviderTest {
+
+    @Test
+    void getByKeyId_returnsCachedKeyWithoutRefetchWithinTtl() throws Exception {
+        MutableClock clock = new MutableClock(Instant.parse("2026-05-04T00:00:00Z"));
+        AppleOAuthProperties properties = properties(Duration.ofHours(24));
+        RSAKey key = rsaKey("kid-1");
+        AtomicInteger fetchCount = new AtomicInteger();
+        AppleJwkProvider provider = new AppleJwkProvider(
+                properties,
+                clock,
+                () -> {
+                    fetchCount.incrementAndGet();
+                    return jwkSet(key);
+                }
+        );
+
+        JWK first = provider.getByKeyId("kid-1");
+        clock.advance(Duration.ofHours(23));
+        JWK second = provider.getByKeyId("kid-1");
+
+        assertThat(first).isSameAs(key);
+        assertThat(second).isSameAs(key);
+        assertThat(fetchCount).hasValue(1);
+    }
+
+    @Test
+    void getByKeyId_refetchesWhenKidIsMissingFromValidCache() throws Exception {
+        MutableClock clock = new MutableClock(Instant.parse("2026-05-04T00:00:00Z"));
+        AppleOAuthProperties properties = properties(Duration.ofHours(24));
+        RSAKey oldKey = rsaKey("old-kid");
+        RSAKey newKey = rsaKey("new-kid");
+        AtomicInteger fetchCount = new AtomicInteger();
+        AppleJwkProvider provider = new AppleJwkProvider(
+                properties,
+                clock,
+                () -> fetchCount.incrementAndGet() == 1 ? jwkSet(oldKey) : jwkSet(oldKey, newKey)
+        );
+
+        assertThat(provider.getByKeyId("old-kid")).isSameAs(oldKey);
+        JWK found = provider.getByKeyId("new-kid");
+
+        assertThat(found).isSameAs(newKey);
+        assertThat(fetchCount).hasValue(2);
+    }
+
+    @Test
+    void getByKeyId_throwsWhenFetchFailsWithoutValidCache() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-05-04T00:00:00Z"));
+        AppleOAuthProperties properties = properties(Duration.ofHours(24));
+        AtomicInteger fetchCount = new AtomicInteger();
+        AppleJwkProvider provider = new AppleJwkProvider(
+                properties,
+                clock,
+                () -> {
+                    fetchCount.incrementAndGet();
+                    throw new IllegalStateException("fetch failed");
+                }
+        );
+
+        assertThatThrownBy(() -> provider.getByKeyId("kid-1"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("fetch failed");
+        assertThat(fetchCount).hasValue(1);
+    }
+
+    @Test
+    void getByKeyId_throwsWhenCacheIsStaleAndRefreshFails() throws Exception {
+        MutableClock clock = new MutableClock(Instant.parse("2026-05-04T00:00:00Z"));
+        AppleOAuthProperties properties = properties(Duration.ofHours(24));
+        RSAKey key = rsaKey("kid-1");
+        AtomicInteger fetchCount = new AtomicInteger();
+        AppleJwkProvider provider = new AppleJwkProvider(
+                properties,
+                clock,
+                () -> {
+                    if (fetchCount.incrementAndGet() == 1) {
+                        return jwkSet(key);
+                    }
+                    throw new IllegalStateException("refresh failed");
+                }
+        );
+
+        assertThat(provider.getByKeyId("kid-1")).isSameAs(key);
+        clock.advance(Duration.ofHours(25));
+
+        assertThatThrownBy(() -> provider.getByKeyId("kid-1"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("refresh failed");
+        assertThat(fetchCount).hasValue(2);
+    }
+
+    private static AppleOAuthProperties properties(Duration jwkCacheTtl) {
+        AppleOAuthProperties properties = new AppleOAuthProperties();
+        properties.setClientId("test-client-id");
+        properties.setJwkSetUri("https://apple.example.test/auth/keys");
+        properties.setJwkCacheTtl(jwkCacheTtl);
+        properties.setJwkReadTimeout(Duration.ofSeconds(2));
+        return properties;
+    }
+
+    private static RSAKey rsaKey(String keyId) throws Exception {
+        return new RSAKeyGenerator(2048)
+                .keyID(keyId)
+                .generate();
+    }
+
+    private static JWKSet jwkSet(JWK... keys) {
+        return new JWKSet(List.of(keys));
+    }
+
+    private static class MutableClock extends Clock {
+
+        private Instant instant;
+
+        private MutableClock(Instant instant) {
+            this.instant = instant;
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneOffset.UTC;
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return Clock.fixed(instant, zone);
+        }
+
+        @Override
+        public Instant instant() {
+            return instant;
+        }
+
+        private void advance(Duration duration) {
+            instant = instant.plus(duration);
+        }
+    }
+}
