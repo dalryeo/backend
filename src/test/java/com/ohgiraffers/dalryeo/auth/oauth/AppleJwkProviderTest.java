@@ -94,6 +94,31 @@ class AppleJwkProviderTest {
     }
 
     @Test
+    void getByKeyId_doesNotRepeatedlyRefetchColdStartUnknownKidDuringCooldown() throws Exception {
+        MutableClock clock = new MutableClock(Instant.parse("2026-05-04T00:00:00Z"));
+        AppleOAuthProperties properties = properties(Duration.ofHours(24));
+        RSAKey key = rsaKey("kid-1");
+        AtomicInteger fetchCount = new AtomicInteger();
+        AppleJwkProvider provider = new AppleJwkProvider(
+                properties,
+                clock,
+                () -> {
+                    fetchCount.incrementAndGet();
+                    return jwkSet(key);
+                }
+        );
+
+        assertThatThrownBy(() -> provider.getByKeyId("unknown-kid-1"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Apple JWK kid not found");
+        assertThatThrownBy(() -> provider.getByKeyId("unknown-kid-2"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Apple JWK kid not found");
+
+        assertThat(fetchCount).hasValue(1);
+    }
+
+    @Test
     void getByKeyId_refetchesUnknownKidAfterCooldownAndFindsRotatedKey() throws Exception {
         MutableClock clock = new MutableClock(Instant.parse("2026-05-04T00:00:00Z"));
         AppleOAuthProperties properties = properties(Duration.ofHours(24));
@@ -178,6 +203,18 @@ class AppleJwkProviderTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("refresh failed");
         assertThat(fetchCount).hasValue(2);
+    }
+
+    @Test
+    void sanitizeKidForLog_replacesControlSeparatorsAndTruncatesLongKid() {
+        String longKid = "safe\rkid\nwith\tcontrols-" + "a".repeat(100);
+
+        String sanitized = AppleJwkProvider.sanitizeKidForLog(longKid);
+
+        assertThat(sanitized)
+                .doesNotContain("\r", "\n", "\t")
+                .startsWith("safe_kid_with_controls-")
+                .hasSize(64);
     }
 
     private static AppleOAuthProperties properties(Duration jwkCacheTtl) {

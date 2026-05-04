@@ -60,13 +60,12 @@ public class AppleJwkProvider {
                 log.warn("Apple JWK lookup failed. reason=kid_not_found kid={}", sanitizeKidForLog(keyId));
                 throw new IllegalArgumentException("Apple JWK kid not found");
             }
-
-            nextKidMissRefetchAllowedAt = clock.instant().plus(KID_MISS_REFETCH_COOLDOWN);
         }
 
         JWKSet refreshedJwkSet = fetchAndCache();
         JWK refreshedKey = refreshedJwkSet.getKeyByKeyId(keyId);
         if (refreshedKey == null) {
+            nextKidMissRefetchAllowedAt = clock.instant().plus(KID_MISS_REFETCH_COOLDOWN);
             log.warn("Apple JWK lookup failed. reason=kid_not_found kid={}", sanitizeKidForLog(keyId));
             throw new IllegalArgumentException("Apple JWK kid not found");
         }
@@ -105,7 +104,7 @@ public class AppleJwkProvider {
         throw new IllegalArgumentException("Apple JWK kid must be RSA");
     }
 
-    private String sanitizeKidForLog(String keyId) {
+    static String sanitizeKidForLog(String keyId) {
         String sanitized = keyId
                 .replace('\r', '_')
                 .replace('\n', '_')
