@@ -21,6 +21,13 @@ logging:
 
 app:
   public-base-url: https://api.dalryeo.store
+  oauth:
+    apple:
+      client-id: test.apple.client
+      jwk-set-uri: https://appleid.apple.com/auth/keys
+      jwk-cache-ttl: 24h
+      jwk-read-timeout: 2s
+      clock-skew: 60s
   profile-image:
     upload-dir: build/test-uploads/profile-images
     url-prefix: /profiles/custom
