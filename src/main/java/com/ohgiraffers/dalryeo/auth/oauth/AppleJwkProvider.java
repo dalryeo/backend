@@ -4,6 +4,7 @@ import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.ohgiraffers.dalryeo.config.AppleOAuthProperties;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -30,6 +31,7 @@ public class AppleJwkProvider {
     private Instant cacheExpiresAt;
     private Instant nextKidMissRefetchAllowedAt;
 
+    @Autowired
     public AppleJwkProvider(
             AppleOAuthProperties properties,
             RestTemplateBuilder restTemplateBuilder,
