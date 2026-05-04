@@ -1,48 +1,168 @@
 package com.ohgiraffers.dalryeo.auth.oauth;
 
-import com.nimbusds.jwt.JWT;
+import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.crypto.RSASSAVerifier;
+import com.nimbusds.jose.jwk.JWK;
+import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jwt.JWTClaimsSet;
-import com.nimbusds.jwt.JWTParser;
+import com.nimbusds.jwt.SignedJWT;
+import com.ohgiraffers.dalryeo.config.AppleOAuthProperties;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import java.text.ParseException;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.Date;
+import java.util.List;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class AppleOAuthValidator {
 
-    /**
-     * Apple identityToken을 검증하고 Apple ID를 추출합니다.
-     * 실제 프로덕션에서는 Apple의 공개키를 사용하여 서명을 검증해야 합니다.
-     *
-     * @param identityToken Apple에서 받은 identityToken
-     * @return Apple ID (sub claim)
-     * @throws RuntimeException 토큰 검증 실패 시
-     */
+    private static final String APPLE_ISSUER = "https://appleid.apple.com";
+    private static final int MAX_LOGGED_CLAIM_LENGTH = 128;
+
+    private final AppleJwkProvider appleJwkProvider;
+    private final AppleOAuthProperties properties;
+    private final Clock clock;
+
     public String validateAndExtractAppleId(String identityToken) {
+        SignedJWT signedJWT = parse(identityToken);
+        String keyId = signedJWT.getHeader().getKeyID();
+        if (!StringUtils.hasText(keyId)) {
+            log.warn("Apple identityToken validation failed. reason=missing_kid");
+            throw new RuntimeException("Apple identityToken kid is required");
+        }
+
+        RSAKey rsaKey = getRsaKey(keyId);
+        verifySignature(signedJWT, rsaKey, keyId);
+
+        JWTClaimsSet claimsSet = claims(signedJWT);
+        validateIssuer(claimsSet);
+        validateAudience(claimsSet);
+        validateExpiration(claimsSet);
+        return requireSubject(claimsSet);
+    }
+
+    private SignedJWT parse(String identityToken) {
         try {
-            JWT jwt = JWTParser.parse(identityToken);
-            JWTClaimsSet claimsSet = jwt.getJWTClaimsSet();
-
-            // Apple ID 추출 (sub claim)
-            String appleId = claimsSet.getSubject();
-            if (appleId == null || appleId.isEmpty()) {
-                throw new RuntimeException("Apple ID not found in token");
-            }
-
-            // TODO: 실제 프로덕션에서는 Apple의 공개키를 사용하여 서명 검증 필요
-            // 현재는 기본적인 파싱만 수행
-            // Apple의 JWK 엔드포인트: https://appleid.apple.com/auth/keys
-
-            return appleId;
+            return SignedJWT.parse(identityToken);
         } catch (ParseException e) {
-            log.error("Failed to parse Apple identityToken", e);
+            log.warn("Apple identityToken validation failed. reason=invalid_format");
             throw new RuntimeException("Invalid Apple identityToken format", e);
-        } catch (Exception e) {
-            log.error("Failed to validate Apple identityToken", e);
-            throw new RuntimeException("Apple identityToken validation failed", e);
         }
     }
-}
 
+    private RSAKey getRsaKey(String keyId) {
+        try {
+            JWK jwk = appleJwkProvider.getByKeyId(keyId);
+            if (jwk instanceof RSAKey rsaKey) {
+                return rsaKey;
+            }
+        } catch (RuntimeException e) {
+            log.warn(
+                    "Apple identityToken validation failed. reason=jwk_lookup_failed kid={}",
+                    AppleJwkProvider.sanitizeKidForLog(keyId)
+            );
+            throw e;
+        }
+
+        log.warn(
+                "Apple identityToken validation failed. reason=non_rsa_jwk kid={}",
+                AppleJwkProvider.sanitizeKidForLog(keyId)
+        );
+        throw new RuntimeException("Apple identityToken JWK must be RSA");
+    }
+
+    private void verifySignature(SignedJWT signedJWT, RSAKey rsaKey, String keyId) {
+        try {
+            boolean verified = signedJWT.verify(new RSASSAVerifier(rsaKey.toRSAPublicKey()));
+            if (!verified) {
+                log.warn(
+                        "Apple identityToken validation failed. reason=invalid_signature kid={}",
+                        AppleJwkProvider.sanitizeKidForLog(keyId)
+                );
+                throw new RuntimeException("Invalid Apple identityToken signature");
+            }
+        } catch (JOSEException e) {
+            log.warn(
+                    "Apple identityToken validation failed. reason=signature_verification_error kid={}",
+                    AppleJwkProvider.sanitizeKidForLog(keyId)
+            );
+            throw new RuntimeException("Apple identityToken signature verification failed", e);
+        }
+    }
+
+    private JWTClaimsSet claims(SignedJWT signedJWT) {
+        try {
+            return signedJWT.getJWTClaimsSet();
+        } catch (ParseException e) {
+            log.warn("Apple identityToken validation failed. reason=invalid_claims");
+            throw new RuntimeException("Invalid Apple identityToken claims", e);
+        }
+    }
+
+    private void validateIssuer(JWTClaimsSet claimsSet) {
+        String issuer = claimsSet.getIssuer();
+        if (!APPLE_ISSUER.equals(issuer)) {
+            log.warn(
+                    "Apple identityToken validation failed. reason=invalid_issuer iss={}",
+                    sanitizeClaimForLog(issuer)
+            );
+            throw new RuntimeException("Invalid Apple identityToken issuer");
+        }
+    }
+
+    private void validateAudience(JWTClaimsSet claimsSet) {
+        List<String> audience = claimsSet.getAudience();
+        if (audience == null || !audience.contains(properties.getClientId())) {
+            log.warn(
+                    "Apple identityToken validation failed. reason=invalid_audience aud={}",
+                    sanitizeClaimForLog(audience == null ? null : String.join(",", audience))
+            );
+            throw new RuntimeException("Invalid Apple identityToken audience");
+        }
+    }
+
+    private void validateExpiration(JWTClaimsSet claimsSet) {
+        Date expirationTime = claimsSet.getExpirationTime();
+        if (expirationTime == null) {
+            log.warn("Apple identityToken validation failed. reason=missing_exp");
+            throw new RuntimeException("Expired Apple identityToken");
+        }
+
+        Instant expiresAtWithSkew = expirationTime.toInstant().plus(properties.getClockSkew());
+        if (expiresAtWithSkew.isBefore(clock.instant())) {
+            log.warn("Apple identityToken validation failed. reason=expired");
+            throw new RuntimeException("Expired Apple identityToken");
+        }
+    }
+
+    private String requireSubject(JWTClaimsSet claimsSet) {
+        String subject = claimsSet.getSubject();
+        if (!StringUtils.hasText(subject)) {
+            log.warn("Apple identityToken validation failed. reason=missing_subject");
+            throw new RuntimeException("Apple identityToken subject is required");
+        }
+        return subject;
+    }
+
+    private static String sanitizeClaimForLog(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String sanitized = value
+                .replace('\r', '_')
+                .replace('\n', '_')
+                .replace('\t', '_');
+        if (sanitized.length() <= MAX_LOGGED_CLAIM_LENGTH) {
+            return sanitized;
+        }
+        return sanitized.substring(0, MAX_LOGGED_CLAIM_LENGTH);
+    }
+}
