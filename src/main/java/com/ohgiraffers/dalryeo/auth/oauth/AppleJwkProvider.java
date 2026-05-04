@@ -12,11 +12,15 @@ import org.springframework.web.client.RestTemplate;
 
 import java.text.ParseException;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 
 @Slf4j
 @Component
 public class AppleJwkProvider {
+
+    private static final Duration KID_MISS_REFETCH_COOLDOWN = Duration.ofMinutes(5);
+    private static final int MAX_LOGGED_KID_LENGTH = 64;
 
     private final AppleOAuthProperties properties;
     private final Clock clock;
@@ -24,6 +28,7 @@ public class AppleJwkProvider {
 
     private JWKSet cachedJwkSet;
     private Instant cacheExpiresAt;
+    private Instant nextKidMissRefetchAllowedAt;
 
     public AppleJwkProvider(
             AppleOAuthProperties properties,
@@ -48,23 +53,35 @@ public class AppleJwkProvider {
         if (hasValidCache()) {
             JWK cachedKey = cachedJwkSet.getKeyByKeyId(keyId);
             if (cachedKey != null) {
-                return cachedKey;
+                return requireRsa(cachedKey, keyId);
             }
+
+            if (!canRefetchAfterKidMiss()) {
+                log.warn("Apple JWK lookup failed. reason=kid_not_found kid={}", sanitizeKidForLog(keyId));
+                throw new IllegalArgumentException("Apple JWK kid not found");
+            }
+
+            nextKidMissRefetchAllowedAt = clock.instant().plus(KID_MISS_REFETCH_COOLDOWN);
         }
 
         JWKSet refreshedJwkSet = fetchAndCache();
         JWK refreshedKey = refreshedJwkSet.getKeyByKeyId(keyId);
         if (refreshedKey == null) {
-            log.warn("Apple JWK lookup failed. reason=kid_not_found kid={}", keyId);
+            log.warn("Apple JWK lookup failed. reason=kid_not_found kid={}", sanitizeKidForLog(keyId));
             throw new IllegalArgumentException("Apple JWK kid not found");
         }
-        return refreshedKey;
+        return requireRsa(refreshedKey, keyId);
     }
 
     private boolean hasValidCache() {
         return cachedJwkSet != null
                 && cacheExpiresAt != null
                 && clock.instant().isBefore(cacheExpiresAt);
+    }
+
+    private boolean canRefetchAfterKidMiss() {
+        return nextKidMissRefetchAllowedAt == null
+                || !clock.instant().isBefore(nextKidMissRefetchAllowedAt);
     }
 
     private JWKSet fetchAndCache() {
@@ -77,6 +94,26 @@ public class AppleJwkProvider {
             log.error("Apple JWK fetch failed.", e);
             throw e;
         }
+    }
+
+    private JWK requireRsa(JWK jwk, String keyId) {
+        if (jwk instanceof com.nimbusds.jose.jwk.RSAKey) {
+            return jwk;
+        }
+
+        log.warn("Apple JWK lookup failed. reason=non_rsa_jwk kid={}", sanitizeKidForLog(keyId));
+        throw new IllegalArgumentException("Apple JWK kid must be RSA");
+    }
+
+    private String sanitizeKidForLog(String keyId) {
+        String sanitized = keyId
+                .replace('\r', '_')
+                .replace('\n', '_')
+                .replace('\t', '_');
+        if (sanitized.length() <= MAX_LOGGED_KID_LENGTH) {
+            return sanitized;
+        }
+        return sanitized.substring(0, MAX_LOGGED_KID_LENGTH);
     }
 
     private static class RestTemplateJwkSetFetcher implements JwkSetFetcher {

@@ -2,11 +2,13 @@ package com.ohgiraffers.dalryeo.auth.oauth;
 
 import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.OctetSequenceKey;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import com.ohgiraffers.dalryeo.config.AppleOAuthProperties;
 import org.junit.jupiter.api.Test;
 
+import javax.crypto.spec.SecretKeySpec;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -62,6 +64,74 @@ class AppleJwkProviderTest {
 
         assertThat(found).isSameAs(newKey);
         assertThat(fetchCount).hasValue(2);
+    }
+
+    @Test
+    void getByKeyId_doesNotRepeatedlyRefetchUnknownKidDuringCooldown() throws Exception {
+        MutableClock clock = new MutableClock(Instant.parse("2026-05-04T00:00:00Z"));
+        AppleOAuthProperties properties = properties(Duration.ofHours(24));
+        RSAKey key = rsaKey("kid-1");
+        AtomicInteger fetchCount = new AtomicInteger();
+        AppleJwkProvider provider = new AppleJwkProvider(
+                properties,
+                clock,
+                () -> {
+                    fetchCount.incrementAndGet();
+                    return jwkSet(key);
+                }
+        );
+
+        assertThat(provider.getByKeyId("kid-1")).isSameAs(key);
+
+        assertThatThrownBy(() -> provider.getByKeyId("unknown-kid-1"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Apple JWK kid not found");
+        assertThatThrownBy(() -> provider.getByKeyId("unknown-kid-2"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Apple JWK kid not found");
+
+        assertThat(fetchCount).hasValue(2);
+    }
+
+    @Test
+    void getByKeyId_refetchesUnknownKidAfterCooldownAndFindsRotatedKey() throws Exception {
+        MutableClock clock = new MutableClock(Instant.parse("2026-05-04T00:00:00Z"));
+        AppleOAuthProperties properties = properties(Duration.ofHours(24));
+        RSAKey oldKey = rsaKey("old-kid");
+        RSAKey newKey = rsaKey("new-kid");
+        AtomicInteger fetchCount = new AtomicInteger();
+        AppleJwkProvider provider = new AppleJwkProvider(
+                properties,
+                clock,
+                () -> fetchCount.incrementAndGet() < 3 ? jwkSet(oldKey) : jwkSet(oldKey, newKey)
+        );
+
+        assertThat(provider.getByKeyId("old-kid")).isSameAs(oldKey);
+        assertThatThrownBy(() -> provider.getByKeyId("new-kid"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Apple JWK kid not found");
+
+        clock.advance(Duration.ofMinutes(5).plusSeconds(1));
+        JWK found = provider.getByKeyId("new-kid");
+
+        assertThat(found).isSameAs(newKey);
+        assertThat(fetchCount).hasValue(3);
+    }
+
+    @Test
+    void getByKeyId_throwsWhenMatchingKeyIsNotRsa() throws Exception {
+        MutableClock clock = new MutableClock(Instant.parse("2026-05-04T00:00:00Z"));
+        AppleOAuthProperties properties = properties(Duration.ofHours(24));
+        OctetSequenceKey nonRsaKey = octetSequenceKey("kid-1");
+        AppleJwkProvider provider = new AppleJwkProvider(
+                properties,
+                clock,
+                () -> jwkSet(nonRsaKey)
+        );
+
+        assertThatThrownBy(() -> provider.getByKeyId("kid-1"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Apple JWK kid must be RSA");
     }
 
     @Test
@@ -123,6 +193,12 @@ class AppleJwkProviderTest {
         return new RSAKeyGenerator(2048)
                 .keyID(keyId)
                 .generate();
+    }
+
+    private static OctetSequenceKey octetSequenceKey(String keyId) {
+        return new OctetSequenceKey.Builder(new SecretKeySpec("0123456789abcdef".getBytes(), "AES"))
+                .keyID(keyId)
+                .build();
     }
 
     private static JWKSet jwkSet(JWK... keys) {
