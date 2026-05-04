@@ -7,6 +7,9 @@ import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import com.ohgiraffers.dalryeo.config.AppleOAuthProperties;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.web.client.MockServerRestTemplateCustomizer;
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.http.MediaType;
 
 import javax.crypto.spec.SecretKeySpec;
 import java.time.Clock;
@@ -19,6 +22,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class AppleJwkProviderTest {
 
@@ -160,6 +166,26 @@ class AppleJwkProviderTest {
     }
 
     @Test
+    void getByKeyId_throwsWhenKidIsBlankWithoutFetching() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-05-04T00:00:00Z"));
+        AppleOAuthProperties properties = properties(Duration.ofHours(24));
+        AtomicInteger fetchCount = new AtomicInteger();
+        AppleJwkProvider provider = new AppleJwkProvider(
+                properties,
+                clock,
+                () -> {
+                    fetchCount.incrementAndGet();
+                    return jwkSet();
+                }
+        );
+
+        assertThatThrownBy(() -> provider.getByKeyId("   \t\n"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Apple JWK kid is required");
+        assertThat(fetchCount).hasValue(0);
+    }
+
+    @Test
     void getByKeyId_throwsWhenFetchFailsWithoutValidCache() {
         MutableClock clock = new MutableClock(Instant.parse("2026-05-04T00:00:00Z"));
         AppleOAuthProperties properties = properties(Duration.ofHours(24));
@@ -206,6 +232,73 @@ class AppleJwkProviderTest {
     }
 
     @Test
+    void getByKeyId_fetchesJwkSetWithRestTemplateBuilderConstructor() throws Exception {
+        MutableClock clock = new MutableClock(Instant.parse("2026-05-04T00:00:00Z"));
+        AppleOAuthProperties properties = properties(Duration.ofHours(24));
+        RSAKey key = rsaKey("kid-1");
+        AppleJwkProvider provider = restTemplateProvider(properties, clock);
+
+        mockServer()
+                .expect(requestTo(properties.getJwkSetUri()))
+                .andRespond(withSuccess(jwkSet(key).toPublicJWKSet().toString(), MediaType.APPLICATION_JSON));
+
+        JWK found = provider.getByKeyId("kid-1");
+
+        assertThat(found.getKeyID()).isEqualTo("kid-1");
+        mockServer().verify();
+    }
+
+    @Test
+    void getByKeyId_throwsWhenRestTemplateFetcherReceivesEmptyBody() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-05-04T00:00:00Z"));
+        AppleOAuthProperties properties = properties(Duration.ofHours(24));
+        AppleJwkProvider provider = restTemplateProvider(properties, clock);
+
+        mockServer()
+                .expect(requestTo(properties.getJwkSetUri()))
+                .andRespond(withSuccess("", MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> provider.getByKeyId("kid-1"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Apple JWK fetch failed: empty response body");
+        mockServer().verify();
+    }
+
+    @Test
+    void getByKeyId_throwsWhenRestTemplateFetcherReceivesMalformedJson() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-05-04T00:00:00Z"));
+        AppleOAuthProperties properties = properties(Duration.ofHours(24));
+        AppleJwkProvider provider = restTemplateProvider(properties, clock);
+
+        mockServer()
+                .expect(requestTo(properties.getJwkSetUri()))
+                .andRespond(withSuccess("{not-json", MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> provider.getByKeyId("kid-1"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Apple JWK fetch failed")
+                .hasCauseInstanceOf(java.text.ParseException.class);
+        mockServer().verify();
+    }
+
+    @Test
+    void getByKeyId_throwsWhenRestTemplateFetcherReceivesServerError() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-05-04T00:00:00Z"));
+        AppleOAuthProperties properties = properties(Duration.ofHours(24));
+        AppleJwkProvider provider = restTemplateProvider(properties, clock);
+
+        mockServer()
+                .expect(requestTo(properties.getJwkSetUri()))
+                .andRespond(withServerError());
+
+        assertThatThrownBy(() -> provider.getByKeyId("kid-1"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Apple JWK fetch failed")
+                .hasCauseInstanceOf(org.springframework.web.client.RestClientException.class);
+        mockServer().verify();
+    }
+
+    @Test
     void sanitizeKidForLog_replacesControlSeparatorsAndTruncatesLongKid() {
         String longKid = "safe\rkid\nwith\tcontrols-" + "a".repeat(100);
 
@@ -215,6 +308,16 @@ class AppleJwkProviderTest {
                 .doesNotContain("\r", "\n", "\t")
                 .startsWith("safe_kid_with_controls-")
                 .hasSize(64);
+    }
+
+    private final MockServerRestTemplateCustomizer mockServerCustomizer = new MockServerRestTemplateCustomizer();
+
+    private AppleJwkProvider restTemplateProvider(AppleOAuthProperties properties, Clock clock) {
+        return new AppleJwkProvider(properties, new RestTemplateBuilder(mockServerCustomizer), clock);
+    }
+
+    private org.springframework.test.web.client.MockRestServiceServer mockServer() {
+        return mockServerCustomizer.getServer();
     }
 
     private static AppleOAuthProperties properties(Duration jwkCacheTtl) {
