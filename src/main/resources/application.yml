@@ -57,13 +57,15 @@ jwt:
   access-token-expiration: 3600000  # 1시간 (밀리초)
   refresh-token-expiration: 604800000  # 7일 (밀리초)
 
-# Apple OAuth 설정 (향후 확장용)
 app:
   public-base-url: ${APP_PUBLIC_BASE_URL:https://api.dalryeo.store}
   oauth:
     apple:
-      dev-mode: ${APP_OAUTH_DEV_MODE:true}
-      dev-apple-id-prefix: dev_user_
+      client-id: ${APP_OAUTH_APPLE_CLIENT_ID}
+      jwk-set-uri: https://appleid.apple.com/auth/keys
+      jwk-cache-ttl: 24h
+      jwk-read-timeout: 2s
+      clock-skew: 60s
   profile-image:
     upload-dir: ${PROFILE_IMAGE_UPLOAD_DIR:uploads/profile-images}
     url-prefix: /profiles/custom
