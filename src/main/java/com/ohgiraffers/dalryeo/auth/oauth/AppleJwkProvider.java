@@ -94,6 +94,7 @@ public class AppleJwkProvider {
         } catch (AppleJwkFetchException e) {
             throw e;
         } catch (RuntimeException e) {
+            // JWK 조회 실패임을 호출자가 구분할 수 있게 감싼다.
             throw new AppleJwkFetchException("Apple JWK fetch failed", e);
         }
     }
