@@ -76,6 +76,13 @@ public class AppleOAuthValidator {
     private RSAKey getRsaKey(String keyId) {
         try {
             return (RSAKey) appleJwkProvider.getByKeyId(keyId);
+        } catch (AppleJwkFetchException e) {
+            log.error(
+                    "Apple identityToken validation failed. reason=jwk_fetch_failed kid={}",
+                    AppleJwkProvider.sanitizeKidForLog(keyId),
+                    e
+            );
+            throw verificationFailed();
         } catch (RuntimeException e) {
             log.warn(
                     "Apple identityToken validation failed. reason=jwk_lookup_failed kid={}",

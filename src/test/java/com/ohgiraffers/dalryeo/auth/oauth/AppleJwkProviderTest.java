@@ -6,6 +6,7 @@ import com.nimbusds.jose.jwk.OctetSequenceKey;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import com.ohgiraffers.dalryeo.config.AppleOAuthProperties;
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.web.client.MockServerRestTemplateCustomizer;
 import org.springframework.boot.web.client.RestTemplateBuilder;
@@ -199,9 +200,12 @@ class AppleJwkProviderTest {
                 }
         );
 
-        assertThatThrownBy(() -> provider.getByKeyId("kid-1"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("fetch failed");
+        assertAppleJwkFetchExceptionWithCause(
+                () -> provider.getByKeyId("kid-1"),
+                "Apple JWK fetch failed",
+                IllegalStateException.class,
+                "fetch failed"
+        );
         assertThat(fetchCount).hasValue(1);
     }
 
@@ -225,9 +229,12 @@ class AppleJwkProviderTest {
         assertThat(provider.getByKeyId("kid-1")).isSameAs(key);
         clock.advance(Duration.ofHours(25));
 
-        assertThatThrownBy(() -> provider.getByKeyId("kid-1"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("refresh failed");
+        assertAppleJwkFetchExceptionWithCause(
+                () -> provider.getByKeyId("kid-1"),
+                "Apple JWK fetch failed",
+                IllegalStateException.class,
+                "refresh failed"
+        );
         assertThat(fetchCount).hasValue(2);
     }
 
@@ -258,9 +265,10 @@ class AppleJwkProviderTest {
                 .expect(requestTo(properties.getJwkSetUri()))
                 .andRespond(withSuccess("", MediaType.APPLICATION_JSON));
 
-        assertThatThrownBy(() -> provider.getByKeyId("kid-1"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Apple JWK fetch failed: empty response body");
+        assertAppleJwkFetchException(
+                () -> provider.getByKeyId("kid-1"),
+                "Apple JWK fetch failed: empty response body"
+        );
         mockServer().verify();
     }
 
@@ -274,10 +282,11 @@ class AppleJwkProviderTest {
                 .expect(requestTo(properties.getJwkSetUri()))
                 .andRespond(withSuccess("{not-json", MediaType.APPLICATION_JSON));
 
-        assertThatThrownBy(() -> provider.getByKeyId("kid-1"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Apple JWK fetch failed")
-                .hasCauseInstanceOf(java.text.ParseException.class);
+        assertAppleJwkFetchExceptionWithRootCause(
+                () -> provider.getByKeyId("kid-1"),
+                "Apple JWK fetch failed",
+                java.text.ParseException.class
+        );
         mockServer().verify();
     }
 
@@ -291,10 +300,11 @@ class AppleJwkProviderTest {
                 .expect(requestTo(properties.getJwkSetUri()))
                 .andRespond(withServerError());
 
-        assertThatThrownBy(() -> provider.getByKeyId("kid-1"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Apple JWK fetch failed")
-                .hasCauseInstanceOf(org.springframework.web.client.RestClientException.class);
+        assertAppleJwkFetchExceptionWithRootCause(
+                () -> provider.getByKeyId("kid-1"),
+                "Apple JWK fetch failed",
+                org.springframework.web.client.RestClientException.class
+        );
         mockServer().verify();
     }
 
@@ -343,6 +353,40 @@ class AppleJwkProviderTest {
 
     private static JWKSet jwkSet(JWK... keys) {
         return new JWKSet(List.of(keys));
+    }
+
+    private static void assertAppleJwkFetchException(ThrowingCallable callable, String expectedMessage) {
+        assertThatThrownBy(callable)
+                .isInstanceOf(AppleJwkFetchException.class)
+                .hasMessage(expectedMessage);
+    }
+
+    private static void assertAppleJwkFetchExceptionWithCause(
+            ThrowingCallable callable,
+            String expectedMessage,
+            Class<? extends Throwable> expectedCauseType,
+            String expectedCauseMessage
+    ) {
+        assertThatThrownBy(callable)
+                .isInstanceOf(AppleJwkFetchException.class)
+                .satisfies(throwable -> {
+                    assertThat(throwable).hasMessage(expectedMessage);
+                    assertThat(throwable).hasCauseInstanceOf(expectedCauseType);
+                    assertThat(throwable.getCause()).hasMessage(expectedCauseMessage);
+                });
+    }
+
+    private static void assertAppleJwkFetchExceptionWithRootCause(
+            ThrowingCallable callable,
+            String expectedMessage,
+            Class<? extends Throwable> expectedRootCauseType
+    ) {
+        assertThatThrownBy(callable)
+                .isInstanceOf(AppleJwkFetchException.class)
+                .satisfies(throwable -> {
+                    assertThat(throwable).hasMessage(expectedMessage);
+                    assertThat(throwable).hasRootCauseInstanceOf(expectedRootCauseType);
+                });
     }
 
     private static class MutableClock extends Clock {

@@ -45,9 +45,9 @@ class AppleOAuthValidatorTest {
 
     @Test
     void validateAndExtractAppleId_returnsSubjectForValidSignedToken() throws Exception {
-        String identityToken = signedToken(claimsBuilder(), rsaKey, "kid-1");
+        String identityJwt = signedToken(claimsBuilder(), rsaKey, "kid-1");
 
-        String appleId = validator.validateAndExtractAppleId(identityToken);
+        String appleId = validator.validateAndExtractAppleId(identityJwt);
 
         assertThat(appleId).isEqualTo(SUBJECT);
     }
@@ -59,9 +59,9 @@ class AppleOAuthValidatorTest {
 
     @Test
     void validateAndExtractAppleId_failsWhenKidIsMissing() throws Exception {
-        String identityToken = signedToken(claimsBuilder(), rsaKey, null);
+        String identityJwt = signedToken(claimsBuilder(), rsaKey, null);
 
-        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityToken));
+        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityJwt));
     }
 
     @Test
@@ -69,92 +69,100 @@ class AppleOAuthValidatorTest {
         RSAKey otherKey = new RSAKeyGenerator(2048)
                 .keyID("kid-1")
                 .generate();
-        String identityToken = signedToken(claimsBuilder(), otherKey, "kid-1");
+        String identityJwt = signedToken(claimsBuilder(), otherKey, "kid-1");
 
-        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityToken));
+        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityJwt));
+    }
+
+    @Test
+    void validateAndExtractAppleId_failsWithAuthExceptionWhenJwkFetchFails() throws Exception {
+        String identityJwt = signedToken(claimsBuilder(), rsaKey, "kid-1");
+        AppleOAuthValidator validator = validatorWithFetchFailure();
+
+        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityJwt));
     }
 
     @Test
     void validateAndExtractAppleId_failsForNonRs256Algorithm() throws Exception {
-        String identityToken = signedToken(claimsBuilder(), rsaKey, "kid-1", JWSAlgorithm.RS512);
+        String identityJwt = signedToken(claimsBuilder(), rsaKey, "kid-1", JWSAlgorithm.RS512);
 
-        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityToken));
+        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityJwt));
     }
 
     @Test
     void validateAndExtractAppleId_failsForInvalidIssuer() throws Exception {
-        String identityToken = signedToken(claimsBuilder().issuer("https://attacker.example"), rsaKey, "kid-1");
+        String identityJwt = signedToken(claimsBuilder().issuer("https://attacker.example"), rsaKey, "kid-1");
 
-        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityToken));
+        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityJwt));
     }
 
     @Test
     void validateAndExtractAppleId_failsForInvalidAudience() throws Exception {
-        String identityToken = signedToken(claimsBuilder().audience("other-client-id"), rsaKey, "kid-1");
+        String identityJwt = signedToken(claimsBuilder().audience("other-client-id"), rsaKey, "kid-1");
 
-        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityToken));
+        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityJwt));
     }
 
     @Test
     void validateAndExtractAppleId_failsForExpiredTokenBeyondClockSkew() throws Exception {
-        String identityToken = signedToken(
+        String identityJwt = signedToken(
                 claimsBuilder().expirationTime(Date.from(NOW.minusSeconds(61))),
                 rsaKey,
                 "kid-1"
         );
 
-        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityToken));
+        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityJwt));
     }
 
     @Test
     void validateAndExtractAppleId_failsForIssuedAtInFutureBeyondClockSkew() throws Exception {
-        String identityToken = signedToken(
+        String identityJwt = signedToken(
                 claimsBuilder().issueTime(Date.from(NOW.plusSeconds(61))),
                 rsaKey,
                 "kid-1"
         );
 
-        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityToken));
+        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityJwt));
     }
 
     @Test
     void validateAndExtractAppleId_returnsSubjectForIssuedAtInFutureWithinClockSkew() throws Exception {
-        String identityToken = signedToken(
+        String identityJwt = signedToken(
                 claimsBuilder().issueTime(Date.from(NOW.plusSeconds(60))),
                 rsaKey,
                 "kid-1"
         );
 
-        String appleId = validator.validateAndExtractAppleId(identityToken);
+        String appleId = validator.validateAndExtractAppleId(identityJwt);
 
         assertThat(appleId).isEqualTo(SUBJECT);
     }
 
     @Test
     void validateAndExtractAppleId_failsWhenIssuedAtIsMissing() throws Exception {
-        String identityToken = signedToken(claimsBuilderWithoutIssueTime(), rsaKey, "kid-1");
+        String identityJwt = signedToken(claimsBuilderWithoutIssueTime(), rsaKey, "kid-1");
 
-        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityToken));
+        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityJwt));
     }
 
     @Test
     void validateAndExtractAppleId_returnsSubjectForExpiredTokenWithinClockSkew() throws Exception {
-        String identityToken = signedToken(
+        String identityJwt = signedToken(
                 claimsBuilder().expirationTime(Date.from(NOW.minusSeconds(60))),
                 rsaKey,
                 "kid-1"
         );
 
-        String appleId = validator.validateAndExtractAppleId(identityToken);
+        String appleId = validator.validateAndExtractAppleId(identityJwt);
 
         assertThat(appleId).isEqualTo(SUBJECT);
     }
 
     @Test
     void validateAndExtractAppleId_failsWhenSubjectIsMissing() throws Exception {
-        String identityToken = signedToken(claimsBuilder().subject(" "), rsaKey, "kid-1");
+        String identityJwt = signedToken(claimsBuilder().subject(" "), rsaKey, "kid-1");
 
-        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityToken));
+        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityJwt));
     }
 
     private void assertAppleTokenVerificationFails(ThrowingCallable callable) {
@@ -173,6 +181,21 @@ class AppleOAuthValidatorTest {
                 properties,
                 Clock.fixed(NOW, ZoneOffset.UTC),
                 () -> new JWKSet(List.of(key.toPublicJWK()))
+        );
+        return new AppleOAuthValidator(jwkProvider, properties, Clock.fixed(NOW, ZoneOffset.UTC));
+    }
+
+    private AppleOAuthValidator validatorWithFetchFailure() {
+        AppleOAuthProperties properties = new AppleOAuthProperties();
+        properties.setClientId(CLIENT_ID);
+        properties.setClockSkew(Duration.ofSeconds(60));
+
+        AppleJwkProvider jwkProvider = new AppleJwkProvider(
+                properties,
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                () -> {
+                    throw new IllegalStateException("fetch failed");
+                }
         );
         return new AppleOAuthValidator(jwkProvider, properties, Clock.fixed(NOW, ZoneOffset.UTC));
     }

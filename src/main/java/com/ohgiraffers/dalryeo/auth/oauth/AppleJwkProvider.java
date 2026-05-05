@@ -91,9 +91,10 @@ public class AppleJwkProvider {
             cachedJwkSet = jwkSet;
             cacheExpiresAt = clock.instant().plus(properties.getJwkCacheTtl());
             return jwkSet;
-        } catch (RuntimeException e) {
-            log.error("Apple JWK fetch failed.", e);
+        } catch (AppleJwkFetchException e) {
             throw e;
+        } catch (RuntimeException e) {
+            throw new AppleJwkFetchException("Apple JWK fetch failed", e);
         }
     }
 
@@ -138,11 +139,11 @@ public class AppleJwkProvider {
             try {
                 String body = restTemplate.getForObject(properties.getJwkSetUri(), String.class);
                 if (!StringUtils.hasText(body)) {
-                    throw new IllegalStateException("Apple JWK fetch failed: empty response body");
+                    throw new AppleJwkFetchException("Apple JWK fetch failed: empty response body");
                 }
                 return JWKSet.parse(body);
             } catch (RestClientException | ParseException e) {
-                throw new IllegalStateException("Apple JWK fetch failed", e);
+                throw new AppleJwkFetchException("Apple JWK fetch failed", e);
             }
         }
     }
