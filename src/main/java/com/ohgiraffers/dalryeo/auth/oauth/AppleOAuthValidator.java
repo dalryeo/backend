@@ -3,10 +3,11 @@ package com.ohgiraffers.dalryeo.auth.oauth;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.crypto.RSASSAVerifier;
-import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+import com.ohgiraffers.dalryeo.auth.exception.AuthErrorCode;
+import com.ohgiraffers.dalryeo.auth.exception.AuthException;
 import com.ohgiraffers.dalryeo.config.AppleOAuthProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +37,7 @@ public class AppleOAuthValidator {
         String keyId = signedJWT.getHeader().getKeyID();
         if (!StringUtils.hasText(keyId)) {
             log.warn("Apple identityToken validation failed. reason=missing_kid");
-            throw new RuntimeException("Apple identityToken kid is required");
+            throw verificationFailed();
         }
 
         validateAlgorithm(signedJWT);
@@ -48,6 +49,7 @@ public class AppleOAuthValidator {
         validateIssuer(claimsSet);
         validateAudience(claimsSet);
         validateExpiration(claimsSet);
+        validateIssuedAt(claimsSet);
         return requireSubject(claimsSet);
     }
 
@@ -56,7 +58,7 @@ public class AppleOAuthValidator {
             return SignedJWT.parse(identityToken);
         } catch (ParseException e) {
             log.warn("Apple identityToken validation failed. reason=invalid_format");
-            throw new RuntimeException("Invalid Apple identityToken format", e);
+            throw verificationFailed();
         }
     }
 
@@ -67,29 +69,20 @@ public class AppleOAuthValidator {
                     "Apple identityToken validation failed. reason=invalid_algorithm alg={}",
                     sanitizeClaimForLog(algorithm == null ? null : algorithm.getName())
             );
-            throw new RuntimeException("Invalid Apple identityToken algorithm");
+            throw verificationFailed();
         }
     }
 
     private RSAKey getRsaKey(String keyId) {
         try {
-            JWK jwk = appleJwkProvider.getByKeyId(keyId);
-            if (jwk instanceof RSAKey rsaKey) {
-                return rsaKey;
-            }
+            return (RSAKey) appleJwkProvider.getByKeyId(keyId);
         } catch (RuntimeException e) {
             log.warn(
                     "Apple identityToken validation failed. reason=jwk_lookup_failed kid={}",
                     AppleJwkProvider.sanitizeKidForLog(keyId)
             );
-            throw e;
+            throw verificationFailed();
         }
-
-        log.warn(
-                "Apple identityToken validation failed. reason=non_rsa_jwk kid={}",
-                AppleJwkProvider.sanitizeKidForLog(keyId)
-        );
-        throw new RuntimeException("Apple identityToken JWK must be RSA");
     }
 
     private void verifySignature(SignedJWT signedJWT, RSAKey rsaKey, String keyId) {
@@ -100,14 +93,14 @@ public class AppleOAuthValidator {
                         "Apple identityToken validation failed. reason=invalid_signature kid={}",
                         AppleJwkProvider.sanitizeKidForLog(keyId)
                 );
-                throw new RuntimeException("Invalid Apple identityToken signature");
+                throw verificationFailed();
             }
         } catch (JOSEException e) {
             log.warn(
                     "Apple identityToken validation failed. reason=signature_verification_error kid={}",
                     AppleJwkProvider.sanitizeKidForLog(keyId)
             );
-            throw new RuntimeException("Apple identityToken signature verification failed", e);
+            throw verificationFailed();
         }
     }
 
@@ -116,7 +109,7 @@ public class AppleOAuthValidator {
             return signedJWT.getJWTClaimsSet();
         } catch (ParseException e) {
             log.warn("Apple identityToken validation failed. reason=invalid_claims");
-            throw new RuntimeException("Invalid Apple identityToken claims", e);
+            throw verificationFailed();
         }
     }
 
@@ -127,7 +120,7 @@ public class AppleOAuthValidator {
                     "Apple identityToken validation failed. reason=invalid_issuer iss={}",
                     sanitizeClaimForLog(issuer)
             );
-            throw new RuntimeException("Invalid Apple identityToken issuer");
+            throw verificationFailed();
         }
     }
 
@@ -138,7 +131,7 @@ public class AppleOAuthValidator {
                     "Apple identityToken validation failed. reason=invalid_audience aud={}",
                     sanitizeClaimForLog(audience == null ? null : String.join(",", audience))
             );
-            throw new RuntimeException("Invalid Apple identityToken audience");
+            throw verificationFailed();
         }
     }
 
@@ -146,13 +139,27 @@ public class AppleOAuthValidator {
         Date expirationTime = claimsSet.getExpirationTime();
         if (expirationTime == null) {
             log.warn("Apple identityToken validation failed. reason=missing_exp");
-            throw new RuntimeException("Expired Apple identityToken");
+            throw verificationFailed();
         }
 
         Instant expiresAtWithSkew = expirationTime.toInstant().plus(properties.getClockSkew());
         if (expiresAtWithSkew.isBefore(clock.instant())) {
             log.warn("Apple identityToken validation failed. reason=expired");
-            throw new RuntimeException("Expired Apple identityToken");
+            throw verificationFailed();
+        }
+    }
+
+    private void validateIssuedAt(JWTClaimsSet claimsSet) {
+        Date issueTime = claimsSet.getIssueTime();
+        if (issueTime == null) {
+            log.warn("Apple identityToken validation failed. reason=missing_iat");
+            throw verificationFailed();
+        }
+
+        Instant latestAllowedIssueTime = clock.instant().plus(properties.getClockSkew());
+        if (issueTime.toInstant().isAfter(latestAllowedIssueTime)) {
+            log.warn("Apple identityToken validation failed. reason=issued_at_in_future");
+            throw verificationFailed();
         }
     }
 
@@ -160,9 +167,13 @@ public class AppleOAuthValidator {
         String subject = claimsSet.getSubject();
         if (!StringUtils.hasText(subject)) {
             log.warn("Apple identityToken validation failed. reason=missing_subject");
-            throw new RuntimeException("Apple identityToken subject is required");
+            throw verificationFailed();
         }
         return subject;
+    }
+
+    private AuthException verificationFailed() {
+        return new AuthException(AuthErrorCode.OAUTH_TOKEN_VERIFICATION_FAILED);
     }
 
     private static String sanitizeClaimForLog(String value) {

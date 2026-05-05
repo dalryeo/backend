@@ -8,7 +8,10 @@ import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+import com.ohgiraffers.dalryeo.auth.exception.AuthErrorCode;
+import com.ohgiraffers.dalryeo.auth.exception.AuthException;
 import com.ohgiraffers.dalryeo.config.AppleOAuthProperties;
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -51,18 +54,14 @@ class AppleOAuthValidatorTest {
 
     @Test
     void validateAndExtractAppleId_failsForInvalidJwtFormat() {
-        assertThatThrownBy(() -> validator.validateAndExtractAppleId("not-a-jwt"))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Invalid Apple identityToken format");
+        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId("not-a-jwt"));
     }
 
     @Test
     void validateAndExtractAppleId_failsWhenKidIsMissing() throws Exception {
         String identityToken = signedToken(claimsBuilder(), rsaKey, null);
 
-        assertThatThrownBy(() -> validator.validateAndExtractAppleId(identityToken))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Apple identityToken kid is required");
+        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityToken));
     }
 
     @Test
@@ -72,36 +71,28 @@ class AppleOAuthValidatorTest {
                 .generate();
         String identityToken = signedToken(claimsBuilder(), otherKey, "kid-1");
 
-        assertThatThrownBy(() -> validator.validateAndExtractAppleId(identityToken))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Invalid Apple identityToken signature");
+        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityToken));
     }
 
     @Test
     void validateAndExtractAppleId_failsForNonRs256Algorithm() throws Exception {
         String identityToken = signedToken(claimsBuilder(), rsaKey, "kid-1", JWSAlgorithm.RS512);
 
-        assertThatThrownBy(() -> validator.validateAndExtractAppleId(identityToken))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Invalid Apple identityToken algorithm");
+        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityToken));
     }
 
     @Test
     void validateAndExtractAppleId_failsForInvalidIssuer() throws Exception {
         String identityToken = signedToken(claimsBuilder().issuer("https://attacker.example"), rsaKey, "kid-1");
 
-        assertThatThrownBy(() -> validator.validateAndExtractAppleId(identityToken))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Invalid Apple identityToken issuer");
+        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityToken));
     }
 
     @Test
     void validateAndExtractAppleId_failsForInvalidAudience() throws Exception {
         String identityToken = signedToken(claimsBuilder().audience("other-client-id"), rsaKey, "kid-1");
 
-        assertThatThrownBy(() -> validator.validateAndExtractAppleId(identityToken))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Invalid Apple identityToken audience");
+        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityToken));
     }
 
     @Test
@@ -112,9 +103,38 @@ class AppleOAuthValidatorTest {
                 "kid-1"
         );
 
-        assertThatThrownBy(() -> validator.validateAndExtractAppleId(identityToken))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Expired Apple identityToken");
+        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityToken));
+    }
+
+    @Test
+    void validateAndExtractAppleId_failsForIssuedAtInFutureBeyondClockSkew() throws Exception {
+        String identityToken = signedToken(
+                claimsBuilder().issueTime(Date.from(NOW.plusSeconds(61))),
+                rsaKey,
+                "kid-1"
+        );
+
+        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityToken));
+    }
+
+    @Test
+    void validateAndExtractAppleId_returnsSubjectForIssuedAtInFutureWithinClockSkew() throws Exception {
+        String identityToken = signedToken(
+                claimsBuilder().issueTime(Date.from(NOW.plusSeconds(60))),
+                rsaKey,
+                "kid-1"
+        );
+
+        String appleId = validator.validateAndExtractAppleId(identityToken);
+
+        assertThat(appleId).isEqualTo(SUBJECT);
+    }
+
+    @Test
+    void validateAndExtractAppleId_failsWhenIssuedAtIsMissing() throws Exception {
+        String identityToken = signedToken(claimsBuilderWithoutIssueTime(), rsaKey, "kid-1");
+
+        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityToken));
     }
 
     @Test
@@ -134,9 +154,14 @@ class AppleOAuthValidatorTest {
     void validateAndExtractAppleId_failsWhenSubjectIsMissing() throws Exception {
         String identityToken = signedToken(claimsBuilder().subject(" "), rsaKey, "kid-1");
 
-        assertThatThrownBy(() -> validator.validateAndExtractAppleId(identityToken))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Apple identityToken subject is required");
+        assertAppleTokenVerificationFails(() -> validator.validateAndExtractAppleId(identityToken));
+    }
+
+    private void assertAppleTokenVerificationFails(ThrowingCallable callable) {
+        assertThatThrownBy(callable)
+                .isInstanceOf(AuthException.class)
+                .extracting("errorCode")
+                .isEqualTo(AuthErrorCode.OAUTH_TOKEN_VERIFICATION_FAILED);
     }
 
     private AppleOAuthValidator validatorWith(RSAKey key) {
@@ -153,6 +178,15 @@ class AppleOAuthValidatorTest {
     }
 
     private JWTClaimsSet.Builder claimsBuilder() {
+        return new JWTClaimsSet.Builder()
+                .issuer(ISSUER)
+                .audience(CLIENT_ID)
+                .issueTime(Date.from(NOW.minusSeconds(30)))
+                .expirationTime(Date.from(NOW.plusSeconds(300)))
+                .subject(SUBJECT);
+    }
+
+    private JWTClaimsSet.Builder claimsBuilderWithoutIssueTime() {
         return new JWTClaimsSet.Builder()
                 .issuer(ISSUER)
                 .audience(CLIENT_ID)
