@@ -19,7 +19,6 @@ env:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    environment: dev
 
     steps:
       - name: Checkout
