@@ -19,6 +19,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 
 @Slf4j
 @Component
@@ -133,7 +134,8 @@ public class AppleOAuthValidator {
 
     private void validateAudience(JWTClaimsSet claimsSet) {
         List<String> audience = claimsSet.getAudience();
-        if (audience == null || !audience.contains(properties.getClientId())) {
+        Set<String> allowedClientIds = properties.getEffectiveClientIds();
+        if (audience == null || audience.stream().noneMatch(allowedClientIds::contains)) {
             log.warn(
                     "Apple identityToken validation failed. reason=invalid_audience aud={}",
                     sanitizeClaimForLog(audience == null ? null : String.join(",", audience))
