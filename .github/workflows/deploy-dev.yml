@@ -45,8 +45,8 @@ jobs:
         run: |
           set -euxo pipefail
           az account set --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
-          TOKEN=$(az acr login --name $ACR_RESOURCE_NAME --expose-token --output tsv --query accessToken)
-          echo "$TOKEN" | docker login $ACR_LOGIN_SERVER --username 00000000-0000-0000-0000-000000000000 --password-stdin
+          ACR_LOGIN_VALUE=$(az acr login --name $ACR_RESOURCE_NAME --expose-token --output tsv --query accessToken)
+          echo "$ACR_LOGIN_VALUE" | docker login $ACR_LOGIN_SERVER --username 00000000-0000-0000-0000-000000000000 --password-stdin
 
       - name: Build and Push Docker image
         run: |
@@ -64,6 +64,7 @@ jobs:
             --set-env-vars \
               APPLICATIONINSIGHTS_CONNECTION_STRING=${{ secrets.APPINSIGHTS_CONNECTION_STRING }} \
               APP_OAUTH_APPLE_CLIENT_ID=${{ vars.APP_OAUTH_APPLE_CLIENT_ID }} \
+              APP_OAUTH_APPLE_ALLOWED_CLIENT_IDS=${{ vars.APP_OAUTH_APPLE_ALLOWED_CLIENT_IDS || vars.APP_OAUTH_APPLE_CLIENT_ID }} \
               SENTRY_DSN=secretref:sentry-dsn \
               SENTRY_ENVIRONMENT=prod \
               SENTRY_RELEASE=${{ env.IMAGE_TAG }}

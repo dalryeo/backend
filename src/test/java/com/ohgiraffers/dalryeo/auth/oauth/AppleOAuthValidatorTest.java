@@ -29,6 +29,7 @@ class AppleOAuthValidatorTest {
 
     private static final Instant NOW = Instant.parse("2026-05-04T00:00:00Z");
     private static final String CLIENT_ID = "com.dalryeo.app";
+    private static final String DEVELOPMENT_CLIENT_ID = "com.dalryeo.front.dev";
     private static final String ISSUER = "https://appleid.apple.com";
     private static final String SUBJECT = "apple-subject-123";
 
@@ -46,6 +47,26 @@ class AppleOAuthValidatorTest {
     @Test
     void validateAndExtractAppleId_returnsSubjectForValidSignedToken() throws Exception {
         String identityJwt = signedToken(claimsBuilder(), rsaKey, "kid-1");
+
+        String appleId = validator.validateAndExtractAppleId(identityJwt);
+
+        assertThat(appleId).isEqualTo(SUBJECT);
+    }
+
+    @Test
+    void validateAndExtractAppleId_returnsSubjectForAdditionalAllowedClientId() throws Exception {
+        AppleOAuthValidator validator = validatorWithAllowedClientIds(CLIENT_ID, DEVELOPMENT_CLIENT_ID);
+        String identityJwt = signedToken(claimsBuilder().audience(DEVELOPMENT_CLIENT_ID), rsaKey, "kid-1");
+
+        String appleId = validator.validateAndExtractAppleId(identityJwt);
+
+        assertThat(appleId).isEqualTo(SUBJECT);
+    }
+
+    @Test
+    void validateAndExtractAppleId_returnsSubjectForCommaSeparatedAllowedClientIds() throws Exception {
+        AppleOAuthValidator validator = validatorWithAllowedClientIds(CLIENT_ID + "," + DEVELOPMENT_CLIENT_ID);
+        String identityJwt = signedToken(claimsBuilder().audience(DEVELOPMENT_CLIENT_ID), rsaKey, "kid-1");
 
         String appleId = validator.validateAndExtractAppleId(identityJwt);
 
@@ -181,6 +202,19 @@ class AppleOAuthValidatorTest {
                 properties,
                 Clock.fixed(NOW, ZoneOffset.UTC),
                 () -> new JWKSet(List.of(key.toPublicJWK()))
+        );
+        return new AppleOAuthValidator(jwkProvider, properties, Clock.fixed(NOW, ZoneOffset.UTC));
+    }
+
+    private AppleOAuthValidator validatorWithAllowedClientIds(String... clientIds) {
+        AppleOAuthProperties properties = new AppleOAuthProperties();
+        properties.setAllowedClientIds(List.of(clientIds));
+        properties.setClockSkew(Duration.ofSeconds(60));
+
+        AppleJwkProvider jwkProvider = new AppleJwkProvider(
+                properties,
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                () -> new JWKSet(List.of(rsaKey.toPublicJWK()))
         );
         return new AppleOAuthValidator(jwkProvider, properties, Clock.fixed(NOW, ZoneOffset.UTC));
     }

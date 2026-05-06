@@ -61,7 +61,8 @@ app:
   public-base-url: ${APP_PUBLIC_BASE_URL:https://api.dalryeo.store}
   oauth:
     apple:
-      client-id: ${APP_OAUTH_APPLE_CLIENT_ID}
+      client-id: ${APP_OAUTH_APPLE_CLIENT_ID:}
+      allowed-client-ids: ${APP_OAUTH_APPLE_ALLOWED_CLIENT_IDS:}
       jwk-set-uri: https://appleid.apple.com/auth/keys
       jwk-cache-ttl: 24h
       jwk-read-timeout: 2s
