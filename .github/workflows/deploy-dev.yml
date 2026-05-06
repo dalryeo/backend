@@ -19,6 +19,7 @@ env:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    environment: dev
 
     steps:
       - name: Checkout
@@ -62,9 +63,9 @@ jobs:
             --resource-group $RESOURCE_GROUP \
             --image $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ env.IMAGE_TAG }} \
             --set-env-vars \
-              APPLICATIONINSIGHTS_CONNECTION_STRING=${{ secrets.APPINSIGHTS_CONNECTION_STRING }} \
-              APP_OAUTH_APPLE_CLIENT_ID=${{ vars.APP_OAUTH_APPLE_CLIENT_ID }} \
-              APP_OAUTH_APPLE_ALLOWED_CLIENT_IDS=${{ vars.APP_OAUTH_APPLE_ALLOWED_CLIENT_IDS || vars.APP_OAUTH_APPLE_CLIENT_ID }} \
-              SENTRY_DSN=secretref:sentry-dsn \
-              SENTRY_ENVIRONMENT=prod \
-              SENTRY_RELEASE=${{ env.IMAGE_TAG }}
+              "APPLICATIONINSIGHTS_CONNECTION_STRING=${{ secrets.APPINSIGHTS_CONNECTION_STRING }}" \
+              "APP_OAUTH_APPLE_CLIENT_ID=${{ vars.APP_OAUTH_APPLE_CLIENT_ID }}" \
+              "APP_OAUTH_APPLE_ALLOWED_CLIENT_IDS=${{ vars.APP_OAUTH_APPLE_ALLOWED_CLIENT_IDS || vars.APP_OAUTH_APPLE_CLIENT_ID }}" \
+              "SENTRY_DSN=secretref:sentry-dsn" \
+              "SENTRY_ENVIRONMENT=prod" \
+              "SENTRY_RELEASE=${{ env.IMAGE_TAG }}"
