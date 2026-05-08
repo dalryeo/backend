@@ -1,9 +1,6 @@
 package com.ohgiraffers.dalryeo.record.controller;
 
-import com.ohgiraffers.dalryeo.auth.exception.AuthErrorCode;
-import com.ohgiraffers.dalryeo.auth.exception.AuthException;
-import com.ohgiraffers.dalryeo.auth.jwt.JwtTokenExtractor;
-import com.ohgiraffers.dalryeo.auth.jwt.JwtTokenProvider;
+import com.ohgiraffers.dalryeo.auth.jwt.AuthenticatedUserResolver;
 import com.ohgiraffers.dalryeo.common.CommonResponse;
 import com.ohgiraffers.dalryeo.record.dto.WeeklySummaryItemResponse;
 import com.ohgiraffers.dalryeo.record.dto.WeeklySummaryResponse;
@@ -22,8 +19,7 @@ import java.util.List;
 public class WeeklySummaryController {
 
     private final RecordService recordService;
-    private final JwtTokenProvider jwtTokenProvider;
-    private final JwtTokenExtractor jwtTokenExtractor;
+    private final AuthenticatedUserResolver authenticatedUserResolver;
 
     /**
      * 주간 요약 (이번 주, 수~일 기준)
@@ -31,7 +27,7 @@ public class WeeklySummaryController {
      */
     @GetMapping("/current")
     public CommonResponse<WeeklySummaryResponse> getCurrentWeeklySummary(HttpServletRequest httpRequest) {
-        Long userId = extractUserIdFromRequest(httpRequest);
+        Long userId = authenticatedUserResolver.resolveUserId(httpRequest);
         WeeklySummaryResponse response = recordService.getCurrentWeeklySummary(userId);
         return CommonResponse.success(response);
     }
@@ -42,19 +38,9 @@ public class WeeklySummaryController {
      */
     @GetMapping("/list")
     public CommonResponse<List<WeeklySummaryItemResponse>> getWeeklySummaryList(HttpServletRequest httpRequest) {
-        Long userId = extractUserIdFromRequest(httpRequest);
+        Long userId = authenticatedUserResolver.resolveUserId(httpRequest);
         List<WeeklySummaryItemResponse> response = recordService.getWeeklySummaryList(userId);
         return CommonResponse.success(response);
     }
 
-    /**
-     * 요청에서 AccessToken을 추출하여 사용자 ID를 반환
-     */
-    private Long extractUserIdFromRequest(HttpServletRequest request) {
-        String token = jwtTokenExtractor.extractToken(request);
-        if (token == null || !jwtTokenProvider.validateAccessToken(token)) {
-            throw new AuthException(AuthErrorCode.REFRESH_TOKEN_EXPIRED);
-        }
-        return jwtTokenProvider.getUserIdFromToken(token);
-    }
 }

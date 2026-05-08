@@ -1,9 +1,6 @@
 package com.ohgiraffers.dalryeo.ranking.controller;
 
-import com.ohgiraffers.dalryeo.auth.exception.AuthErrorCode;
-import com.ohgiraffers.dalryeo.auth.exception.AuthException;
-import com.ohgiraffers.dalryeo.auth.jwt.JwtTokenExtractor;
-import com.ohgiraffers.dalryeo.auth.jwt.JwtTokenProvider;
+import com.ohgiraffers.dalryeo.auth.jwt.AuthenticatedUserResolver;
 import com.ohgiraffers.dalryeo.common.CommonResponse;
 import com.ohgiraffers.dalryeo.ranking.dto.DistanceRankingResponse;
 import com.ohgiraffers.dalryeo.ranking.dto.RankingMeResponse;
@@ -21,8 +18,7 @@ import java.util.List;
 public class RankingController {
 
     private final RankingService rankingService;
-    private final JwtTokenProvider jwtTokenProvider;
-    private final JwtTokenExtractor jwtTokenExtractor;
+    private final AuthenticatedUserResolver authenticatedUserResolver;
 
     /**
      * 점수 기반 주간 랭킹 조회
@@ -50,19 +46,9 @@ public class RankingController {
      */
     @GetMapping("/me")
     public CommonResponse<RankingMeResponse> getMyRanking(HttpServletRequest httpRequest) {
-        Long userId = extractUserIdFromRequest(httpRequest);
+        Long userId = authenticatedUserResolver.resolveUserId(httpRequest);
         RankingMeResponse response = rankingService.getMyRanking(userId);
         return CommonResponse.success(response);
     }
 
-    /**
-     * 요청에서 AccessToken을 추출하여 사용자 ID를 반환
-     */
-    private Long extractUserIdFromRequest(HttpServletRequest request) {
-        String token = jwtTokenExtractor.extractToken(request);
-        if (token == null || !jwtTokenProvider.validateAccessToken(token)) {
-            throw new AuthException(AuthErrorCode.REFRESH_TOKEN_EXPIRED);
-        }
-        return jwtTokenProvider.getUserIdFromToken(token);
-    }
 }

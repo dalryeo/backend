@@ -344,6 +344,7 @@ CREATE DATABASE dalryeo CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 | AC-003 | OAuth 토큰 검증 실패 |
 | AC-004 | refreshToken 불일치 |
 | AC-006 | refreshToken 만료 또는 탈퇴된 사용자 |
+| AC-007 | accessToken 유효하지 않음 |
 
 ## 🔐 인증
 
