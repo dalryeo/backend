@@ -30,8 +30,6 @@ class JwtTokenProviderTest {
         String accessToken = jwtTokenProvider.generateAccessToken(userId);
         String refreshToken = jwtTokenProvider.generateRefreshToken(userId);
 
-        assertThat(jwtTokenProvider.validateToken(accessToken)).isTrue();
-        assertThat(jwtTokenProvider.validateToken(refreshToken)).isTrue();
         assertThat(jwtTokenProvider.validateAccessToken(accessToken)).isTrue();
         assertThat(jwtTokenProvider.validateAccessToken(refreshToken)).isFalse();
         assertThat(jwtTokenProvider.validateRefreshToken(refreshToken)).isTrue();
@@ -49,7 +47,6 @@ class JwtTokenProviderTest {
                 .signWith(secretKey())
                 .compact();
 
-        assertThat(jwtTokenProvider.validateToken(legacyToken)).isTrue();
         assertThat(jwtTokenProvider.validateAccessToken(legacyToken)).isFalse();
         assertThat(jwtTokenProvider.validateRefreshToken(legacyToken)).isFalse();
         assertThat(jwtTokenProvider.getUserIdFromToken(legacyToken)).isEqualTo(20L);
@@ -59,7 +56,6 @@ class JwtTokenProviderTest {
     void malformedTokenIsRejectedByEveryValidationMethod() {
         String malformedToken = "not-a-jwt";
 
-        assertThat(jwtTokenProvider.validateToken(malformedToken)).isFalse();
         assertThat(jwtTokenProvider.validateAccessToken(malformedToken)).isFalse();
         assertThat(jwtTokenProvider.validateRefreshToken(malformedToken)).isFalse();
     }

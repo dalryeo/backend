@@ -56,15 +56,6 @@ public class JwtTokenProvider {
         return Long.parseLong(claims.getSubject());
     }
 
-    public boolean validateToken(String token) {
-        try {
-            parseClaims(token);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
     public boolean validateAccessToken(String token) {
         return validateTokenUse(token, ACCESS_TOKEN_USE);
     }
