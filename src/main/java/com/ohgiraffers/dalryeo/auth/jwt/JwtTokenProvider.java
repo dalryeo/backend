@@ -13,6 +13,10 @@ import java.util.Date;
 @Component
 public class JwtTokenProvider {
 
+    private static final String TOKEN_USE_CLAIM = "token_use";
+    private static final String ACCESS_TOKEN_USE = "access";
+    private static final String REFRESH_TOKEN_USE = "refresh";
+
     private final SecretKey secretKey;
     private final long accessTokenExpiration;
     private final long refreshTokenExpiration;
@@ -27,19 +31,20 @@ public class JwtTokenProvider {
     }
 
     public String generateAccessToken(Long userId) {
-        return generateToken(userId, accessTokenExpiration);
+        return generateToken(userId, accessTokenExpiration, ACCESS_TOKEN_USE);
     }
 
     public String generateRefreshToken(Long userId) {
-        return generateToken(userId, refreshTokenExpiration);
+        return generateToken(userId, refreshTokenExpiration, REFRESH_TOKEN_USE);
     }
 
-    private String generateToken(Long userId, long expiration) {
+    private String generateToken(Long userId, long expiration, String tokenUse) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expiration);
 
         return Jwts.builder()
                 .subject(String.valueOf(userId))
+                .claim(TOKEN_USE_CLAIM, tokenUse)
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(secretKey)
@@ -47,34 +52,37 @@ public class JwtTokenProvider {
     }
 
     public Long getUserIdFromToken(String token) {
-        Claims claims = Jwts.parser()
-                .verifyWith(secretKey)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
-
+        Claims claims = parseClaims(token);
         return Long.parseLong(claims.getSubject());
     }
 
-    public boolean validateToken(String token) {
+    public boolean validateAccessToken(String token) {
+        return validateTokenUse(token, ACCESS_TOKEN_USE);
+    }
+
+    public boolean validateRefreshToken(String token) {
+        return validateTokenUse(token, REFRESH_TOKEN_USE);
+    }
+
+    public Date getExpiration(String token) {
+        Claims claims = parseClaims(token);
+        return claims.getExpiration();
+    }
+
+    private boolean validateTokenUse(String token, String expectedTokenUse) {
         try {
-            Jwts.parser()
-                    .verifyWith(secretKey)
-                    .build()
-                    .parseSignedClaims(token);
-            return true;
+            Claims claims = parseClaims(token);
+            return expectedTokenUse.equals(claims.get(TOKEN_USE_CLAIM, String.class));
         } catch (Exception e) {
             return false;
         }
     }
 
-    public Date getExpiration(String token) {
-        Claims claims = Jwts.parser()
+    private Claims parseClaims(String token) {
+        return Jwts.parser()
                 .verifyWith(secretKey)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
-
-        return claims.getExpiration();
     }
 }

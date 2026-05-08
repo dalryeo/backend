@@ -1,9 +1,6 @@
 package com.ohgiraffers.dalryeo.onboarding.controller;
 
-import com.ohgiraffers.dalryeo.auth.exception.AuthErrorCode;
-import com.ohgiraffers.dalryeo.auth.exception.AuthException;
-import com.ohgiraffers.dalryeo.auth.jwt.JwtTokenExtractor;
-import com.ohgiraffers.dalryeo.auth.jwt.JwtTokenProvider;
+import com.ohgiraffers.dalryeo.auth.annotation.LoginUser;
 import com.ohgiraffers.dalryeo.common.CommonResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.EstimateTierRequest;
 import com.ohgiraffers.dalryeo.onboarding.dto.EstimateTierResponse;
@@ -14,7 +11,6 @@ import com.ohgiraffers.dalryeo.onboarding.dto.ProfileImageUploadResponse;
 import com.ohgiraffers.dalryeo.onboarding.service.OnboardingService;
 import com.ohgiraffers.dalryeo.mypage.dto.ProfileUpdateRequest;
 import com.ohgiraffers.dalryeo.mypage.service.MypageService;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,8 +25,6 @@ public class OnboardingController {
 
     private final OnboardingService onboardingService;
     private final MypageService mypageService;
-    private final JwtTokenProvider jwtTokenProvider;
-    private final JwtTokenExtractor jwtTokenExtractor;
 
     @Value("${app.public-base-url:https://api.dalryeo.store}")
     private String publicBaseUrl;
@@ -52,8 +46,7 @@ public class OnboardingController {
     @PostMapping
     public CommonResponse<Void> saveOnboarding(
             @Valid @RequestBody OnboardingRequest request,
-            HttpServletRequest httpRequest) {
-        Long userId = extractUserIdFromRequest(httpRequest);
+            @LoginUser Long userId) {
         onboardingService.saveOnboarding(userId, request);
         return CommonResponse.success();
     }
@@ -65,8 +58,7 @@ public class OnboardingController {
     @PutMapping
     public CommonResponse<Void> updateOnboarding(
             @Valid @RequestBody ProfileUpdateRequest request,
-            HttpServletRequest httpRequest) {
-        Long userId = extractUserIdFromRequest(httpRequest);
+            @LoginUser Long userId) {
         mypageService.updateProfile(userId, request);
         return CommonResponse.success();
     }
@@ -78,8 +70,7 @@ public class OnboardingController {
     @PostMapping(value = "/profile-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public CommonResponse<ProfileImageUploadResponse> uploadProfileImage(
             @RequestPart("profileImage") MultipartFile profileImage,
-            HttpServletRequest httpRequest) {
-        Long userId = extractUserIdFromRequest(httpRequest);
+            @LoginUser Long userId) {
         ProfileImageUploadResponse response = onboardingService.uploadProfileImage(userId, profileImage);
         return CommonResponse.success(response);
     }
@@ -89,8 +80,7 @@ public class OnboardingController {
      * GET /onboarding
      */
     @GetMapping
-    public CommonResponse<OnboardingResponse> getOnboarding(HttpServletRequest httpRequest) {
-        Long userId = extractUserIdFromRequest(httpRequest);
+    public CommonResponse<OnboardingResponse> getOnboarding(@LoginUser Long userId) {
         OnboardingResponse response = enrichTierDefaultImageUrl(onboardingService.getOnboarding(userId));
         return CommonResponse.success(response);
     }
@@ -102,21 +92,9 @@ public class OnboardingController {
     @PostMapping("/estimate-tier")
     public CommonResponse<EstimateTierResponse> estimateTier(
             @Valid @RequestBody EstimateTierRequest request,
-            HttpServletRequest httpRequest) {
-        Long userId = extractUserIdFromRequest(httpRequest);
+            @LoginUser Long userId) {
         EstimateTierResponse response = onboardingService.estimateTier(userId, request);
         return CommonResponse.success(response);
-    }
-
-    /**
-     * 요청에서 AccessToken을 추출하여 사용자 ID를 반환
-     */
-    private Long extractUserIdFromRequest(HttpServletRequest request) {
-        String token = jwtTokenExtractor.extractToken(request);
-        if (token == null || !jwtTokenProvider.validateToken(token)) {
-            throw new AuthException(AuthErrorCode.REFRESH_TOKEN_EXPIRED);
-        }
-        return jwtTokenProvider.getUserIdFromToken(token);
     }
 
     private OnboardingResponse enrichTierDefaultImageUrl(OnboardingResponse response) {
