@@ -1,6 +1,6 @@
 package com.ohgiraffers.dalryeo.onboarding.controller;
 
-import com.ohgiraffers.dalryeo.auth.jwt.AuthenticatedUserResolver;
+import com.ohgiraffers.dalryeo.auth.annotation.LoginUser;
 import com.ohgiraffers.dalryeo.common.CommonResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.EstimateTierRequest;
 import com.ohgiraffers.dalryeo.onboarding.dto.EstimateTierResponse;
@@ -11,7 +11,6 @@ import com.ohgiraffers.dalryeo.onboarding.dto.ProfileImageUploadResponse;
 import com.ohgiraffers.dalryeo.onboarding.service.OnboardingService;
 import com.ohgiraffers.dalryeo.mypage.dto.ProfileUpdateRequest;
 import com.ohgiraffers.dalryeo.mypage.service.MypageService;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,7 +25,6 @@ public class OnboardingController {
 
     private final OnboardingService onboardingService;
     private final MypageService mypageService;
-    private final AuthenticatedUserResolver authenticatedUserResolver;
 
     @Value("${app.public-base-url:https://api.dalryeo.store}")
     private String publicBaseUrl;
@@ -48,8 +46,7 @@ public class OnboardingController {
     @PostMapping
     public CommonResponse<Void> saveOnboarding(
             @Valid @RequestBody OnboardingRequest request,
-            HttpServletRequest httpRequest) {
-        Long userId = authenticatedUserResolver.resolveUserId(httpRequest);
+            @LoginUser Long userId) {
         onboardingService.saveOnboarding(userId, request);
         return CommonResponse.success();
     }
@@ -61,8 +58,7 @@ public class OnboardingController {
     @PutMapping
     public CommonResponse<Void> updateOnboarding(
             @Valid @RequestBody ProfileUpdateRequest request,
-            HttpServletRequest httpRequest) {
-        Long userId = authenticatedUserResolver.resolveUserId(httpRequest);
+            @LoginUser Long userId) {
         mypageService.updateProfile(userId, request);
         return CommonResponse.success();
     }
@@ -74,8 +70,7 @@ public class OnboardingController {
     @PostMapping(value = "/profile-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public CommonResponse<ProfileImageUploadResponse> uploadProfileImage(
             @RequestPart("profileImage") MultipartFile profileImage,
-            HttpServletRequest httpRequest) {
-        Long userId = authenticatedUserResolver.resolveUserId(httpRequest);
+            @LoginUser Long userId) {
         ProfileImageUploadResponse response = onboardingService.uploadProfileImage(userId, profileImage);
         return CommonResponse.success(response);
     }
@@ -85,8 +80,7 @@ public class OnboardingController {
      * GET /onboarding
      */
     @GetMapping
-    public CommonResponse<OnboardingResponse> getOnboarding(HttpServletRequest httpRequest) {
-        Long userId = authenticatedUserResolver.resolveUserId(httpRequest);
+    public CommonResponse<OnboardingResponse> getOnboarding(@LoginUser Long userId) {
         OnboardingResponse response = enrichTierDefaultImageUrl(onboardingService.getOnboarding(userId));
         return CommonResponse.success(response);
     }
@@ -98,8 +92,7 @@ public class OnboardingController {
     @PostMapping("/estimate-tier")
     public CommonResponse<EstimateTierResponse> estimateTier(
             @Valid @RequestBody EstimateTierRequest request,
-            HttpServletRequest httpRequest) {
-        Long userId = authenticatedUserResolver.resolveUserId(httpRequest);
+            @LoginUser Long userId) {
         EstimateTierResponse response = onboardingService.estimateTier(userId, request);
         return CommonResponse.success(response);
     }

@@ -1,12 +1,11 @@
 package com.ohgiraffers.dalryeo.auth.controller;
 
+import com.ohgiraffers.dalryeo.auth.annotation.LoginUser;
 import com.ohgiraffers.dalryeo.auth.dto.AppleOAuthRequest;
 import com.ohgiraffers.dalryeo.auth.dto.RefreshTokenRequest;
 import com.ohgiraffers.dalryeo.auth.dto.TokenResponse;
-import com.ohgiraffers.dalryeo.auth.jwt.AuthenticatedUserResolver;
 import com.ohgiraffers.dalryeo.auth.service.AuthService;
 import com.ohgiraffers.dalryeo.common.CommonResponse;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -17,7 +16,6 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
-    private final AuthenticatedUserResolver authenticatedUserResolver;
 
     /**
      * Apple OAuth 로그인
@@ -44,8 +42,7 @@ public class AuthController {
      * POST /auth/logout
      */
     @PostMapping("/logout")
-    public CommonResponse<Void> logout(HttpServletRequest httpRequest) {
-        Long userId = authenticatedUserResolver.resolveUserId(httpRequest);
+    public CommonResponse<Void> logout(@LoginUser Long userId) {
         authService.logout(userId);
         return CommonResponse.success();
     }
@@ -55,8 +52,7 @@ public class AuthController {
      * DELETE /auth/withdraw
      */
     @DeleteMapping("/withdraw")
-    public CommonResponse<Void> withdraw(HttpServletRequest httpRequest) {
-        Long userId = authenticatedUserResolver.resolveUserId(httpRequest);
+    public CommonResponse<Void> withdraw(@LoginUser Long userId) {
         authService.withdraw(userId);
         return CommonResponse.success();
     }
