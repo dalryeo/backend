@@ -184,7 +184,7 @@ class AuthServiceTest {
                 .expiresAt(LocalDateTime.now().plusDays(1))
                 .build();
 
-        when(jwtTokenProvider.validateToken(currentRefreshToken)).thenReturn(true);
+        when(jwtTokenProvider.validateRefreshToken(currentRefreshToken)).thenReturn(true);
         when(jwtTokenProvider.getUserIdFromToken(currentRefreshToken)).thenReturn(userId);
         when(userLookupService.getActiveById(userId)).thenReturn(user);
         when(authTokenRepository.findByRefreshTokenHash(sha256(currentRefreshToken)))
@@ -213,7 +213,7 @@ class AuthServiceTest {
         String refreshToken = "invalid-refresh-token";
         RefreshTokenRequest request = refreshTokenRequest(refreshToken);
 
-        when(jwtTokenProvider.validateToken(refreshToken)).thenReturn(false);
+        when(jwtTokenProvider.validateRefreshToken(refreshToken)).thenReturn(false);
 
         assertThatThrownBy(() -> authService.refreshToken(request))
                 .isInstanceOf(AuthException.class)
@@ -224,12 +224,28 @@ class AuthServiceTest {
     }
 
     @Test
+    void refreshToken_throwsWhenAccessTokenIsUsedForRefresh() {
+        String accessToken = "access-token";
+        RefreshTokenRequest request = refreshTokenRequest(accessToken);
+
+        when(jwtTokenProvider.validateRefreshToken(accessToken)).thenReturn(false);
+
+        assertThatThrownBy(() -> authService.refreshToken(request))
+                .isInstanceOf(AuthException.class)
+                .extracting("errorCode")
+                .isEqualTo(AuthErrorCode.REFRESH_TOKEN_EXPIRED);
+
+        verify(jwtTokenProvider, never()).getUserIdFromToken(any());
+        verify(authTokenRepository, never()).findByRefreshTokenHash(any());
+    }
+
+    @Test
     void refreshToken_throwsUserExceptionWhenTokenUserDoesNotExist() {
         Long userId = 404L;
         String refreshToken = "missing-user-refresh-token";
         RefreshTokenRequest request = refreshTokenRequest(refreshToken);
 
-        when(jwtTokenProvider.validateToken(refreshToken)).thenReturn(true);
+        when(jwtTokenProvider.validateRefreshToken(refreshToken)).thenReturn(true);
         when(jwtTokenProvider.getUserIdFromToken(refreshToken)).thenReturn(userId);
         when(userLookupService.getActiveById(userId))
                 .thenThrow(new UserException(UserErrorCode.USER_NOT_FOUND));
@@ -248,7 +264,7 @@ class AuthServiceTest {
         String refreshToken = "deleted-refresh-token";
         RefreshTokenRequest request = refreshTokenRequest(refreshToken);
 
-        when(jwtTokenProvider.validateToken(refreshToken)).thenReturn(true);
+        when(jwtTokenProvider.validateRefreshToken(refreshToken)).thenReturn(true);
         when(jwtTokenProvider.getUserIdFromToken(refreshToken)).thenReturn(userId);
         when(userLookupService.getActiveById(userId))
                 .thenThrow(new UserException(UserErrorCode.WITHDRAWN_USER));

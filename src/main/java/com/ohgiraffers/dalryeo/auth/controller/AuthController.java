@@ -70,10 +70,9 @@ public class AuthController {
      */
     private Long extractUserIdFromRequest(HttpServletRequest request) {
         String token = jwtTokenExtractor.extractToken(request);
-        if (token == null || !jwtTokenProvider.validateToken(token)) {
+        if (token == null || !jwtTokenProvider.validateAccessToken(token)) {
             throw new AuthException(AuthErrorCode.REFRESH_TOKEN_EXPIRED);
         }
         return jwtTokenProvider.getUserIdFromToken(token);
     }
 }
-

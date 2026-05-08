@@ -192,6 +192,25 @@ class ApiContractIntegrationTest {
     }
 
     @Test
+    void refreshToken_returnsUnauthorizedWhenAccessTokenIsSubmitted() throws Exception {
+        JsonNode loginResponse = login("apple-sub-refresh-access-token", "identity-refresh-access-token");
+        String accessToken = loginResponse.path("data").path("accessToken").asText();
+
+        mockMvc.perform(post("/auth/token/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "refreshToken": "%s"
+                                }
+                                """.formatted(accessToken)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("AC-006"))
+                .andExpect(jsonPath("$.data.message").value("refreshToken 만료"));
+    }
+
+    @Test
     void refreshToken_returnsForbiddenWhenUserIsWithdrawn() throws Exception {
         String appleSub = "apple-sub-refresh-withdrawn";
         JsonNode loginResponse = login(appleSub, "identity-refresh-withdrawn");
@@ -252,6 +271,20 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.data").isEmpty());
 
         assertThat(authTokenRepository.findByUserId(userId)).isEmpty();
+    }
+
+    @Test
+    void protectedApi_returnsUnauthorizedWhenRefreshTokenIsUsedAsBearerToken() throws Exception {
+        JsonNode loginResponse = login("apple-sub-refresh-as-bearer", "identity-refresh-as-bearer");
+        String refreshToken = loginResponse.path("data").path("refreshToken").asText();
+
+        mockMvc.perform(post("/auth/logout")
+                        .header("Authorization", bearer(refreshToken)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("AC-006"))
+                .andExpect(jsonPath("$.data.message").value("refreshToken 만료"));
     }
 
     @Test

@@ -109,7 +109,7 @@ public class AuthService {
         String refreshToken = request.getRefreshToken();
 
         // Refresh Token 유효성 검증
-        if (!jwtTokenProvider.validateToken(refreshToken)) {
+        if (!jwtTokenProvider.validateRefreshToken(refreshToken)) {
             throw new AuthException(AuthErrorCode.REFRESH_TOKEN_EXPIRED);
         }
 
