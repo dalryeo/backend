@@ -15,9 +15,9 @@ public class AuthenticatedUserResolver {
 
     public Long resolveUserId(HttpServletRequest request) {
         String token = jwtTokenExtractor.extractToken(request);
-        if (token == null || !jwtTokenProvider.validateAccessToken(token)) {
+        if (token == null) {
             throw new AuthException(AuthErrorCode.ACCESS_TOKEN_INVALID);
         }
-        return jwtTokenProvider.getUserIdFromToken(token);
+        return jwtTokenProvider.getUserIdFromAccessToken(token);
     }
 }

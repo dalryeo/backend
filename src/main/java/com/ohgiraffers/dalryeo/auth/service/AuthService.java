@@ -108,12 +108,7 @@ public class AuthService {
     public TokenResponse refreshToken(RefreshTokenRequest request) {
         String refreshToken = request.getRefreshToken();
 
-        // Refresh Token 유효성 검증
-        if (!jwtTokenProvider.validateRefreshToken(refreshToken)) {
-            throw new AuthException(AuthErrorCode.REFRESH_TOKEN_EXPIRED);
-        }
-
-        Long tokenUserId = jwtTokenProvider.getUserIdFromToken(refreshToken);
+        Long tokenUserId = jwtTokenProvider.getUserIdFromRefreshToken(refreshToken);
         User user = userLookupService.getActiveById(tokenUserId);
 
         String refreshTokenHash = hashRefreshToken(refreshToken);
