@@ -213,12 +213,12 @@ class AuthServiceTest {
         RefreshTokenRequest request = refreshTokenRequest(refreshToken);
 
         when(jwtTokenProvider.getUserIdFromRefreshToken(refreshToken))
-                .thenThrow(new AuthException(AuthErrorCode.REFRESH_TOKEN_EXPIRED));
+                .thenThrow(new AuthException(AuthErrorCode.REFRESH_TOKEN_INVALID));
 
         assertThatThrownBy(() -> authService.refreshToken(request))
                 .isInstanceOf(AuthException.class)
                 .extracting("errorCode")
-                .isEqualTo(AuthErrorCode.REFRESH_TOKEN_EXPIRED);
+                .isEqualTo(AuthErrorCode.REFRESH_TOKEN_INVALID);
 
         verify(authTokenRepository, never()).findByRefreshTokenHash(any());
     }
@@ -229,12 +229,12 @@ class AuthServiceTest {
         RefreshTokenRequest request = refreshTokenRequest(accessToken);
 
         when(jwtTokenProvider.getUserIdFromRefreshToken(accessToken))
-                .thenThrow(new AuthException(AuthErrorCode.REFRESH_TOKEN_EXPIRED));
+                .thenThrow(new AuthException(AuthErrorCode.REFRESH_TOKEN_INVALID));
 
         assertThatThrownBy(() -> authService.refreshToken(request))
                 .isInstanceOf(AuthException.class)
                 .extracting("errorCode")
-                .isEqualTo(AuthErrorCode.REFRESH_TOKEN_EXPIRED);
+                .isEqualTo(AuthErrorCode.REFRESH_TOKEN_INVALID);
 
         verify(authTokenRepository, never()).findByRefreshTokenHash(any());
     }

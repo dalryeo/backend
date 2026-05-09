@@ -41,7 +41,7 @@ class JwtTokenProviderTest {
         );
         assertTokenError(
                 () -> jwtTokenProvider.getUserIdFromRefreshToken(accessToken),
-                AuthErrorCode.REFRESH_TOKEN_EXPIRED
+                AuthErrorCode.REFRESH_TOKEN_INVALID
         );
     }
 
@@ -60,7 +60,7 @@ class JwtTokenProviderTest {
         );
         assertTokenError(
                 () -> jwtTokenProvider.getUserIdFromRefreshToken(legacyToken),
-                AuthErrorCode.REFRESH_TOKEN_EXPIRED
+                AuthErrorCode.REFRESH_TOKEN_INVALID
         );
     }
 
@@ -74,7 +74,7 @@ class JwtTokenProviderTest {
         );
         assertTokenError(
                 () -> jwtTokenProvider.getUserIdFromRefreshToken(malformedToken),
-                AuthErrorCode.REFRESH_TOKEN_EXPIRED
+                AuthErrorCode.REFRESH_TOKEN_INVALID
         );
     }
 

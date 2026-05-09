@@ -76,7 +76,7 @@ public class JwtTokenProvider {
      * Refresh Token을 검증하고 subject에서 userId를 꺼낸다.
      */
     public Long getUserIdFromRefreshToken(String token) {
-        return extractUserIdFromToken(token, REFRESH_TOKEN_USE, AuthErrorCode.REFRESH_TOKEN_EXPIRED);
+        return extractUserIdFromToken(token, REFRESH_TOKEN_USE, AuthErrorCode.REFRESH_TOKEN_INVALID);
     }
 
     /**

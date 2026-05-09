@@ -115,7 +115,7 @@ public class AuthService {
         AuthToken authToken = authTokenRepository.findByRefreshTokenHash(refreshTokenHash)
                 .orElseThrow(() -> new AuthException(AuthErrorCode.REFRESH_TOKEN_MISMATCH));
         if (authToken.isExpired(LocalDateTime.now())) {
-            throw new AuthException(AuthErrorCode.REFRESH_TOKEN_EXPIRED);
+            throw new AuthException(AuthErrorCode.REFRESH_TOKEN_INVALID);
         }
 
         if (!authToken.getUserId().equals(user.getId())) {
