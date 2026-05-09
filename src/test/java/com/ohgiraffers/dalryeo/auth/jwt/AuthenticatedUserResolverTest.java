@@ -33,8 +33,7 @@ class AuthenticatedUserResolverTest {
         String accessToken = "access-token";
 
         when(jwtTokenExtractor.extractToken(request)).thenReturn(accessToken);
-        when(jwtTokenProvider.validateAccessToken(accessToken)).thenReturn(true);
-        when(jwtTokenProvider.getUserIdFromToken(accessToken)).thenReturn(1L);
+        when(jwtTokenProvider.getUserIdFromAccessToken(accessToken)).thenReturn(1L);
 
         Long userId = authenticatedUserResolver.resolveUserId(request);
 
@@ -52,7 +51,7 @@ class AuthenticatedUserResolverTest {
                 .extracting("errorCode")
                 .isEqualTo(AuthErrorCode.ACCESS_TOKEN_INVALID);
 
-        verify(jwtTokenProvider, never()).validateAccessToken(null);
+        verify(jwtTokenProvider, never()).getUserIdFromAccessToken(null);
     }
 
     @Test
@@ -61,13 +60,12 @@ class AuthenticatedUserResolverTest {
         String refreshToken = "refresh-token";
 
         when(jwtTokenExtractor.extractToken(request)).thenReturn(refreshToken);
-        when(jwtTokenProvider.validateAccessToken(refreshToken)).thenReturn(false);
+        when(jwtTokenProvider.getUserIdFromAccessToken(refreshToken))
+                .thenThrow(new AuthException(AuthErrorCode.ACCESS_TOKEN_INVALID));
 
         assertThatThrownBy(() -> authenticatedUserResolver.resolveUserId(request))
                 .isInstanceOf(AuthException.class)
                 .extracting("errorCode")
                 .isEqualTo(AuthErrorCode.ACCESS_TOKEN_INVALID);
-
-        verify(jwtTokenProvider, never()).getUserIdFromToken(refreshToken);
     }
 }

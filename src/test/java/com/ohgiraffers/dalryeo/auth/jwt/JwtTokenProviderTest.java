@@ -1,5 +1,8 @@
 package com.ohgiraffers.dalryeo.auth.jwt;
 
+import com.ohgiraffers.dalryeo.auth.exception.AuthErrorCode;
+import com.ohgiraffers.dalryeo.auth.exception.AuthException;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
@@ -10,6 +13,7 @@ import java.time.Instant;
 import java.util.Date;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class JwtTokenProviderTest {
 
@@ -24,22 +28,26 @@ class JwtTokenProviderTest {
     );
 
     @Test
-    void generatedAccessAndRefreshTokensAreValidatedOnlyForTheirOwnPurpose() {
+    void generatedAccessAndRefreshTokensExtractUserIdOnlyForTheirOwnPurpose() {
         Long userId = 10L;
 
         String accessToken = jwtTokenProvider.generateAccessToken(userId);
         String refreshToken = jwtTokenProvider.generateRefreshToken(userId);
 
-        assertThat(jwtTokenProvider.validateAccessToken(accessToken)).isTrue();
-        assertThat(jwtTokenProvider.validateAccessToken(refreshToken)).isFalse();
-        assertThat(jwtTokenProvider.validateRefreshToken(refreshToken)).isTrue();
-        assertThat(jwtTokenProvider.validateRefreshToken(accessToken)).isFalse();
-        assertThat(jwtTokenProvider.getUserIdFromToken(accessToken)).isEqualTo(userId);
-        assertThat(jwtTokenProvider.getUserIdFromToken(refreshToken)).isEqualTo(userId);
+        assertThat(jwtTokenProvider.getUserIdFromAccessToken(accessToken)).isEqualTo(userId);
+        assertThat(jwtTokenProvider.getUserIdFromRefreshToken(refreshToken)).isEqualTo(userId);
+        assertTokenError(
+                () -> jwtTokenProvider.getUserIdFromAccessToken(refreshToken),
+                AuthErrorCode.ACCESS_TOKEN_INVALID
+        );
+        assertTokenError(
+                () -> jwtTokenProvider.getUserIdFromRefreshToken(accessToken),
+                AuthErrorCode.REFRESH_TOKEN_INVALID
+        );
     }
 
     @Test
-    void legacyTokenWithoutTokenUseIsRejectedByPurposeValidation() {
+    void legacyTokenWithoutTokenUseIsRejectedByPurposeExtraction() {
         String legacyToken = Jwts.builder()
                 .subject("20")
                 .issuedAt(Date.from(Instant.now()))
@@ -47,20 +55,68 @@ class JwtTokenProviderTest {
                 .signWith(secretKey())
                 .compact();
 
-        assertThat(jwtTokenProvider.validateAccessToken(legacyToken)).isFalse();
-        assertThat(jwtTokenProvider.validateRefreshToken(legacyToken)).isFalse();
-        assertThat(jwtTokenProvider.getUserIdFromToken(legacyToken)).isEqualTo(20L);
+        assertTokenError(
+                () -> jwtTokenProvider.getUserIdFromAccessToken(legacyToken),
+                AuthErrorCode.ACCESS_TOKEN_INVALID
+        );
+        assertTokenError(
+                () -> jwtTokenProvider.getUserIdFromRefreshToken(legacyToken),
+                AuthErrorCode.REFRESH_TOKEN_INVALID
+        );
     }
 
     @Test
-    void malformedTokenIsRejectedByEveryValidationMethod() {
+    void malformedTokenIsRejectedByPurposeExtraction() {
         String malformedToken = "not-a-jwt";
 
-        assertThat(jwtTokenProvider.validateAccessToken(malformedToken)).isFalse();
-        assertThat(jwtTokenProvider.validateRefreshToken(malformedToken)).isFalse();
+        assertTokenError(
+                () -> jwtTokenProvider.getUserIdFromAccessToken(malformedToken),
+                AuthErrorCode.ACCESS_TOKEN_INVALID
+        );
+        assertTokenError(
+                () -> jwtTokenProvider.getUserIdFromRefreshToken(malformedToken),
+                AuthErrorCode.REFRESH_TOKEN_INVALID
+        );
+        assertTokenErrorCause(
+                () -> jwtTokenProvider.getUserIdFromRefreshToken(malformedToken),
+                JwtException.class
+        );
+    }
+
+    @Test
+    void tokenWithNonNumericSubjectIsRejectedByPurposeExtraction() {
+        String invalidSubjectAccessToken = Jwts.builder()
+                .subject("not-a-number")
+                .claim("token_use", "access")
+                .issuedAt(Date.from(Instant.now()))
+                .expiration(Date.from(Instant.now().plusSeconds(3600)))
+                .signWith(secretKey())
+                .compact();
+
+        assertTokenError(
+                () -> jwtTokenProvider.getUserIdFromAccessToken(invalidSubjectAccessToken),
+                AuthErrorCode.ACCESS_TOKEN_INVALID
+        );
+        assertTokenErrorCause(
+                () -> jwtTokenProvider.getUserIdFromAccessToken(invalidSubjectAccessToken),
+                NumberFormatException.class
+        );
     }
 
     private SecretKey secretKey() {
         return Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private void assertTokenError(Runnable tokenAction, AuthErrorCode expectedErrorCode) {
+        assertThatThrownBy(tokenAction::run)
+                .isInstanceOf(AuthException.class)
+                .extracting("errorCode")
+                .isEqualTo(expectedErrorCode);
+    }
+
+    private void assertTokenErrorCause(Runnable tokenAction, Class<? extends Throwable> expectedCauseType) {
+        assertThatThrownBy(tokenAction::run)
+                .isInstanceOf(AuthException.class)
+                .hasCauseInstanceOf(expectedCauseType);
     }
 }

@@ -108,19 +108,14 @@ public class AuthService {
     public TokenResponse refreshToken(RefreshTokenRequest request) {
         String refreshToken = request.getRefreshToken();
 
-        // Refresh Token 유효성 검증
-        if (!jwtTokenProvider.validateRefreshToken(refreshToken)) {
-            throw new AuthException(AuthErrorCode.REFRESH_TOKEN_EXPIRED);
-        }
-
-        Long tokenUserId = jwtTokenProvider.getUserIdFromToken(refreshToken);
+        Long tokenUserId = jwtTokenProvider.getUserIdFromRefreshToken(refreshToken);
         User user = userLookupService.getActiveById(tokenUserId);
 
         String refreshTokenHash = hashRefreshToken(refreshToken);
         AuthToken authToken = authTokenRepository.findByRefreshTokenHash(refreshTokenHash)
                 .orElseThrow(() -> new AuthException(AuthErrorCode.REFRESH_TOKEN_MISMATCH));
         if (authToken.isExpired(LocalDateTime.now())) {
-            throw new AuthException(AuthErrorCode.REFRESH_TOKEN_EXPIRED);
+            throw new AuthException(AuthErrorCode.REFRESH_TOKEN_INVALID);
         }
 
         if (!authToken.getUserId().equals(user.getId())) {
@@ -167,7 +162,7 @@ public class AuthService {
     private void saveRefreshToken(Long userId, String refreshToken) {
         String refreshTokenHash = hashRefreshToken(refreshToken);
         LocalDateTime expiresAt = LocalDateTime.ofInstant(
-                jwtTokenProvider.getExpiration(refreshToken).toInstant(),
+                jwtTokenProvider.getRefreshTokenExpiration(refreshToken).toInstant(),
                 ZoneId.systemDefault()
         );
 

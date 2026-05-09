@@ -35,19 +35,19 @@ class GlobalExceptionHandlerTest {
     @Test
     void handleBusinessException_returnsConfiguredStatusCodeAndErrorCode() {
         ResponseEntity<CommonResponse<Map<String, Object>>> response =
-                handler.handleBusinessException(new AuthException(AuthErrorCode.REFRESH_TOKEN_EXPIRED));
+                handler.handleBusinessException(new AuthException(AuthErrorCode.REFRESH_TOKEN_INVALID));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         Map<String, Object> data = response.getBody().getData();
         assertThat(data)
                 .containsEntry("code", "AC-006")
-                .containsEntry("message", "refreshToken 만료");
+                .containsEntry("message", "refreshToken 유효하지 않음");
     }
 
     @Test
     void handleBusinessException_usesExceptionMessageWhenProvided() {
         ResponseEntity<CommonResponse<Map<String, Object>>> response =
-                handler.handleBusinessException(new AuthException(AuthErrorCode.REFRESH_TOKEN_EXPIRED, CUSTOM_AUTH_MESSAGE));
+                handler.handleBusinessException(new AuthException(AuthErrorCode.REFRESH_TOKEN_INVALID, CUSTOM_AUTH_MESSAGE));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         Map<String, Object> data = response.getBody().getData();

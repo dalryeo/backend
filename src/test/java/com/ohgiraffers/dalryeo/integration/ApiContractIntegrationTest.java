@@ -207,7 +207,7 @@ class ApiContractIntegrationTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.data.code").value("AC-006"))
-                .andExpect(jsonPath("$.data.message").value("refreshToken 만료"));
+                .andExpect(jsonPath("$.data.message").value("refreshToken 유효하지 않음"));
     }
 
     @Test
