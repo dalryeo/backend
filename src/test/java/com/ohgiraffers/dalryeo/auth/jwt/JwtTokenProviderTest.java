@@ -2,6 +2,7 @@ package com.ohgiraffers.dalryeo.auth.jwt;
 
 import com.ohgiraffers.dalryeo.auth.exception.AuthErrorCode;
 import com.ohgiraffers.dalryeo.auth.exception.AuthException;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
@@ -76,6 +77,10 @@ class JwtTokenProviderTest {
                 () -> jwtTokenProvider.getUserIdFromRefreshToken(malformedToken),
                 AuthErrorCode.REFRESH_TOKEN_INVALID
         );
+        assertTokenErrorCause(
+                () -> jwtTokenProvider.getUserIdFromRefreshToken(malformedToken),
+                JwtException.class
+        );
     }
 
     @Test
@@ -92,6 +97,10 @@ class JwtTokenProviderTest {
                 () -> jwtTokenProvider.getUserIdFromAccessToken(invalidSubjectAccessToken),
                 AuthErrorCode.ACCESS_TOKEN_INVALID
         );
+        assertTokenErrorCause(
+                () -> jwtTokenProvider.getUserIdFromAccessToken(invalidSubjectAccessToken),
+                NumberFormatException.class
+        );
     }
 
     private SecretKey secretKey() {
@@ -103,5 +112,11 @@ class JwtTokenProviderTest {
                 .isInstanceOf(AuthException.class)
                 .extracting("errorCode")
                 .isEqualTo(expectedErrorCode);
+    }
+
+    private void assertTokenErrorCause(Runnable tokenAction, Class<? extends Throwable> expectedCauseType) {
+        assertThatThrownBy(tokenAction::run)
+                .isInstanceOf(AuthException.class)
+                .hasCauseInstanceOf(expectedCauseType);
     }
 }

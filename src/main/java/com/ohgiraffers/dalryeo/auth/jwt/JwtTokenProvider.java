@@ -3,6 +3,7 @@ package com.ohgiraffers.dalryeo.auth.jwt;
 import com.ohgiraffers.dalryeo.auth.exception.AuthErrorCode;
 import com.ohgiraffers.dalryeo.auth.exception.AuthException;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -83,7 +84,7 @@ public class JwtTokenProvider {
      * 토큰의 만료 시각을 조회한다.
      */
     public Date getExpiration(String token) {
-        Claims claims = parseClaims(token);
+        Claims claims = parseTokenClaims(token, AuthErrorCode.REFRESH_TOKEN_INVALID);
         return claims.getExpiration();
     }
 
@@ -91,15 +92,31 @@ public class JwtTokenProvider {
      * 토큰 서명, 만료 시간, 용도를 한 번에 확인하고 userId를 반환한다.
      */
     private Long extractUserIdFromToken(String token, String expectedTokenUse, AuthErrorCode errorCode) {
+        Claims claims = parseTokenClaims(token, errorCode);
+        validateTokenUse(claims, expectedTokenUse, errorCode);
+        return extractUserId(claims, errorCode);
+    }
+
+    /**
+     * JWT를 파싱하면서 서명과 만료 시간을 검증한다.
+     */
+    private Claims parseTokenClaims(String token, AuthErrorCode errorCode) {
         try {
-            Claims claims = parseClaims(token);
-            if (!expectedTokenUse.equals(claims.get(TOKEN_USE_CLAIM, String.class))) {
-                throw new AuthException(errorCode);
-            }
-            return extractUserId(claims);
-        } catch (AuthException e) {
-            throw e;
-        } catch (Exception e) {
+            return Jwts.parser()
+                    .verifyWith(secretKey)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+        } catch (JwtException | IllegalArgumentException e) {
+            throw new AuthException(errorCode, e);
+        }
+    }
+
+    /**
+     * 토큰 용도가 요청한 용도와 일치하는지 확인한다.
+     */
+    private void validateTokenUse(Claims claims, String expectedTokenUse, AuthErrorCode errorCode) {
+        if (!expectedTokenUse.equals(claims.get(TOKEN_USE_CLAIM, String.class))) {
             throw new AuthException(errorCode);
         }
     }
@@ -107,18 +124,11 @@ public class JwtTokenProvider {
     /**
      * Claims의 subject 값을 Long userId로 변환한다.
      */
-    private Long extractUserId(Claims claims) {
-        return Long.parseLong(claims.getSubject());
-    }
-
-    /**
-     * JWT를 파싱하면서 서명과 만료 시간을 검증한다.
-     */
-    private Claims parseClaims(String token) {
-        return Jwts.parser()
-                .verifyWith(secretKey)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+    private Long extractUserId(Claims claims, AuthErrorCode errorCode) {
+        try {
+            return Long.parseLong(claims.getSubject());
+        } catch (NumberFormatException e) {
+            throw new AuthException(errorCode, e);
+        }
     }
 }

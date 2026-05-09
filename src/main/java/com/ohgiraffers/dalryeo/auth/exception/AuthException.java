@@ -13,4 +13,12 @@ public class AuthException extends BusinessException {
     public AuthException(AuthErrorCode errorCode, String message) {
         super(errorCode, message);
     }
+
+    public AuthException(AuthErrorCode errorCode, Throwable cause) {
+        super(errorCode, cause);
+    }
+
+    public AuthException(AuthErrorCode errorCode, String message, Throwable cause) {
+        super(errorCode, message, cause);
+    }
 }
