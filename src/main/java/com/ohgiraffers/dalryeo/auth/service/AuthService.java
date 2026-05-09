@@ -162,7 +162,7 @@ public class AuthService {
     private void saveRefreshToken(Long userId, String refreshToken) {
         String refreshTokenHash = hashRefreshToken(refreshToken);
         LocalDateTime expiresAt = LocalDateTime.ofInstant(
-                jwtTokenProvider.getExpiration(refreshToken).toInstant(),
+                jwtTokenProvider.getRefreshTokenExpiration(refreshToken).toInstant(),
                 ZoneId.systemDefault()
         );
 

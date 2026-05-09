@@ -81,10 +81,10 @@ public class JwtTokenProvider {
     }
 
     /**
-     * 토큰의 만료 시각을 조회한다.
+     * Refresh Token의 만료 시각을 조회한다.
      */
-    public Date getExpiration(String token) {
-        Claims claims = parseTokenClaims(token, AuthErrorCode.REFRESH_TOKEN_INVALID);
+    public Date getRefreshTokenExpiration(String refreshToken) {
+        Claims claims = parseTokenClaims(refreshToken, AuthErrorCode.REFRESH_TOKEN_INVALID);
         return claims.getExpiration();
     }
 

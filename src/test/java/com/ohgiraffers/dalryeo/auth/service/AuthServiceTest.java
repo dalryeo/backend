@@ -96,7 +96,7 @@ class AuthServiceTest {
         when(userRepository.save(any(User.class))).thenReturn(savedUser);
         when(jwtTokenProvider.generateAccessToken(userId)).thenReturn(accessToken);
         when(jwtTokenProvider.generateRefreshToken(userId)).thenReturn(refreshToken);
-        when(jwtTokenProvider.getExpiration(refreshToken)).thenReturn(refreshExpiry);
+        when(jwtTokenProvider.getRefreshTokenExpiration(refreshToken)).thenReturn(refreshExpiry);
         when(authTokenRepository.findByUserId(userId)).thenReturn(Optional.empty());
 
         TokenResponse response = authService.loginWithApple(identityToken);
@@ -142,7 +142,7 @@ class AuthServiceTest {
         when(userRepository.save(withdrawnUser)).thenReturn(withdrawnUser);
         when(jwtTokenProvider.generateAccessToken(userId)).thenReturn(accessToken);
         when(jwtTokenProvider.generateRefreshToken(userId)).thenReturn(refreshToken);
-        when(jwtTokenProvider.getExpiration(refreshToken)).thenReturn(refreshExpiry);
+        when(jwtTokenProvider.getRefreshTokenExpiration(refreshToken)).thenReturn(refreshExpiry);
         when(authTokenRepository.findByUserId(userId)).thenReturn(Optional.empty());
 
         TokenResponse response = authService.loginWithApple(identityToken);
@@ -190,7 +190,7 @@ class AuthServiceTest {
                 .thenReturn(Optional.of(existingAuthToken));
         when(jwtTokenProvider.generateAccessToken(userId)).thenReturn(newAccessToken);
         when(jwtTokenProvider.generateRefreshToken(userId)).thenReturn(newRefreshToken);
-        when(jwtTokenProvider.getExpiration(newRefreshToken)).thenReturn(newRefreshExpiry);
+        when(jwtTokenProvider.getRefreshTokenExpiration(newRefreshToken)).thenReturn(newRefreshExpiry);
         when(authTokenRepository.findByUserId(userId)).thenReturn(Optional.of(existingAuthToken));
 
         TokenResponse response = authService.refreshToken(request);
