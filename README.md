@@ -120,6 +120,7 @@ Content-Type: application/json
 #### 2. Refresh Token 재발급
 ```http
 POST /auth/token/refresh
+POST /auth/refresh
 Content-Type: application/json
 
 {
