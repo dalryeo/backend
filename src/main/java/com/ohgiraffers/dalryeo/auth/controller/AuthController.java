@@ -30,8 +30,9 @@ public class AuthController {
     /**
      * Refresh Token 재발급
      * POST /auth/token/refresh
+     * POST /auth/refresh
      */
-    @PostMapping("/token/refresh")
+    @PostMapping({"/token/refresh", "/refresh"})
     public CommonResponse<TokenResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
         TokenResponse response = authService.refreshToken(request);
         return CommonResponse.success(response);
