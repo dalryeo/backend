@@ -19,12 +19,12 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        use_sql_comments: true
+        use_sql_comments: false
         jdbc:
           batch_size: 20
         order_inserts: true
@@ -46,9 +46,9 @@ spring:
 server:
   port: 8080
   error:
-    include-message: always
-    include-binding-errors: always
-    include-stacktrace: on_param
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
     include-exception: false
 
 # JWT 설정
@@ -75,10 +75,11 @@ app:
 logging:
   level:
     root: INFO
-    com.ohgiraffers.dalryeo: DEBUG
-    org.springframework.web: INFO
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    com.ohgiraffers.dalryeo: INFO
+    org.springframework.web: WARN
+    org.hibernate.SQL: "OFF"
+    org.hibernate.orm.jdbc.bind: "OFF"
+    org.hibernate.type.descriptor.sql.BasicBinder: "OFF"
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
