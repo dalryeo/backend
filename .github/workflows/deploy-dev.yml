@@ -67,4 +67,5 @@ jobs:
               "APP_OAUTH_APPLE_ALLOWED_CLIENT_IDS=${{ vars.APP_OAUTH_APPLE_ALLOWED_CLIENT_IDS || vars.APP_OAUTH_APPLE_CLIENT_ID }}" \
               "SENTRY_DSN=secretref:sentry-dsn" \
               "SENTRY_ENVIRONMENT=prod" \
-              "SENTRY_RELEASE=${{ env.IMAGE_TAG }}"
+              "SENTRY_RELEASE=${{ env.IMAGE_TAG }}" \
+              "SPRING_PROFILES_ACTIVE=${{ vars.SPRING_ENV }}"
