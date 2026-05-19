@@ -13,26 +13,34 @@ import java.util.Optional;
 
 public interface WeeklyUserStatsRepository extends JpaRepository<WeeklyUserStats, Long> {
 
+    // 랭킹 목록 응답에 필요한 최소 필드만 담는 조회 결과이다.
     interface WeeklyRankingRow {
         Long getUserId();
-
         String getNickname();
-
         BigDecimal getTotalDistanceKm();
-
         Integer getAvgPaceSecPerKm();
-
         BigDecimal getTierScore();
+
+        default double getTotalDistanceKmAsDouble() {
+            return getTotalDistanceKm().doubleValue();
+        }
+
+        default double getTierScoreAsDouble() {
+            return getTierScore().doubleValue();
+        }
     }
 
+    // 특정 사용자의 특정 주간 집계 데이터를 조회한다.
     Optional<WeeklyUserStats> findByUserIdAndWeekStartDate(Long userId, LocalDate weekStartDate);
 
+    // 특정 사용자의 주간 집계 데이터를 기간 범위로 조회한다.
     List<WeeklyUserStats> findByUserIdAndWeekStartDateBetweenOrderByWeekStartDateAsc(
             Long userId,
             LocalDate startWeek,
             LocalDate endWeek
     );
 
+    // 러닝 기록 1건을 해당 주의 사용자 집계에 누적 반영한다.
     @Modifying
     @Query(value = """
             INSERT INTO weekly_user_stats (
@@ -89,6 +97,7 @@ public interface WeeklyUserStatsRepository extends JpaRepository<WeeklyUserStats
             @Param("tierScore") BigDecimal tierScore
     );
 
+    // 점수 기준 주간 랭킹 목록을 닉네임과 함께 조회한다.
     @Query(value = """
             SELECT
                 s.user_id AS "userId",
@@ -110,6 +119,7 @@ public interface WeeklyUserStatsRepository extends JpaRepository<WeeklyUserStats
             @Param("limit") int limit
     );
 
+    // 거리 기준 주간 랭킹 목록을 닉네임과 함께 조회한다.
     @Query(value = """
             SELECT
                 s.user_id AS "userId",
@@ -131,6 +141,7 @@ public interface WeeklyUserStatsRepository extends JpaRepository<WeeklyUserStats
             @Param("limit") int limit
     );
 
+    // 내 점수 랭킹 계산을 위해 나보다 앞선 사용자 수를 센다.
     @Query(value = """
             SELECT COUNT(*)
             FROM weekly_user_stats s
@@ -156,6 +167,7 @@ public interface WeeklyUserStatsRepository extends JpaRepository<WeeklyUserStats
             @Param("userId") Long userId
     );
 
+    // 내 거리 랭킹 계산을 위해 나보다 앞선 사용자 수를 센다.
     @Query(value = """
             SELECT COUNT(*)
             FROM weekly_user_stats s
@@ -181,5 +193,6 @@ public interface WeeklyUserStatsRepository extends JpaRepository<WeeklyUserStats
             @Param("userId") Long userId
     );
 
+    // 회원 탈퇴 시 해당 사용자의 주간 집계 데이터를 삭제한다.
     void deleteByUserId(Long userId);
 }
