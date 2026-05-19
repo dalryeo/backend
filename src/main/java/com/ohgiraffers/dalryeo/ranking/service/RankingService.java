@@ -1,12 +1,12 @@
 package com.ohgiraffers.dalryeo.ranking.service;
 
 import com.ohgiraffers.dalryeo.auth.entity.User;
-import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
 import com.ohgiraffers.dalryeo.ranking.dto.DistanceRankingResponse;
 import com.ohgiraffers.dalryeo.ranking.dto.RankingMeResponse;
 import com.ohgiraffers.dalryeo.ranking.dto.ScoreRankingResponse;
 import com.ohgiraffers.dalryeo.record.entity.WeeklyUserStats;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
+import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository.WeeklyRankingRow;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
 import com.ohgiraffers.dalryeo.user.service.UserLookupService;
 import lombok.RequiredArgsConstructor;
@@ -16,11 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.TemporalAdjusters;
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Service
 @RequiredArgsConstructor
@@ -30,47 +28,36 @@ public class RankingService {
     private static final int DEFAULT_RANKING_LIMIT = 100;
 
     private final WeeklyUserStatsRepository weeklyUserStatsRepository;
-    private final UserRepository userRepository;
     private final UserLookupService userLookupService;
     private final TierService tierService;
 
-    /**
-     * 점수 기반 주간 랭킹 조회
-     */
+    // 점수 기준 주간 랭킹 목록을 조회한다.
     public List<ScoreRankingResponse> getWeeklyScoreRanking() {
         LocalDate weekStart = currentWeekStart();
-        List<WeeklyUserStats> statsRows = weeklyUserStatsRepository.findScoreRankingRows(
+        List<WeeklyRankingRow> rankingRows = weeklyUserStatsRepository.findScoreRankingRows(
                 weekStart,
                 DEFAULT_RANKING_LIMIT
         );
-        Map<Long, User> usersById = findUsersById(statsRows);
 
-        return java.util.stream.IntStream.range(0, statsRows.size())
-                .mapToObj(index -> toScoreRankingResponse(index, statsRows.get(index), usersById))
-                .filter(response -> response != null)
+        return IntStream.range(0, rankingRows.size())
+                .mapToObj(index -> toScoreRankingResponse(index, rankingRows.get(index)))
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 거리 기반 주간 랭킹 조회
-     */
+    // 거리 기준 주간 랭킹 목록을 조회한다.
     public List<DistanceRankingResponse> getWeeklyDistanceRanking() {
         LocalDate weekStart = currentWeekStart();
-        List<WeeklyUserStats> statsRows = weeklyUserStatsRepository.findDistanceRankingRows(
+        List<WeeklyRankingRow> rankingRows = weeklyUserStatsRepository.findDistanceRankingRows(
                 weekStart,
                 DEFAULT_RANKING_LIMIT
         );
-        Map<Long, User> usersById = findUsersById(statsRows);
 
-        return java.util.stream.IntStream.range(0, statsRows.size())
-                .mapToObj(index -> toDistanceRankingResponse(index, statsRows.get(index), usersById))
-                .filter(response -> response != null)
+        return IntStream.range(0, rankingRows.size())
+                .mapToObj(index -> toDistanceRankingResponse(index, rankingRows.get(index)))
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 내 랭킹 조회
-     */
+    // 로그인 사용자의 이번 주 랭킹 정보를 조회한다.
     public RankingMeResponse getMyRanking(Long userId) {
         User user = userLookupService.getActiveById(userId);
 
@@ -81,49 +68,42 @@ public class RankingService {
                 .orElseGet(() -> buildEmptyMyRanking(user));
     }
 
+    // 점수 랭킹 조회 row를 응답 DTO로 변환한다.
     private ScoreRankingResponse toScoreRankingResponse(
             int index,
-            WeeklyUserStats stats,
-            Map<Long, User> usersById
+            WeeklyRankingRow row
     ) {
-        User user = usersById.get(stats.getUserId());
-        if (user == null) {
-            return null;
-        }
-
-        TierService.TierInfo tierInfo = tierService.resolveByScore(stats.tierScoreAsDouble());
+        double tierScore = row.getTierScoreAsDouble();
+        TierService.TierInfo tierInfo = tierService.resolveByScore(tierScore);
         return ScoreRankingResponse.builder()
                 .rank(index + 1)
-                .nickname(user.getNickname())
+                .nickname(row.getNickname())
                 .tierCode(tierInfo.tierCode())
                 .tierGrade(tierInfo.tierGrade())
-                .tierScore(stats.tierScoreAsDouble())
-                .weeklyAvgPace(stats.getAvgPaceSecPerKm())
-                .weeklyDistance(stats.totalDistanceAsDouble())
+                .tierScore(tierScore)
+                .weeklyAvgPace(row.getAvgPaceSecPerKm())
+                .weeklyDistance(row.getTotalDistanceKmAsDouble())
                 .build();
     }
 
+    // 거리 랭킹 조회 row를 응답 DTO로 변환한다.
     private DistanceRankingResponse toDistanceRankingResponse(
             int index,
-            WeeklyUserStats stats,
-            Map<Long, User> usersById
+            WeeklyRankingRow row
     ) {
-        User user = usersById.get(stats.getUserId());
-        if (user == null) {
-            return null;
-        }
-
-        TierService.TierInfo tierInfo = tierService.resolveByScore(stats.tierScoreAsDouble());
+        double tierScore = row.getTierScoreAsDouble();
+        TierService.TierInfo tierInfo = tierService.resolveByScore(tierScore);
         return DistanceRankingResponse.builder()
                 .rank(index + 1)
-                .nickname(user.getNickname())
-                .weeklyDistance(stats.totalDistanceAsDouble())
-                .weeklyAvgPace(stats.getAvgPaceSecPerKm())
+                .nickname(row.getNickname())
+                .weeklyDistance(row.getTotalDistanceKmAsDouble())
+                .weeklyAvgPace(row.getAvgPaceSecPerKm())
                 .tierCode(tierInfo.tierCode())
                 .tierGrade(tierInfo.tierGrade())
                 .build();
     }
 
+    // 주간 기록이 있는 사용자의 내 랭킹 응답을 만든다.
     private RankingMeResponse buildMyRankingFromStats(User user, LocalDate weekStart, WeeklyUserStats stats) {
         int scoreRank = toRank(weeklyUserStatsRepository.countAheadForScoreRank(
                 weekStart,
@@ -151,6 +131,7 @@ public class RankingService {
                 .build();
     }
 
+    // 이번 주 기록이 없는 사용자의 기본 내 랭킹 응답을 만든다.
     private RankingMeResponse buildEmptyMyRanking(User user) {
         TierService.TierInfo tierInfo = tierService.resolveByScore(0.0);
         return RankingMeResponse.builder()
@@ -165,18 +146,12 @@ public class RankingService {
                 .build();
     }
 
-    private Map<Long, User> findUsersById(Collection<WeeklyUserStats> statsRows) {
-        List<Long> userIds = statsRows.stream()
-                .map(WeeklyUserStats::getUserId)
-                .toList();
-        return userRepository.findAllById(userIds).stream()
-                .collect(Collectors.toMap(User::getId, Function.identity()));
-    }
-
+    // 나보다 앞선 사용자 수를 1부터 시작하는 순위로 변환한다.
     private int toRank(long aheadCount) {
         return Math.toIntExact(aheadCount + 1);
     }
 
+    // 오늘 날짜를 기준으로 이번 주 월요일을 구한다.
     private LocalDate currentWeekStart() {
         return LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
     }

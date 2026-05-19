@@ -8,6 +8,7 @@ import com.ohgiraffers.dalryeo.ranking.dto.RankingMeResponse;
 import com.ohgiraffers.dalryeo.ranking.dto.ScoreRankingResponse;
 import com.ohgiraffers.dalryeo.record.entity.WeeklyUserStats;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
+import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository.WeeklyRankingRow;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
 import com.ohgiraffers.dalryeo.user.exception.UserErrorCode;
 import com.ohgiraffers.dalryeo.user.exception.UserException;
@@ -28,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -50,14 +52,11 @@ class RankingServiceTest {
 
     @Test
     void getWeeklyScoreRanking_returnsRankedUsersFromWeeklyStatsInDescendingScoreOrder() {
-        User alpha = user(1L, "alpha", UserStatus.NORMAL);
-        User beta = user(2L, "beta", UserStatus.NORMAL);
-        WeeklyUserStats betaStats = weeklyStats(2L, 10.0, 300, 1.27);
-        WeeklyUserStats alphaStats = weeklyStats(1L, 5.0, 300, 1.24);
+        WeeklyRankingRow betaStats = weeklyRankingRow(2L, "beta", 10.0, 300, 1.27);
+        WeeklyRankingRow alphaStats = weeklyRankingRow(1L, "alpha", 5.0, 300, 1.24);
 
         when(weeklyUserStatsRepository.findScoreRankingRows(any(LocalDate.class), eq(100)))
                 .thenReturn(List.of(betaStats, alphaStats));
-        when(userRepository.findAllById(List.of(2L, 1L))).thenReturn(List.of(beta, alpha));
         when(tierService.resolveByScore(1.27))
                 .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.png"));
         when(tierService.resolveByScore(1.24))
@@ -74,18 +73,16 @@ class RankingServiceTest {
         assertThat(response.get(1).getRank()).isEqualTo(2);
         assertThat(response.get(1).getNickname()).isEqualTo("alpha");
         assertThat(response.get(1).getTierScore()).isEqualTo(1.24);
+        verifyNoInteractions(userRepository);
     }
 
     @Test
     void getWeeklyDistanceRanking_returnsRankedUsersFromWeeklyStatsInDescendingDistanceOrder() {
-        User alpha = user(1L, "alpha", UserStatus.NORMAL);
-        User beta = user(2L, "beta", UserStatus.NORMAL);
-        WeeklyUserStats betaStats = weeklyStats(2L, 10.0, 300, 1.27);
-        WeeklyUserStats alphaStats = weeklyStats(1L, 5.0, 300, 1.24);
+        WeeklyRankingRow betaStats = weeklyRankingRow(2L, "beta", 10.0, 300, 1.27);
+        WeeklyRankingRow alphaStats = weeklyRankingRow(1L, "alpha", 5.0, 300, 1.24);
 
         when(weeklyUserStatsRepository.findDistanceRankingRows(any(LocalDate.class), eq(100)))
                 .thenReturn(List.of(betaStats, alphaStats));
-        when(userRepository.findAllById(List.of(2L, 1L))).thenReturn(List.of(beta, alpha));
         when(tierService.resolveByScore(1.27))
                 .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.png"));
         when(tierService.resolveByScore(1.24))
@@ -100,6 +97,7 @@ class RankingServiceTest {
         assertThat(response.get(1).getRank()).isEqualTo(2);
         assertThat(response.get(1).getNickname()).isEqualTo("alpha");
         assertThat(response.get(1).getWeeklyDistance()).isEqualTo(5.0);
+        verifyNoInteractions(userRepository);
     }
 
     @Test
@@ -173,5 +171,41 @@ class RankingServiceTest {
                 .tierScoreSum(BigDecimal.valueOf(tierScore))
                 .tierScore(BigDecimal.valueOf(tierScore))
                 .build();
+    }
+
+    private WeeklyRankingRow weeklyRankingRow(
+            Long userId,
+            String nickname,
+            double distanceKm,
+            int avgPaceSecPerKm,
+            double tierScore
+    ) {
+        BigDecimal distance = BigDecimal.valueOf(distanceKm).setScale(3);
+        return new WeeklyRankingRow() {
+            @Override
+            public Long getUserId() {
+                return userId;
+            }
+
+            @Override
+            public String getNickname() {
+                return nickname;
+            }
+
+            @Override
+            public BigDecimal getTotalDistanceKm() {
+                return distance;
+            }
+
+            @Override
+            public Integer getAvgPaceSecPerKm() {
+                return avgPaceSecPerKm;
+            }
+
+            @Override
+            public BigDecimal getTierScore() {
+                return BigDecimal.valueOf(tierScore);
+            }
+        };
     }
 }
