@@ -1,25 +1,23 @@
 package com.ohgiraffers.dalryeo.ranking.service;
 
 import com.ohgiraffers.dalryeo.auth.entity.User;
-import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
 import com.ohgiraffers.dalryeo.ranking.dto.DistanceRankingResponse;
 import com.ohgiraffers.dalryeo.ranking.dto.RankingMeResponse;
 import com.ohgiraffers.dalryeo.ranking.dto.ScoreRankingResponse;
 import com.ohgiraffers.dalryeo.record.entity.WeeklyUserStats;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
+import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository.WeeklyRankingRow;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
 import com.ohgiraffers.dalryeo.user.service.UserLookupService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.TemporalAdjusters;
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,7 +28,6 @@ public class RankingService {
     private static final int DEFAULT_RANKING_LIMIT = 100;
 
     private final WeeklyUserStatsRepository weeklyUserStatsRepository;
-    private final UserRepository userRepository;
     private final UserLookupService userLookupService;
     private final TierService tierService;
 
@@ -39,15 +36,13 @@ public class RankingService {
      */
     public List<ScoreRankingResponse> getWeeklyScoreRanking() {
         LocalDate weekStart = currentWeekStart();
-        List<WeeklyUserStats> statsRows = weeklyUserStatsRepository.findScoreRankingRows(
+        List<WeeklyRankingRow> rankingRows = weeklyUserStatsRepository.findScoreRankingRows(
                 weekStart,
                 DEFAULT_RANKING_LIMIT
         );
-        Map<Long, User> usersById = findUsersById(statsRows);
 
-        return java.util.stream.IntStream.range(0, statsRows.size())
-                .mapToObj(index -> toScoreRankingResponse(index, statsRows.get(index), usersById))
-                .filter(response -> response != null)
+        return java.util.stream.IntStream.range(0, rankingRows.size())
+                .mapToObj(index -> toScoreRankingResponse(index, rankingRows.get(index)))
                 .collect(Collectors.toList());
     }
 
@@ -56,15 +51,13 @@ public class RankingService {
      */
     public List<DistanceRankingResponse> getWeeklyDistanceRanking() {
         LocalDate weekStart = currentWeekStart();
-        List<WeeklyUserStats> statsRows = weeklyUserStatsRepository.findDistanceRankingRows(
+        List<WeeklyRankingRow> rankingRows = weeklyUserStatsRepository.findDistanceRankingRows(
                 weekStart,
                 DEFAULT_RANKING_LIMIT
         );
-        Map<Long, User> usersById = findUsersById(statsRows);
 
-        return java.util.stream.IntStream.range(0, statsRows.size())
-                .mapToObj(index -> toDistanceRankingResponse(index, statsRows.get(index), usersById))
-                .filter(response -> response != null)
+        return java.util.stream.IntStream.range(0, rankingRows.size())
+                .mapToObj(index -> toDistanceRankingResponse(index, rankingRows.get(index)))
                 .collect(Collectors.toList());
     }
 
@@ -83,42 +76,32 @@ public class RankingService {
 
     private ScoreRankingResponse toScoreRankingResponse(
             int index,
-            WeeklyUserStats stats,
-            Map<Long, User> usersById
+            WeeklyRankingRow row
     ) {
-        User user = usersById.get(stats.getUserId());
-        if (user == null) {
-            return null;
-        }
-
-        TierService.TierInfo tierInfo = tierService.resolveByScore(stats.tierScoreAsDouble());
+        double tierScore = toDouble(row.getTierScore());
+        TierService.TierInfo tierInfo = tierService.resolveByScore(tierScore);
         return ScoreRankingResponse.builder()
                 .rank(index + 1)
-                .nickname(user.getNickname())
+                .nickname(row.getNickname())
                 .tierCode(tierInfo.tierCode())
                 .tierGrade(tierInfo.tierGrade())
-                .tierScore(stats.tierScoreAsDouble())
-                .weeklyAvgPace(stats.getAvgPaceSecPerKm())
-                .weeklyDistance(stats.totalDistanceAsDouble())
+                .tierScore(tierScore)
+                .weeklyAvgPace(row.getAvgPaceSecPerKm())
+                .weeklyDistance(toDouble(row.getTotalDistanceKm()))
                 .build();
     }
 
     private DistanceRankingResponse toDistanceRankingResponse(
             int index,
-            WeeklyUserStats stats,
-            Map<Long, User> usersById
+            WeeklyRankingRow row
     ) {
-        User user = usersById.get(stats.getUserId());
-        if (user == null) {
-            return null;
-        }
-
-        TierService.TierInfo tierInfo = tierService.resolveByScore(stats.tierScoreAsDouble());
+        double tierScore = toDouble(row.getTierScore());
+        TierService.TierInfo tierInfo = tierService.resolveByScore(tierScore);
         return DistanceRankingResponse.builder()
                 .rank(index + 1)
-                .nickname(user.getNickname())
-                .weeklyDistance(stats.totalDistanceAsDouble())
-                .weeklyAvgPace(stats.getAvgPaceSecPerKm())
+                .nickname(row.getNickname())
+                .weeklyDistance(toDouble(row.getTotalDistanceKm()))
+                .weeklyAvgPace(row.getAvgPaceSecPerKm())
                 .tierCode(tierInfo.tierCode())
                 .tierGrade(tierInfo.tierGrade())
                 .build();
@@ -165,16 +148,12 @@ public class RankingService {
                 .build();
     }
 
-    private Map<Long, User> findUsersById(Collection<WeeklyUserStats> statsRows) {
-        List<Long> userIds = statsRows.stream()
-                .map(WeeklyUserStats::getUserId)
-                .toList();
-        return userRepository.findAllById(userIds).stream()
-                .collect(Collectors.toMap(User::getId, Function.identity()));
-    }
-
     private int toRank(long aheadCount) {
         return Math.toIntExact(aheadCount + 1);
+    }
+
+    private double toDouble(BigDecimal value) {
+        return value == null ? 0.0 : value.doubleValue();
     }
 
     private LocalDate currentWeekStart() {

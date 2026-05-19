@@ -13,6 +13,18 @@ import java.util.Optional;
 
 public interface WeeklyUserStatsRepository extends JpaRepository<WeeklyUserStats, Long> {
 
+    interface WeeklyRankingRow {
+        Long getUserId();
+
+        String getNickname();
+
+        BigDecimal getTotalDistanceKm();
+
+        Integer getAvgPaceSecPerKm();
+
+        BigDecimal getTierScore();
+    }
+
     Optional<WeeklyUserStats> findByUserIdAndWeekStartDate(Long userId, LocalDate weekStartDate);
 
     List<WeeklyUserStats> findByUserIdAndWeekStartDateBetweenOrderByWeekStartDateAsc(
@@ -78,7 +90,12 @@ public interface WeeklyUserStatsRepository extends JpaRepository<WeeklyUserStats
     );
 
     @Query(value = """
-            SELECT s.*
+            SELECT
+                s.user_id AS "userId",
+                u.nickname AS "nickname",
+                s.total_distance_km AS "totalDistanceKm",
+                s.avg_pace_sec_per_km AS "avgPaceSecPerKm",
+                s.tier_score AS "tierScore"
             FROM weekly_user_stats s
             JOIN users u ON u.id = s.user_id
             WHERE s.week_start_date = :weekStartDate
@@ -88,13 +105,18 @@ public interface WeeklyUserStatsRepository extends JpaRepository<WeeklyUserStats
             ORDER BY s.tier_score DESC, s.total_distance_km DESC, s.user_id ASC
             LIMIT :limit
             """, nativeQuery = true)
-    List<WeeklyUserStats> findScoreRankingRows(
+    List<WeeklyRankingRow> findScoreRankingRows(
             @Param("weekStartDate") LocalDate weekStartDate,
             @Param("limit") int limit
     );
 
     @Query(value = """
-            SELECT s.*
+            SELECT
+                s.user_id AS "userId",
+                u.nickname AS "nickname",
+                s.total_distance_km AS "totalDistanceKm",
+                s.avg_pace_sec_per_km AS "avgPaceSecPerKm",
+                s.tier_score AS "tierScore"
             FROM weekly_user_stats s
             JOIN users u ON u.id = s.user_id
             WHERE s.week_start_date = :weekStartDate
@@ -104,7 +126,7 @@ public interface WeeklyUserStatsRepository extends JpaRepository<WeeklyUserStats
             ORDER BY s.total_distance_km DESC, s.tier_score DESC, s.user_id ASC
             LIMIT :limit
             """, nativeQuery = true)
-    List<WeeklyUserStats> findDistanceRankingRows(
+    List<WeeklyRankingRow> findDistanceRankingRows(
             @Param("weekStartDate") LocalDate weekStartDate,
             @Param("limit") int limit
     );
