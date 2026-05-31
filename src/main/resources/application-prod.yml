@@ -1,6 +1,6 @@
 spring:
   main:
-    banner-mode: off
+    banner-mode: "OFF"
   jpa:
     show-sql: false
     properties:
