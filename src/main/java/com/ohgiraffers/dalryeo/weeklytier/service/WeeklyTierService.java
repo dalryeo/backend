@@ -1,5 +1,6 @@
 package com.ohgiraffers.dalryeo.weeklytier.service;
 
+import com.ohgiraffers.dalryeo.common.time.ServiceDateProvider;
 import com.ohgiraffers.dalryeo.record.entity.WeeklyUserStats;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
@@ -13,9 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.time.temporal.TemporalAdjusters;
 import java.util.Optional;
 
 @Service
@@ -27,12 +26,13 @@ public class WeeklyTierService {
     private final WeeklyUserStatsRepository weeklyUserStatsRepository;
     private final TierService tierService;
     private final UserLookupService userLookupService;
+    private final ServiceDateProvider serviceDateProvider;
 
     @Transactional(readOnly = true)
     public WeeklyTierResponse getCurrentWeeklyTier(Long userId) {
         userLookupService.getActiveById(userId);
 
-        LocalDate weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate weekStart = serviceDateProvider.currentWeekStart();
         boolean hasCurrentWeeklyStats = weeklyUserStatsRepository.findByUserIdAndWeekStartDate(userId, weekStart)
                 .filter(WeeklyUserStats::hasRecords)
                 .isPresent();

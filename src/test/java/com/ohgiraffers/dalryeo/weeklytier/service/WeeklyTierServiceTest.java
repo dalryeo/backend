@@ -1,5 +1,6 @@
 package com.ohgiraffers.dalryeo.weeklytier.service;
 
+import com.ohgiraffers.dalryeo.common.time.ServiceDateProvider;
 import com.ohgiraffers.dalryeo.record.entity.WeeklyUserStats;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
@@ -13,10 +14,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.time.temporal.TemporalAdjusters;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,14 +36,18 @@ class WeeklyTierServiceTest {
     @Mock
     private UserLookupService userLookupService;
 
+    @Mock
+    private ServiceDateProvider serviceDateProvider;
+
     @InjectMocks
     private WeeklyTierService weeklyTierService;
 
     @Test
     void getCurrentWeeklyTier_returnsNullWhenCurrentWeekRecordExists() {
         Long userId = 1L;
-        LocalDate weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate weekStart = LocalDate.of(2026, 6, 1);
 
+        when(serviceDateProvider.currentWeekStart()).thenReturn(weekStart);
         when(weeklyUserStatsRepository.findByUserIdAndWeekStartDate(userId, weekStart))
                 .thenReturn(Optional.of(weeklyStats(userId, weekStart)));
 
@@ -56,8 +59,9 @@ class WeeklyTierServiceTest {
     @Test
     void getCurrentWeeklyTier_returnsNullWhenNoRecordAndNoWeeklyTierSnapshot() {
         Long userId = 2L;
-        LocalDate weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate weekStart = LocalDate.of(2026, 6, 1);
 
+        when(serviceDateProvider.currentWeekStart()).thenReturn(weekStart);
         when(weeklyUserStatsRepository.findByUserIdAndWeekStartDate(userId, weekStart))
                 .thenReturn(Optional.empty());
         when(weeklyTierRepository.findByUserIdAndWeekStartDate(userId, weekStart))
@@ -71,7 +75,7 @@ class WeeklyTierServiceTest {
     @Test
     void getCurrentWeeklyTier_returnsSnapshotWhenNoCurrentWeekRecordExists() {
         Long userId = 3L;
-        LocalDate weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate weekStart = LocalDate.of(2026, 6, 1);
         WeeklyTier weeklyTier = WeeklyTier.builder()
                 .userId(userId)
                 .weekStartDate(weekStart)
@@ -79,6 +83,7 @@ class WeeklyTierServiceTest {
                 .tierScore(157)
                 .build();
 
+        when(serviceDateProvider.currentWeekStart()).thenReturn(weekStart);
         when(weeklyUserStatsRepository.findByUserIdAndWeekStartDate(userId, weekStart))
                 .thenReturn(Optional.empty());
         when(weeklyTierRepository.findByUserIdAndWeekStartDate(userId, weekStart))

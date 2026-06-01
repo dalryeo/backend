@@ -3,6 +3,7 @@ package com.ohgiraffers.dalryeo.analysis.service;
 import com.ohgiraffers.dalryeo.analysis.dto.RecordDetailResponse;
 import com.ohgiraffers.dalryeo.analysis.dto.RecordListItemResponse;
 import com.ohgiraffers.dalryeo.analysis.dto.RecordListResponse;
+import com.ohgiraffers.dalryeo.common.time.ServiceDateProvider;
 import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
 import com.ohgiraffers.dalryeo.user.service.UserLookupService;
@@ -26,6 +27,7 @@ public class AnalysisService {
 
     private final RunningRecordRepository runningRecordRepository;
     private final UserLookupService userLookupService;
+    private final ServiceDateProvider serviceDateProvider;
 
     /**
      * 전체 기록 조회 (페이징, 정렬, 기간 필터 지원)
@@ -51,8 +53,7 @@ public class AnalysisService {
         // 기간 필터 적용
         if ("monthly".equalsIgnoreCase(period)) {
             // 이번 달 기록만 조회
-            LocalDate now = LocalDate.now();
-            LocalDate monthStart = now.withDayOfMonth(1);
+            LocalDate monthStart = serviceDateProvider.currentMonthStart();
             LocalDate monthEnd = monthStart.plusMonths(1);
             
             LocalDateTime startDateTime = monthStart.atStartOfDay();

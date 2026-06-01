@@ -9,6 +9,7 @@ import com.ohgiraffers.dalryeo.auth.oauth.AppleOAuthValidator;
 import com.ohgiraffers.dalryeo.auth.repository.AuthTokenRepository;
 import com.ohgiraffers.dalryeo.auth.repository.OAuthClientRepository;
 import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
+import com.ohgiraffers.dalryeo.common.time.ServiceDateProvider;
 import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
 import com.ohgiraffers.dalryeo.record.dto.RecordIdResponse;
 import com.ohgiraffers.dalryeo.record.dto.RunningRecordRequest;
@@ -40,11 +41,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.time.temporal.TemporalAdjusters;
 import java.util.Comparator;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -114,6 +113,9 @@ class ApiContractIntegrationTest {
 
     @Autowired
     private TierGradeRepository tierGradeRepository;
+
+    @Autowired
+    private ServiceDateProvider serviceDateProvider;
 
     @MockBean
     private AppleOAuthValidator appleOAuthValidator;
@@ -604,7 +606,7 @@ class ApiContractIntegrationTest {
     @Test
     void getOnboarding_returnsTierDefaultProfileImageWhenCustomImageDoesNotExist() throws Exception {
         User user = saveUser("runner-tier-image");
-        LocalDate weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate weekStart = serviceDateProvider.currentWeekStart();
 
         weeklyTierRepository.save(WeeklyTier.builder()
                 .userId(user.getId())
@@ -625,7 +627,7 @@ class ApiContractIntegrationTest {
     @Test
     void getOnboarding_prefersCurrentWeekRecordTierImageOverWeeklyTierSnapshot() throws Exception {
         User user = saveUser("runner-tier-priority");
-        LocalDate weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate weekStart = serviceDateProvider.currentWeekStart();
 
         weeklyTierRepository.save(WeeklyTier.builder()
                 .userId(user.getId())
@@ -894,7 +896,7 @@ class ApiContractIntegrationTest {
     void getWeeklySummaryList_keepsResponseContract() throws Exception {
         User user = saveUser("runner-summary-list");
         saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(5));
-        LocalDate weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate weekStart = serviceDateProvider.currentWeekStart();
 
         mockMvc.perform(get("/weekly/summary/list")
                         .header("Authorization", bearer(accessToken(user.getId()))))
@@ -912,7 +914,7 @@ class ApiContractIntegrationTest {
     @Test
     void getCurrentWeeklyTier_keepsWeeklyTierResponseContract() throws Exception {
         User user = saveUser("runner-weekly-tier");
-        LocalDate weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate weekStart = serviceDateProvider.currentWeekStart();
 
         weeklyTierRepository.save(WeeklyTier.builder()
                 .userId(user.getId())

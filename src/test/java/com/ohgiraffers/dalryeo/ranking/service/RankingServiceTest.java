@@ -3,6 +3,7 @@ package com.ohgiraffers.dalryeo.ranking.service;
 import com.ohgiraffers.dalryeo.auth.entity.User;
 import com.ohgiraffers.dalryeo.auth.entity.UserStatus;
 import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
+import com.ohgiraffers.dalryeo.common.time.ServiceDateProvider;
 import com.ohgiraffers.dalryeo.ranking.dto.DistanceRankingResponse;
 import com.ohgiraffers.dalryeo.ranking.dto.RankingMeResponse;
 import com.ohgiraffers.dalryeo.ranking.dto.ScoreRankingResponse;
@@ -47,6 +48,9 @@ class RankingServiceTest {
     @Mock
     private TierService tierService;
 
+    @Mock
+    private ServiceDateProvider serviceDateProvider;
+
     @InjectMocks
     private RankingService rankingService;
 
@@ -55,6 +59,7 @@ class RankingServiceTest {
         WeeklyRankingRow betaStats = weeklyRankingRow(2L, "beta", 10.0, 300, 1.27);
         WeeklyRankingRow alphaStats = weeklyRankingRow(1L, "alpha", 5.0, 300, 1.24);
 
+        when(serviceDateProvider.currentWeekStart()).thenReturn(LocalDate.of(2026, 3, 30));
         when(weeklyUserStatsRepository.findScoreRankingRows(any(LocalDate.class), eq(100)))
                 .thenReturn(List.of(betaStats, alphaStats));
         when(tierService.resolveByScore(1.27))
@@ -81,6 +86,7 @@ class RankingServiceTest {
         WeeklyRankingRow betaStats = weeklyRankingRow(2L, "beta", 10.0, 300, 1.27);
         WeeklyRankingRow alphaStats = weeklyRankingRow(1L, "alpha", 5.0, 300, 1.24);
 
+        when(serviceDateProvider.currentWeekStart()).thenReturn(LocalDate.of(2026, 3, 30));
         when(weeklyUserStatsRepository.findDistanceRankingRows(any(LocalDate.class), eq(100)))
                 .thenReturn(List.of(betaStats, alphaStats));
         when(tierService.resolveByScore(1.27))
@@ -107,6 +113,7 @@ class RankingServiceTest {
         WeeklyUserStats alphaStats = weeklyStats(1L, 5.0, 300, 1.24);
 
         when(userLookupService.getActiveById(userId)).thenReturn(alpha);
+        when(serviceDateProvider.currentWeekStart()).thenReturn(LocalDate.of(2026, 3, 30));
         when(weeklyUserStatsRepository.findByUserIdAndWeekStartDate(eq(userId), any(LocalDate.class)))
                 .thenReturn(Optional.of(alphaStats));
         when(weeklyUserStatsRepository.countAheadForScoreRank(

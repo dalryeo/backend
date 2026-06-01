@@ -2,6 +2,7 @@ package com.ohgiraffers.dalryeo.record.service;
 
 import com.ohgiraffers.dalryeo.auth.entity.User;
 import com.ohgiraffers.dalryeo.auth.entity.UserStatus;
+import com.ohgiraffers.dalryeo.common.time.ServiceDateProvider;
 import com.ohgiraffers.dalryeo.record.dto.RecordIdResponse;
 import com.ohgiraffers.dalryeo.record.dto.RecordSummaryResponse;
 import com.ohgiraffers.dalryeo.record.dto.RunningRecordRequest;
@@ -73,12 +74,16 @@ class RecordServiceTest {
     @Spy
     private TierScoreCalculator tierScoreCalculator = new TierScoreCalculator();
 
+    @Mock
+    private ServiceDateProvider serviceDateProvider;
+
     @InjectMocks
     private RecordService recordService;
 
     @Test
     void saveRecord_savesRecordWhenRequestIsValid() {
         Long userId = 1L;
+        ZoneId configuredZoneId = ZoneId.of("UTC");
         OffsetDateTime startAt = validPastStartAt();
         RunningRecordRequest request = request(
                 5.0,
@@ -89,6 +94,7 @@ class RecordServiceTest {
         );
 
         when(userLookupService.getActiveById(userId)).thenReturn(user(userId));
+        when(serviceDateProvider.zoneId()).thenReturn(configuredZoneId);
         when(runningRecordRepository.save(any(RunningRecord.class))).thenAnswer(invocation -> {
             RunningRecord record = invocation.getArgument(0);
             ReflectionTestUtils.setField(record, "id", 100L);
@@ -102,9 +108,9 @@ class RecordServiceTest {
         assertThat(response.getRecordId()).isEqualTo(100L);
         verify(runningRecordRepository).save(recordCaptor.capture());
         assertThat(recordCaptor.getValue().getStartAt())
-                .isEqualTo(startAt.atZoneSameInstant(SERVICE_ZONE_ID).toLocalDateTime());
+                .isEqualTo(startAt.atZoneSameInstant(configuredZoneId).toLocalDateTime());
         assertThat(recordCaptor.getValue().getEndAt())
-                .isEqualTo(startAt.plusMinutes(25).atZoneSameInstant(SERVICE_ZONE_ID).toLocalDateTime());
+                .isEqualTo(startAt.plusMinutes(25).atZoneSameInstant(configuredZoneId).toLocalDateTime());
         verify(recordOutboxEventRepository).save(outboxCaptor.capture());
         assertThat(outboxCaptor.getValue().getEventType())
                 .isEqualTo(RecordOutboxEventType.WEEKLY_STATS_UPDATE_REQUESTED);
@@ -228,6 +234,7 @@ class RecordServiceTest {
         );
 
         when(userLookupService.getActiveById(userId)).thenReturn(user(userId));
+        when(serviceDateProvider.zoneId()).thenReturn(SERVICE_ZONE_ID);
         when(runningRecordRepository.save(any(RunningRecord.class))).thenAnswer(invocation -> {
             RunningRecord record = invocation.getArgument(0);
             ReflectionTestUtils.setField(record, "id", 101L);
@@ -256,6 +263,7 @@ class RecordServiceTest {
         ReflectionTestUtils.setField(request, "caloriesKcal", 0);
 
         when(userLookupService.getActiveById(userId)).thenReturn(user(userId));
+        when(serviceDateProvider.zoneId()).thenReturn(SERVICE_ZONE_ID);
         when(runningRecordRepository.save(any(RunningRecord.class))).thenAnswer(invocation -> {
             RunningRecord record = invocation.getArgument(0);
             ReflectionTestUtils.setField(record, "id", 102L);
@@ -287,6 +295,7 @@ class RecordServiceTest {
                 .build();
 
         when(userLookupService.getActiveById(userId)).thenReturn(user);
+        when(serviceDateProvider.currentWeekStart()).thenReturn(LocalDate.of(2026, 3, 30));
         when(runningRecordRepository.findByUserIdAndWeekRange(eq(userId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of(runningRecord));
         when(currentTierResolver.resolve(eq(userId), any(LocalDate.class), anyList()))
@@ -313,6 +322,7 @@ class RecordServiceTest {
         User user = user(userId);
 
         when(userLookupService.getActiveById(userId)).thenReturn(user);
+        when(serviceDateProvider.currentWeekStart()).thenReturn(LocalDate.of(2026, 3, 30));
         when(runningRecordRepository.findByUserIdAndWeekRange(eq(userId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of());
         when(currentTierResolver.resolve(eq(userId), any(LocalDate.class), anyList()))

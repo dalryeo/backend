@@ -1,5 +1,6 @@
 package com.ohgiraffers.dalryeo.tier.service;
 
+import com.ohgiraffers.dalryeo.common.time.ServiceDateProvider;
 import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
@@ -33,6 +34,9 @@ class CurrentTierResolverTest {
 
     @Spy
     private TierScoreCalculator tierScoreCalculator = new TierScoreCalculator();
+
+    @Mock
+    private ServiceDateProvider serviceDateProvider;
 
     @InjectMocks
     private CurrentTierResolver currentTierResolver;
@@ -101,5 +105,29 @@ class CurrentTierResolverTest {
         Optional<CurrentTierResolver.CurrentTier> result = currentTierResolver.resolve(userId, weekStart, List.of());
 
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    void resolve_usesServiceDateProviderForCurrentWeekStart() {
+        Long userId = 4L;
+        LocalDate weekStart = LocalDate.of(2026, 6, 1);
+        WeeklyTier weeklyTier = WeeklyTier.builder()
+                .userId(userId)
+                .weekStartDate(weekStart)
+                .tierCode("CHEETAH")
+                .tierScore(157)
+                .build();
+
+        when(serviceDateProvider.currentWeekStart()).thenReturn(weekStart);
+        when(weeklyTierRepository.findByUserIdAndWeekStartDate(userId, weekStart))
+                .thenReturn(Optional.of(weeklyTier));
+        when(tierService.resolveByTierCodeAndScore("CHEETAH", 1.57))
+                .thenReturn(new TierService.TierInfo("CHEETAH", "치타", "S", "/profiles/tiers/cheetah.png"));
+
+        Optional<CurrentTierResolver.CurrentTier> result = currentTierResolver.resolve(userId);
+
+        assertThat(result).isPresent();
+        assertThat(result.get().tierCode()).isEqualTo("CHEETAH");
+        assertThat(result.get().score()).isEqualTo(1.57);
     }
 }
