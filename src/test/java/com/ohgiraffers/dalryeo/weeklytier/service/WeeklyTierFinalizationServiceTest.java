@@ -27,8 +27,9 @@ class WeeklyTierFinalizationServiceTest {
     void setUp() {
         properties = new WeeklyTierFinalizationProperties();
         properties.setLookbackWeeks(4);
-        properties.setZone("Asia/Seoul");
-        service = new WeeklyTierFinalizationService(transactionService, properties);
+        WeeklyTierProperties weeklyTierProperties = new WeeklyTierProperties();
+        WeeklyTierWeekResolver weekResolver = new WeeklyTierWeekResolver(weeklyTierProperties);
+        service = new WeeklyTierFinalizationService(transactionService, properties, weekResolver);
     }
 
     @Test

@@ -13,9 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.time.temporal.TemporalAdjusters;
 import java.util.Optional;
 
 @Service
@@ -27,12 +25,13 @@ public class WeeklyTierService {
     private final WeeklyUserStatsRepository weeklyUserStatsRepository;
     private final TierService tierService;
     private final UserLookupService userLookupService;
+    private final WeeklyTierWeekResolver weekResolver;
 
     @Transactional(readOnly = true)
     public WeeklyTierResponse getCurrentWeeklyTier(Long userId) {
         userLookupService.getActiveById(userId);
 
-        LocalDate weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate weekStart = weekResolver.currentWeekStart();
         boolean hasCurrentWeeklyStats = weeklyUserStatsRepository.findByUserIdAndWeekStartDate(userId, weekStart)
                 .filter(WeeklyUserStats::hasRecords)
                 .isPresent();

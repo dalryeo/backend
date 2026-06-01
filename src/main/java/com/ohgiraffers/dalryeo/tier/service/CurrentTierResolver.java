@@ -5,15 +5,14 @@ import com.ohgiraffers.dalryeo.record.entity.WeeklyUserStats;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
 import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
+import com.ohgiraffers.dalryeo.weeklytier.service.WeeklyTierWeekResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,6 +25,7 @@ public class CurrentTierResolver {
     private final WeeklyTierRepository weeklyTierRepository;
     private final TierService tierService;
     private final TierScoreCalculator tierScoreCalculator;
+    private final WeeklyTierWeekResolver weekResolver;
 
     public Optional<CurrentTier> resolve(Long userId) {
         LocalDate weekStart = currentWeekStart();
@@ -63,7 +63,7 @@ public class CurrentTierResolver {
     }
 
     private LocalDate currentWeekStart() {
-        return LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        return weekResolver.currentWeekStart();
     }
 
     private double calculateWeeklyTierScoreFromRecords(List<RunningRecord> records) {

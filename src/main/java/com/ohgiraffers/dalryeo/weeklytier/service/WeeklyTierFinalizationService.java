@@ -4,9 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.time.temporal.TemporalAdjusters;
 
 @Slf4j
 @Service
@@ -15,13 +13,14 @@ public class WeeklyTierFinalizationService {
 
     private final WeeklyTierFinalizationTransactionService transactionService;
     private final WeeklyTierFinalizationProperties properties;
+    private final WeeklyTierWeekResolver weekResolver;
 
     public Summary finalizeRecentCompletedWeeks() {
-        return finalizeRecentCompletedWeeks(LocalDate.now(properties.zoneId()));
+        return finalizeRecentCompletedWeeks(weekResolver.currentWeekStart());
     }
 
     Summary finalizeRecentCompletedWeeks(LocalDate today) {
-        LocalDate currentWeekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate currentWeekStart = weekResolver.currentWeekStart(today);
         int lookbackWeeks = properties.safeLookbackWeeks();
         Summary summary = Summary.empty(lookbackWeeks);
 
