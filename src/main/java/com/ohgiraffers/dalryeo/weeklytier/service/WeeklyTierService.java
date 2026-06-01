@@ -1,5 +1,6 @@
 package com.ohgiraffers.dalryeo.weeklytier.service;
 
+import com.ohgiraffers.dalryeo.common.time.ServiceDateProvider;
 import com.ohgiraffers.dalryeo.record.entity.WeeklyUserStats;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
@@ -25,13 +26,13 @@ public class WeeklyTierService {
     private final WeeklyUserStatsRepository weeklyUserStatsRepository;
     private final TierService tierService;
     private final UserLookupService userLookupService;
-    private final WeeklyTierWeekResolver weekResolver;
+    private final ServiceDateProvider serviceDateProvider;
 
     @Transactional(readOnly = true)
     public WeeklyTierResponse getCurrentWeeklyTier(Long userId) {
         userLookupService.getActiveById(userId);
 
-        LocalDate weekStart = weekResolver.currentWeekStart();
+        LocalDate weekStart = serviceDateProvider.currentWeekStart();
         boolean hasCurrentWeeklyStats = weeklyUserStatsRepository.findByUserIdAndWeekStartDate(userId, weekStart)
                 .filter(WeeklyUserStats::hasRecords)
                 .isPresent();

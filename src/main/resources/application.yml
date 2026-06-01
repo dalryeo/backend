@@ -59,6 +59,7 @@ jwt:
 
 app:
   public-base-url: ${APP_PUBLIC_BASE_URL:https://api.dalryeo.store}
+  time-zone: ${APP_TIME_ZONE:${WEEKLY_TIER_ZONE:${WEEKLY_TIER_FINALIZATION_ZONE:Asia/Seoul}}}
   oauth:
     apple:
       client-id: ${APP_OAUTH_APPLE_CLIENT_ID:}
@@ -116,7 +117,6 @@ record:
       max-delay-seconds: ${RECORD_OUTBOX_RETRY_MAX_DELAY_SECONDS:1800}
 
 weekly-tier:
-  zone: ${WEEKLY_TIER_ZONE:${WEEKLY_TIER_FINALIZATION_ZONE:Asia/Seoul}}
   finalization:
     enabled: ${WEEKLY_TIER_FINALIZATION_ENABLED:true}
     cron: "${WEEKLY_TIER_FINALIZATION_CRON:0 10 0 * * MON}"

@@ -1,10 +1,10 @@
 package com.ohgiraffers.dalryeo.tier.service;
 
+import com.ohgiraffers.dalryeo.common.time.ServiceDateProvider;
 import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
 import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
-import com.ohgiraffers.dalryeo.weeklytier.service.WeeklyTierWeekResolver;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -36,7 +36,7 @@ class CurrentTierResolverTest {
     private TierScoreCalculator tierScoreCalculator = new TierScoreCalculator();
 
     @Mock
-    private WeeklyTierWeekResolver weekResolver;
+    private ServiceDateProvider serviceDateProvider;
 
     @InjectMocks
     private CurrentTierResolver currentTierResolver;
@@ -108,7 +108,7 @@ class CurrentTierResolverTest {
     }
 
     @Test
-    void resolve_usesWeeklyTierWeekResolverForCurrentWeekStart() {
+    void resolve_usesServiceDateProviderForCurrentWeekStart() {
         Long userId = 4L;
         LocalDate weekStart = LocalDate.of(2026, 6, 1);
         WeeklyTier weeklyTier = WeeklyTier.builder()
@@ -118,7 +118,7 @@ class CurrentTierResolverTest {
                 .tierScore(157)
                 .build();
 
-        when(weekResolver.currentWeekStart()).thenReturn(weekStart);
+        when(serviceDateProvider.currentWeekStart()).thenReturn(weekStart);
         when(weeklyTierRepository.findByUserIdAndWeekStartDate(userId, weekStart))
                 .thenReturn(Optional.of(weeklyTier));
         when(tierService.resolveByTierCodeAndScore("CHEETAH", 1.57))

@@ -22,7 +22,7 @@ public class WeeklyTierFinalizationScheduler {
 
     @Scheduled(
             cron = "${weekly-tier.finalization.cron:0 10 0 * * MON}",
-            zone = "${weekly-tier.zone:Asia/Seoul}"
+            zone = "${app.time-zone:Asia/Seoul}"
     )
     public void finalizeWeeklyTiers() {
         try {

@@ -1,5 +1,6 @@
 package com.ohgiraffers.dalryeo.weeklytier.service;
 
+import com.ohgiraffers.dalryeo.common.time.ServiceDateProvider;
 import com.ohgiraffers.dalryeo.record.entity.WeeklyUserStats;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
@@ -36,7 +37,7 @@ class WeeklyTierServiceTest {
     private UserLookupService userLookupService;
 
     @Mock
-    private WeeklyTierWeekResolver weekResolver;
+    private ServiceDateProvider serviceDateProvider;
 
     @InjectMocks
     private WeeklyTierService weeklyTierService;
@@ -46,7 +47,7 @@ class WeeklyTierServiceTest {
         Long userId = 1L;
         LocalDate weekStart = LocalDate.of(2026, 6, 1);
 
-        when(weekResolver.currentWeekStart()).thenReturn(weekStart);
+        when(serviceDateProvider.currentWeekStart()).thenReturn(weekStart);
         when(weeklyUserStatsRepository.findByUserIdAndWeekStartDate(userId, weekStart))
                 .thenReturn(Optional.of(weeklyStats(userId, weekStart)));
 
@@ -60,7 +61,7 @@ class WeeklyTierServiceTest {
         Long userId = 2L;
         LocalDate weekStart = LocalDate.of(2026, 6, 1);
 
-        when(weekResolver.currentWeekStart()).thenReturn(weekStart);
+        when(serviceDateProvider.currentWeekStart()).thenReturn(weekStart);
         when(weeklyUserStatsRepository.findByUserIdAndWeekStartDate(userId, weekStart))
                 .thenReturn(Optional.empty());
         when(weeklyTierRepository.findByUserIdAndWeekStartDate(userId, weekStart))
@@ -82,7 +83,7 @@ class WeeklyTierServiceTest {
                 .tierScore(157)
                 .build();
 
-        when(weekResolver.currentWeekStart()).thenReturn(weekStart);
+        when(serviceDateProvider.currentWeekStart()).thenReturn(weekStart);
         when(weeklyUserStatsRepository.findByUserIdAndWeekStartDate(userId, weekStart))
                 .thenReturn(Optional.empty());
         when(weeklyTierRepository.findByUserIdAndWeekStartDate(userId, weekStart))

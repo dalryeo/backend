@@ -1,6 +1,7 @@
 package com.ohgiraffers.dalryeo.record.service;
 
 import com.ohgiraffers.dalryeo.auth.entity.User;
+import com.ohgiraffers.dalryeo.common.time.ServiceDateProvider;
 import com.ohgiraffers.dalryeo.record.dto.RecordIdResponse;
 import com.ohgiraffers.dalryeo.record.dto.RecordSummaryResponse;
 import com.ohgiraffers.dalryeo.record.dto.RunningRecordRequest;
@@ -22,13 +23,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -48,6 +47,7 @@ public class RecordService {
     private final RunningRecordValidator runningRecordValidator;
     private final WeeklyUserStatsService weeklyUserStatsService;
     private final TierScoreCalculator tierScoreCalculator;
+    private final ServiceDateProvider serviceDateProvider;
 
     /**
      * 러닝 기록 저장
@@ -200,9 +200,9 @@ public class RecordService {
 
         LocalDate createdAt = user.getCreatedAt() != null
                 ? user.getCreatedAt().toLocalDate()
-                : LocalDate.now();
-        LocalDate startWeek = createdAt.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-        LocalDate endWeek = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+                : serviceDateProvider.today();
+        LocalDate startWeek = serviceDateProvider.currentWeekStart(createdAt);
+        LocalDate endWeek = currentWeekStart();
 
         List<WeeklySummaryItemResponse> summaries = new ArrayList<>();
         LocalDate weekStart = startWeek;
@@ -230,8 +230,7 @@ public class RecordService {
         userLookupService.getActiveById(userId);
 
         // 이번 주 시작일과 종료일 계산 (월요일 ~ 일요일)
-        LocalDate today = LocalDate.now();
-        LocalDate weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate weekStart = currentWeekStart();
         LocalDate weekEnd = weekStart.plusDays(7);
 
         LocalDateTime startDateTime = weekStart.atStartOfDay();
@@ -307,7 +306,7 @@ public class RecordService {
     }
 
     private LocalDate currentWeekStart() {
-        return LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        return serviceDateProvider.currentWeekStart();
     }
 
     private LocalDateTime effectiveWeekStart(User user, LocalDateTime weekStartDateTime) {

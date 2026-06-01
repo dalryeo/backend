@@ -1,6 +1,7 @@
 package com.ohgiraffers.dalryeo.ranking.service;
 
 import com.ohgiraffers.dalryeo.auth.entity.User;
+import com.ohgiraffers.dalryeo.common.time.ServiceDateProvider;
 import com.ohgiraffers.dalryeo.ranking.dto.DistanceRankingResponse;
 import com.ohgiraffers.dalryeo.ranking.dto.RankingMeResponse;
 import com.ohgiraffers.dalryeo.ranking.dto.ScoreRankingResponse;
@@ -13,9 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -30,6 +29,7 @@ public class RankingService {
     private final WeeklyUserStatsRepository weeklyUserStatsRepository;
     private final UserLookupService userLookupService;
     private final TierService tierService;
+    private final ServiceDateProvider serviceDateProvider;
 
     // 점수 기준 주간 랭킹 목록을 조회한다.
     public List<ScoreRankingResponse> getWeeklyScoreRanking() {
@@ -153,6 +153,6 @@ public class RankingService {
 
     // 오늘 날짜를 기준으로 이번 주 월요일을 구한다.
     private LocalDate currentWeekStart() {
-        return LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        return serviceDateProvider.currentWeekStart();
     }
 }

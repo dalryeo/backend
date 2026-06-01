@@ -1,4 +1,4 @@
-package com.ohgiraffers.dalryeo.weeklytier.service;
+package com.ohgiraffers.dalryeo.weeklytier.config;
 
 import lombok.Getter;
 import lombok.Setter;

@@ -1,5 +1,7 @@
 package com.ohgiraffers.dalryeo.weeklytier.service;
 
+import com.ohgiraffers.dalryeo.common.time.ServiceDateProvider;
+import com.ohgiraffers.dalryeo.weeklytier.config.WeeklyTierFinalizationProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,9 +29,8 @@ class WeeklyTierFinalizationServiceTest {
     void setUp() {
         properties = new WeeklyTierFinalizationProperties();
         properties.setLookbackWeeks(4);
-        WeeklyTierProperties weeklyTierProperties = new WeeklyTierProperties();
-        WeeklyTierWeekResolver weekResolver = new WeeklyTierWeekResolver(weeklyTierProperties);
-        service = new WeeklyTierFinalizationService(transactionService, properties, weekResolver);
+        ServiceDateProvider serviceDateProvider = new ServiceDateProvider("Asia/Seoul");
+        service = new WeeklyTierFinalizationService(transactionService, properties, serviceDateProvider);
     }
 
     @Test

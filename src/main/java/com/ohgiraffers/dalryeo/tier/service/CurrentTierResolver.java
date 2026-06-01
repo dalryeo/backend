@@ -1,11 +1,11 @@
 package com.ohgiraffers.dalryeo.tier.service;
 
+import com.ohgiraffers.dalryeo.common.time.ServiceDateProvider;
 import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
 import com.ohgiraffers.dalryeo.record.entity.WeeklyUserStats;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
 import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
-import com.ohgiraffers.dalryeo.weeklytier.service.WeeklyTierWeekResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,7 +25,7 @@ public class CurrentTierResolver {
     private final WeeklyTierRepository weeklyTierRepository;
     private final TierService tierService;
     private final TierScoreCalculator tierScoreCalculator;
-    private final WeeklyTierWeekResolver weekResolver;
+    private final ServiceDateProvider serviceDateProvider;
 
     public Optional<CurrentTier> resolve(Long userId) {
         LocalDate weekStart = currentWeekStart();
@@ -63,7 +63,7 @@ public class CurrentTierResolver {
     }
 
     private LocalDate currentWeekStart() {
-        return weekResolver.currentWeekStart();
+        return serviceDateProvider.currentWeekStart();
     }
 
     private double calculateWeeklyTierScoreFromRecords(List<RunningRecord> records) {

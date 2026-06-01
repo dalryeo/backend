@@ -1,5 +1,7 @@
 package com.ohgiraffers.dalryeo.weeklytier.service;
 
+import com.ohgiraffers.dalryeo.common.time.ServiceDateProvider;
+import com.ohgiraffers.dalryeo.weeklytier.config.WeeklyTierFinalizationProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -13,14 +15,14 @@ public class WeeklyTierFinalizationService {
 
     private final WeeklyTierFinalizationTransactionService transactionService;
     private final WeeklyTierFinalizationProperties properties;
-    private final WeeklyTierWeekResolver weekResolver;
+    private final ServiceDateProvider serviceDateProvider;
 
     public Summary finalizeRecentCompletedWeeks() {
-        return finalizeRecentCompletedWeeks(weekResolver.currentWeekStart());
+        return finalizeRecentCompletedWeeks(serviceDateProvider.today());
     }
 
     Summary finalizeRecentCompletedWeeks(LocalDate today) {
-        LocalDate currentWeekStart = weekResolver.currentWeekStart(today);
+        LocalDate currentWeekStart = serviceDateProvider.currentWeekStart(today);
         int lookbackWeeks = properties.safeLookbackWeeks();
         Summary summary = Summary.empty(lookbackWeeks);
 
