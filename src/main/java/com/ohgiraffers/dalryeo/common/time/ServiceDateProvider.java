@@ -1,6 +1,7 @@
 package com.ohgiraffers.dalryeo.common.time;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
@@ -15,11 +16,12 @@ public class ServiceDateProvider {
     private final ZoneId zoneId;
     private final Clock clock;
 
+    @Autowired
     public ServiceDateProvider(@Value("${app.time-zone:Asia/Seoul}") String zone) {
         this(zone, Clock.systemUTC());
     }
 
-    ServiceDateProvider(String zone, Clock clock) {
+    public ServiceDateProvider(String zone, Clock clock) {
         this.zoneId = ZoneId.of(zone);
         this.clock = clock;
     }

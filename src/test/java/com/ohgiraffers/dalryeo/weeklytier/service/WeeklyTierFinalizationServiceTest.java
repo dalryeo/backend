@@ -9,7 +9,10 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -29,7 +32,10 @@ class WeeklyTierFinalizationServiceTest {
     void setUp() {
         properties = new WeeklyTierFinalizationProperties();
         properties.setLookbackWeeks(4);
-        ServiceDateProvider serviceDateProvider = new ServiceDateProvider("Asia/Seoul");
+        ServiceDateProvider serviceDateProvider = new ServiceDateProvider(
+                "Asia/Seoul",
+                Clock.fixed(Instant.parse("2026-06-04T00:00:00Z"), ZoneOffset.UTC)
+        );
         service = new WeeklyTierFinalizationService(transactionService, properties, serviceDateProvider);
     }
 
