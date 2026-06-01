@@ -27,7 +27,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -36,8 +35,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 public class RecordService {
-
-    private static final ZoneId SERVICE_ZONE_ID = ZoneId.of("Asia/Seoul");
 
     private final RunningRecordRepository runningRecordRepository;
     private final UserLookupService userLookupService;
@@ -84,7 +81,7 @@ public class RecordService {
     }
 
     private LocalDateTime toServiceLocalDateTime(OffsetDateTime dateTime) {
-        return dateTime.atZoneSameInstant(SERVICE_ZONE_ID)
+        return dateTime.atZoneSameInstant(serviceDateProvider.zoneId())
                 .toLocalDateTime();
     }
 
