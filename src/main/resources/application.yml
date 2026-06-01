@@ -114,3 +114,10 @@ record:
       max-attempts: ${RECORD_OUTBOX_RETRY_MAX_ATTEMPTS:10}
       base-delay-seconds: ${RECORD_OUTBOX_RETRY_BASE_DELAY_SECONDS:30}
       max-delay-seconds: ${RECORD_OUTBOX_RETRY_MAX_DELAY_SECONDS:1800}
+
+weekly-tier:
+  finalization:
+    enabled: ${WEEKLY_TIER_FINALIZATION_ENABLED:true}
+    cron: "${WEEKLY_TIER_FINALIZATION_CRON:0 10 0 * * MON}"
+    zone: ${WEEKLY_TIER_FINALIZATION_ZONE:Asia/Seoul}
+    lookback-weeks: ${WEEKLY_TIER_FINALIZATION_LOOKBACK_WEEKS:4}

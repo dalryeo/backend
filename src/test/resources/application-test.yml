@@ -36,3 +36,7 @@ record:
   outbox:
     scheduler:
       enabled: false
+
+weekly-tier:
+  finalization:
+    enabled: false

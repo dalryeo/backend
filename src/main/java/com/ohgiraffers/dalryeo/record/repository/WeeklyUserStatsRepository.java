@@ -40,6 +40,18 @@ public interface WeeklyUserStatsRepository extends JpaRepository<WeeklyUserStats
             LocalDate endWeek
     );
 
+    // 주간 티어 확정 배치에서 처리할 활성 사용자 주간 집계를 조회한다.
+    @Query(value = """
+            SELECT s.*
+            FROM weekly_user_stats s
+            JOIN users u ON u.id = s.user_id
+            WHERE s.week_start_date = :weekStartDate
+              AND s.run_count > 0
+              AND u.status <> 'WITHDRAWN'
+            ORDER BY s.user_id ASC
+            """, nativeQuery = true)
+    List<WeeklyUserStats> findFinalizationTargets(@Param("weekStartDate") LocalDate weekStartDate);
+
     // 러닝 기록 1건을 해당 주의 사용자 집계에 누적 반영한다.
     @Modifying
     @Query(value = """
