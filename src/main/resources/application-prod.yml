@@ -23,3 +23,9 @@ logging:
     org.hibernate.SQL: "OFF"
     org.hibernate.orm.jdbc.bind: "OFF"
     org.hibernate.type.descriptor.sql.BasicBinder: "OFF"
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
