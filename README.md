@@ -1,360 +1,158 @@
-# 달려 (Dalryeo) - 러닝 기록 관리 백엔드 API
+# 달려 (Dalryeo) Backend
 
-달려는 러닝 기록을 관리하고 랭킹을 제공하는 백엔드 서비스입니다.
+러닝 기록을 관리하고 티어와 주간 랭킹을 제공하는 iOS 앱 **달려**의 백엔드 API 서버입니다.
 
-## 📋 목차
+## 기술 스택
 
-- [기술 스택](#기술-스택)
-- [프로젝트 구조](#프로젝트-구조)
-- [주요 기능](#주요-기능)
-- [API 엔드포인트](#api-엔드포인트)
-- [설정 방법](#설정-방법)
-- [실행 방법](#실행-방법)
-- [데이터베이스 스키마](#데이터베이스-스키마)
+- **Java 17**
+- **Spring Boot 3.2.3**
+- **Spring Web (MVC)** — `spring-boot-starter-web` 기반의 동기식 REST API 서버
+- **Spring Data JPA / Hibernate** — ORM, `ddl-auto: validate`로 스키마 검증
+- **PostgreSQL** — 주 데이터베이스
+- **Flyway** — DB 스키마 마이그레이션 버전 관리
+- **Spring Security + JWT** — 인증·인가 (Apple 로그인 기반)
+- **Apple OAuth (Sign in with Apple)** — JWK 기반 토큰 검증
+- **springdoc-openapi (Swagger UI)** — API 문서 자동 생성
+- **Sentry** — 에러 추적
+- **Prometheus + Grafana** — 메트릭 수집 및 시각화
+- **Gradle** — 빌드 도구
 
-## 🛠 기술 스택
+## 시작하기
 
-- **Java**: 17
-- **Spring Boot**: 4.0.0
-- **Spring Data JPA**: 데이터베이스 접근
-- **MySQL**: 데이터베이스
-- **JWT**: 인증 토큰 관리
-- **Lombok**: 보일러플레이트 코드 감소
-- **Gradle**: 빌드 도구
+### 사전 요구사항
 
-### 주요 의존성
+- JDK 17
+- PostgreSQL (로컬 또는 접근 가능한 인스턴스)
 
-- `spring-boot-starter-data-jpa`: JPA 및 데이터베이스 지원
-- `spring-boot-starter-webmvc`: REST API 지원
-- `spring-boot-starter-validation`: 요청 데이터 검증
-- `io.jsonwebtoken:jjwt`: JWT 토큰 생성/검증
-- `com.nimbusds:nimbus-jose-jwt`: Apple OAuth 토큰 검증
+### 1. 환경변수 설정
 
-## 📁 프로젝트 구조
+실행에 필요한 환경변수를 설정합니다. 필수 항목은 아래와 같습니다. (전체 목록은 [환경변수](#환경변수) 참고)
 
-```
-src/main/java/com/ohgiraffers/dalryeo/
-├── auth/                    # 인증 관련
-│   ├── controller/         # AuthController
-│   ├── dto/                # 요청/응답 DTO
-│   ├── entity/             # User 엔티티
-│   ├── exception/          # 예외 처리
-│   ├── jwt/                # JWT 토큰 관리
-│   ├── oauth/              # Apple OAuth 검증
-│   ├── repository/         # UserRepository
-│   └── service/            # AuthService
-├── onboarding/             # 온보딩 관련
-│   ├── controller/         # OnboardingController
-│   ├── dto/                # 요청/응답 DTO
-│   └── service/            # OnboardingService
-├── record/                 # 러닝 기록 관련
-│   ├── controller/         # RecordController
-│   ├── dto/                # 요청/응답 DTO
-│   ├── entity/             # RunningRecord 엔티티
-│   ├── repository/        # RunningRecordRepository
-│   └── service/            # RecordService
-├── analysis/               # 분석 관련
-│   ├── controller/         # AnalysisController
-│   ├── dto/                # 요청/응답 DTO
-│   └── service/            # AnalysisService
-├── ranking/                # 랭킹 관련
-│   ├── controller/         # RankingController
-│   ├── dto/                # 요청/응답 DTO
-│   └── service/            # RankingService
-└── common/                 # 공통 클래스
-    └── CommonResponse.java # 공통 응답 형식
-```
+| 변수 | 설명 |
+|---|---|
+| `DB_URL` | PostgreSQL 접속 URL (예: `jdbc:postgresql://localhost:5432/dalryeo`) |
+| `DB_USERNAME` | DB 사용자명 |
+| `DB_PASSWORD` | DB 비밀번호 |
+| `JWT_SECRET` | JWT 서명 키 |
+| `APP_OAUTH_APPLE_CLIENT_ID` | Apple 로그인 클라이언트 ID |
+| `APP_OAUTH_APPLE_ALLOWED_CLIENT_IDS` | 허용할 Apple 클라이언트 ID 목록 |
 
-## ✨ 주요 기능
+### 빈 DB 최초 실행
 
-### 1. 인증 (Auth)
-- Apple OAuth 로그인
-- JWT 토큰 기반 인증
-- Refresh Token 재발급
-- 로그아웃 및 회원 탈퇴
-
-### 2. 온보딩 (Onboarding)
-- 닉네임 중복 체크
-- 온보딩 정보 저장 (닉네임, 성별, 생년월일, 키, 몸무게, 프로필 이미지)
-- 예상 티어 계산
-
-### 3. 기록 (Records)
-- 러닝 기록 저장
-- 주간 요약 정보 조회
-- 주간 기록 목록 조회
-
-### 4. 분석 (Analysis)
-- 전체 기록 조회 (페이징, 정렬, 기간 필터)
-- 기록 상세 조회
-
-### 5. 랭킹 (Ranking)
-- 점수 기반 주간 랭킹
-- 거리 기반 주간 랭킹
-
-## 🔌 API 엔드포인트
-
-### 인증 (Auth)
-
-#### 1. Apple OAuth 로그인
-```http
-POST /auth/oauth/apple
-Content-Type: application/json
-
-{
-  "identityToken": "xxx.yyy.zzz"
-}
-```
-
-**응답:**
-```json
-{
-  "success": true,
-  "data": {
-    "accessToken": "jwt-access",
-    "refreshToken": "jwt-refresh",
-    "isNewUser": true
-  }
-}
-```
-
-#### 2. Refresh Token 재발급
-```http
-POST /auth/token/refresh
-POST /auth/refresh
-Content-Type: application/json
-
-{
-  "refreshToken": "string"
-}
-```
-
-#### 3. 로그아웃
-```http
-POST /auth/logout
-Authorization: Bearer {accessToken}
-```
-
-#### 4. 회원 탈퇴
-```http
-DELETE /auth/withdraw
-Authorization: Bearer {accessToken}
-```
-
-### 온보딩 (Onboarding)
-
-#### 1. 닉네임 중복 체크
-```http
-GET /onboarding/nickname/check?nickname=abc
-```
-
-#### 2. 온보딩 정보 저장
-```http
-POST /onboarding
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-
-{
-  "nickname": "서현",
-  "gender": "F",
-  "birth": "2020-01-01",
-  "height": 177,
-  "weight": 77,
-  "profileImage": null
-}
-```
-
-#### 3. 예상 티어 계산
-```http
-POST /onboarding/estimate-tier
-Content-Type: application/json
-
-{
-  "distanceKm": 3.2,
-  "paceSecPerKm": 350
-}
-```
-
-### 기록 (Records)
-
-#### 1. 러닝 기록 저장
-```http
-POST /records
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-
-{
-  "platform": "IOS",
-  "distanceKm": 5.01,
-  "durationSec": 1600,
-  "avgPaceSecPerKm": 320,
-  "avgHeartRate": 148,
-  "caloriesKcal": 340,
-  "startAt": "2025-11-12T07:00:00",
-  "endAt": "2025-11-12T07:26:40"
-}
-```
-
-#### 2. 기록 탭 메인 정보 (주간 요약)
-```http
-GET /records/summary
-Authorization: Bearer {accessToken}
-```
-
-#### 3. 주간 기록 목록
-```http
-GET /records/weekly
-Authorization: Bearer {accessToken}
-```
-
-### 분석 (Analysis)
-
-#### 1. 전체 기록 조회
-```http
-GET /analysis/records?page=1&sort=latest&period=monthly
-Authorization: Bearer {accessToken}
-```
-
-**쿼리 파라미터:**
-- `page`: 페이지 번호 (기본값: 1)
-- `sort`: 정렬 옵션 (`latest`, `oldest`, `distance`)
-- `period`: 기간 필터 (`monthly` 또는 미지정 시 전체)
-
-#### 2. 기록 상세 조회
-```http
-GET /analysis/records/{recordId}
-Authorization: Bearer {accessToken}
-```
-
-### 랭킹 (Ranking)
-
-#### 1. 점수 기반 주간 랭킹
-```http
-GET /ranking/weekly/score
-```
-
-#### 2. 거리 기반 주간 랭킹
-```http
-GET /ranking/weekly/distance
-```
-
-## ⚙️ 설정 방법
-
-### 1. application.properties 설정
-
-`src/main/resources/application.properties` 파일에 다음 설정을 추가하세요:
-
-```properties
-spring.application.name=dalryeo
-
-# 데이터베이스 설정
-spring.datasource.url=jdbc:mysql://localhost:3306/your_database
-spring.datasource.username=your_username
-spring.datasource.password=your_password
-spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
-
-# JPA 설정
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.show-sql=true
-spring.jpa.properties.hibernate.format_sql=true
-
-# JWT 설정
-jwt.secret=your-secret-key-change-this-in-production-use-long-random-string
-jwt.access-token-expiration=3600000
-jwt.refresh-token-expiration=604800000
-```
-
-### 2. JWT Secret 변경
-
-프로덕션 환경에서는 반드시 `jwt.secret` 값을 강력한 랜덤 문자열로 변경하세요.
-
-## 🚀 실행 방법
-
-### 1. 데이터베이스 생성
-
-MySQL에서 데이터베이스를 생성합니다:
+빈 PostgreSQL 인스턴스에서 처음 실행할 때는 먼저 데이터베이스와 접속 계정을 준비합니다. 예시는 로컬 개발용입니다.
 
 ```sql
-CREATE DATABASE dalryeo CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE dalryeo;
+CREATE USER dalryeo WITH PASSWORD 'dalryeo';
+ALTER DATABASE dalryeo OWNER TO dalryeo;
+GRANT ALL PRIVILEGES ON DATABASE dalryeo TO dalryeo;
 ```
 
-### 2. Gradle 빌드
+그다음 `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`를 위 데이터베이스에 맞게 설정하고 애플리케이션을 실행합니다. Flyway가 `src/main/resources/db/migration`의 마이그레이션을 적용한 뒤 JPA가 `ddl-auto: validate`로 스키마 일치 여부를 검증합니다.
+
+### 2. 실행
 
 ```bash
-./gradlew build
+SPRING_PROFILES_ACTIVE=local ./gradlew bootRun
 ```
 
-### 3. 애플리케이션 실행
+> 프로파일을 지정하지 않으면 DB 접속 정보 등이 채워지지 않아 실행에 실패할 수 있습니다. 로컬 개발 시에는 `local` 프로파일을 사용하세요.
 
-```bash
-./gradlew bootRun
-```
+### 3. 확인
 
-또는 IDE에서 `DalryeoApplication.java`를 실행합니다.
+서버가 정상 기동되면 다음에서 확인할 수 있습니다.
 
-### 4. API 테스트
+- API 서버: `http://localhost:8080`
+- API 문서(Swagger): `http://localhost:8080/swagger-ui/index.html`
+- 헬스 체크: `http://localhost:8080/actuator/health`
 
-애플리케이션이 실행되면 기본적으로 `http://localhost:8080`에서 접근할 수 있습니다.
+## 환경변수
 
-## 📊 데이터베이스 스키마
+### 필수
 
-### users 테이블
-- `id`: 사용자 ID (PK)
-- `apple_id`: Apple ID (UNIQUE)
-- `refresh_token`: Refresh Token
-- `is_withdrawn`: 탈퇴 여부
-- `nickname`: 닉네임 (UNIQUE)
-- `gender`: 성별 (F/M)
-- `birth`: 생년월일
-- `height`: 키
-- `weight`: 몸무게
-- `profile_image`: 프로필 이미지 URL
-- `current_tier`: 현재 티어
-- `current_tier_grade`: 현재 티어 등급
-- `tier_score`: 티어 점수
-- `created_at`: 생성일시
-- `updated_at`: 수정일시
+아래 값이 없으면 애플리케이션이 정상 기동되지 않습니다.
 
-### running_records 테이블
-- `id`: 기록 ID (PK)
-- `user_id`: 사용자 ID (FK)
-- `platform`: 플랫폼 (IOS/ANDROID)
-- `distance_km`: 거리 (km)
-- `duration_sec`: 시간 (초)
-- `avg_pace_sec_per_km`: 평균 페이스 (초/km)
-- `avg_heart_rate`: 평균 심박수
-- `calories_kcal`: 소모 칼로리
-- `start_at`: 시작 시간
-- `end_at`: 종료 시간
-- `created_at`: 생성일시
-- `updated_at`: 수정일시
+| 변수 | 설명 |
+|---|---|
+| `DB_URL` | PostgreSQL 접속 URL |
+| `DB_USERNAME` | DB 사용자명 |
+| `DB_PASSWORD` | DB 비밀번호 |
+| `JWT_SECRET` | JWT 서명 키 |
+| `APP_OAUTH_APPLE_CLIENT_ID` | Apple 로그인 클라이언트 ID |
+| `APP_OAUTH_APPLE_ALLOWED_CLIENT_IDS` | 허용할 Apple 클라이언트 ID 목록 |
 
-## ⚠️ 주의사항
+<details>
+<summary><b>선택 변수 (기본값 있음)</b></summary>
 
-1. **Apple OAuth 검증**: 현재 `AppleOAuthValidator`는 기본적인 토큰 파싱만 수행합니다. 프로덕션 환경에서는 Apple의 공개키를 사용하여 실제 서명 검증을 구현해야 합니다.
+지정하지 않으면 괄호 안 기본값이 사용됩니다.
 
-2. **JWT Secret**: 프로덕션 환경에서는 반드시 강력한 랜덤 문자열로 변경하세요.
+**애플리케이션**
+- `APP_PUBLIC_BASE_URL` — 공개 base URL (`https://api.dalryeo.store`)
+- `APP_TIME_ZONE` — 서비스 기준 시간대 (`Asia/Seoul`)
+- `PROFILE_IMAGE_UPLOAD_DIR` — 프로필 이미지 업로드 경로 (`uploads/profile-images`)
 
-3. **데이터베이스**: `spring.jpa.hibernate.ddl-auto=update`는 개발 환경용입니다. 프로덕션에서는 `validate` 또는 `none`을 사용하세요.
+**러닝 기록 Outbox**
+- `RECORD_OUTBOX_SCHEDULER_ENABLED` — 스케줄러 활성화 (`true`)
+- `RECORD_OUTBOX_SCHEDULER_FIXED_DELAY_MS` — 처리 주기 ms (`5000`)
+- `RECORD_OUTBOX_SCHEDULER_BATCH_SIZE` — 배치 크기 (`20`)
+- `RECORD_OUTBOX_STALE_TIMEOUT_SECONDS` — 처리 중 이벤트 회수 타임아웃 (`300`)
+- `RECORD_OUTBOX_RETRY_MAX_ATTEMPTS` — 최대 재시도 (`10`)
+- `RECORD_OUTBOX_RETRY_BASE_DELAY_SECONDS` / `RECORD_OUTBOX_RETRY_MAX_DELAY_SECONDS` — 재시도 backoff (`30` / `1800`)
 
-4. **티어 계산 로직**: `OnboardingService`의 `calculateTier()` 메서드는 예시 구현입니다. 실제 비즈니스 로직에 맞게 수정이 필요합니다.
+**주간 티어 마감**
+- `WEEKLY_TIER_FINALIZATION_ENABLED` — 활성화 (`true`)
+- `WEEKLY_TIER_FINALIZATION_CRON` — 실행 cron (`0 10 0 * * MON`)
+- `WEEKLY_TIER_FINALIZATION_LOOKBACK_WEEKS` — 소급 집계 주 수 (`4`)
 
-## 📝 에러 코드
+**모니터링**
+- `SENTRY_DSN` — Sentry 연동 키
+- `SENTRY_ENVIRONMENT` — 환경 태그 (`prod`)
+- `SENTRY_RELEASE` — 릴리스 버전 (`local`)
 
-| 코드 | 설명 |
-|------|------|
-| AC-003 | OAuth 토큰 검증 실패 |
-| AC-004 | refreshToken 불일치 |
-| AC-006 | refreshToken 유효하지 않음 |
-| AC-007 | accessToken 유효하지 않음 |
+</details>
 
-## 🔐 인증
+## 프로젝트 구조
 
-대부분의 API는 JWT Access Token이 필요합니다. 요청 헤더에 다음과 같이 포함하세요:
+기능(도메인)별로 패키지를 나눈 레이어드 아키텍처입니다. 각 모듈은 필요한 책임에 따라 `controller`, `service`, `repository`, `entity`, `dto` 계층을 둡니다.
 
 ```
-Authorization: Bearer {accessToken}
+com.ohgiraffers.dalryeo
+├── auth         # 인증/인가 — Apple 로그인, JWT 발급·검증
+├── onboarding   # 신규 사용자 온보딩
+├── user         # 사용자 도메인
+├── record       # 러닝 기록 — 저장 및 Outbox 기반 비동기 이벤트 처리
+├── analysis     # 러닝 기록 분석/통계
+├── ranking      # 랭킹 조회
+├── tier         # 티어 도메인
+├── weeklytier   # 주간 티어 마감 — 스케줄러 기반 주간 집계
+├── mypage       # 마이페이지 프로필 수정
+├── common       # 공통 (예외 처리, 응답 포맷 등)
+└── config       # 전역 설정 (WebMvc, Clock, Sentry, 정적 리소스, 설정 프로퍼티 등)
 ```
 
-## 📄 라이선스
+## API 문서
 
-이 프로젝트는 내부 사용을 위한 프로젝트입니다.
+전체 API 명세는 Swagger UI에서 확인할 수 있습니다.
+
+- 로컬 실행 후: `http://localhost:8080/swagger-ui/index.html`
+
+Swagger는 기본값과 운영(prod) 환경에서 닫혀 있고, `local` 프로파일에서만 열립니다. 운영에서는 보안을 위해 Swagger UI와 API 문서(`/v3/api-docs`)가 모두 비활성화되어 있으며, 해당 경로는 404 응답을 반환해야 합니다.
+
+## 아키텍처 메모
+
+### 러닝 기록 저장과 Outbox 패턴
+
+러닝 기록 저장은 **Transactional Outbox 패턴**으로 처리됩니다. 기록을 저장하는 트랜잭션에서 후속 작업(랭킹·집계 반영 등)을 직접 호출하지 않고, 같은 트랜잭션 안에서 이벤트를 outbox 테이블에 함께 기록합니다. 이후 별도 스케줄러가 이 이벤트를 비동기로 처리합니다.
+
+이렇게 분리한 이유는, 기록 저장과 후속 처리를 한 트랜잭션에 묶으면 후속 처리가 실패할 때 기록 저장까지 롤백되거나 응답이 느려지기 때문입니다. Outbox는 "기록은 확실히 저장하고, 후속 처리는 안전하게 재시도한다"를 보장합니다. 처리 중 중단된 이벤트는 타임아웃으로 회수되고, 실패한 이벤트는 backoff 재시도 후 실패 처리됩니다. (관련 설정: `RECORD_OUTBOX_*`)
+
+### 주간 티어 마감 스케줄러
+
+주간 티어는 매주 정해진 시각(기본: 월요일 00:10, `Asia/Seoul`)에 스케줄러가 자동 집계·마감합니다. 누락된 주를 보완하기 위해 최근 몇 주를 소급 집계합니다. (관련 설정: `WEEKLY_TIER_*`)
+
+## 주의사항
+
+- **DB 스키마 검증 모드**: `ddl-auto`가 `validate`로 설정되어 있어, 엔티티와 실제 DB 스키마가 일치하지 않으면 애플리케이션이 기동되지 않습니다. 스키마 변경은 Flyway 마이그레이션으로 관리합니다.
+- **시간대**: 서비스 기준 시간대는 `Asia/Seoul`이며, 주간 티어 집계 등 시간 의존 로직이 이를 기준으로 동작합니다. 날짜·시간 데이터는 offset(`OffsetDateTime`)을 포함해 다룹니다.
+- **Swagger 노출**: API 문서는 `local` 프로파일에서만 활성화됩니다. 기본값과 `prod` 프로파일에서는 `springdoc.api-docs.enabled=false`, `springdoc.swagger-ui.enabled=false`로 비활성화됩니다.
+- **에러 응답 정책**: 운영 환경에서는 스택트레이스·내부 메시지 등 상세 정보를 응답에 노출하지 않습니다.
