@@ -12,7 +12,7 @@ import static org.springframework.boot.test.context.SpringBootTest.WebEnvironmen
         webEnvironment = RANDOM_PORT,
         classes = SwaggerEndpointTestSupport.TestApplication.class
 )
-@ActiveProfiles("local")
+@ActiveProfiles({"local", "swagger-test"})
 class SwaggerLocalEndpointAvailabilityTest extends SwaggerEndpointTestSupport {
 
     @Test
