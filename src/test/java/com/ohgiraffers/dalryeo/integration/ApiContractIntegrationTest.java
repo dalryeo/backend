@@ -625,16 +625,11 @@ class ApiContractIntegrationTest {
     }
 
     @Test
-    void getOnboarding_prefersCurrentWeekRecordTierImageOverWeeklyTierSnapshot() throws Exception {
+    void getOnboarding_usesFinalizedTierImageWhenCurrentWeekRecordExists() throws Exception {
         User user = saveUser("runner-tier-priority");
         LocalDate weekStart = serviceDateProvider.currentWeekStart();
 
-        weeklyTierRepository.save(WeeklyTier.builder()
-                .userId(user.getId())
-                .weekStartDate(weekStart)
-                .tierCode("CHEETAH")
-                .tierScore(157)
-                .build());
+        saveWeeklyTier(user.getId(), weekStart, "CHEETAH", 157);
         saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(1));
 
         mockMvc.perform(get("/onboarding")
@@ -642,7 +637,7 @@ class ApiContractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.displayProfileImage").value("https://api.dalryeo.store/profiles/tiers/deer.png"))
+                .andExpect(jsonPath("$.data.displayProfileImage").value("https://api.dalryeo.store/profiles/tiers/cheetah.png"))
                 .andExpect(jsonPath("$.data.customProfileImage").isEmpty());
     }
 
@@ -844,6 +839,8 @@ class ApiContractIntegrationTest {
     @Test
     void getRecordSummary_keepsSummaryResponseContract() throws Exception {
         User user = saveUser(null);
+        LocalDate weekStart = serviceDateProvider.currentWeekStart();
+        saveWeeklyTier(user.getId(), weekStart, "FOX", 90);
         saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(2));
 
         mockMvc.perform(get("/records/summary")
@@ -851,8 +848,8 @@ class ApiContractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.currentTier").value("DEER"))
-                .andExpect(jsonPath("$.data.currentTierGrade").value("B"))
+                .andExpect(jsonPath("$.data.currentTier").value("FOX"))
+                .andExpect(jsonPath("$.data.currentTierGrade").value("S"))
                 .andExpect(jsonPath("$.data.weeklyCount").value(1))
                 .andExpect(jsonPath("$.data.weeklyAvgPace").value(300))
                 .andExpect(jsonPath("$.data.weeklyDistance").value(5.0));
@@ -878,6 +875,8 @@ class ApiContractIntegrationTest {
     @Test
     void getCurrentWeeklySummary_keepsResponseContract() throws Exception {
         User user = saveUser("runner-summary");
+        LocalDate weekStart = serviceDateProvider.currentWeekStart();
+        saveWeeklyTier(user.getId(), weekStart, "HUSKY", 100);
         saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(4));
 
         mockMvc.perform(get("/weekly/summary/current")
@@ -885,7 +884,7 @@ class ApiContractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.currentTier").value("DEER"))
+                .andExpect(jsonPath("$.data.currentTier").value("HUSKY"))
                 .andExpect(jsonPath("$.data.currentTierGrade").value("B"))
                 .andExpect(jsonPath("$.data.weeklyCount").value(1))
                 .andExpect(jsonPath("$.data.weeklyAvgPace").value(300))
@@ -916,12 +915,8 @@ class ApiContractIntegrationTest {
         User user = saveUser("runner-weekly-tier");
         LocalDate weekStart = serviceDateProvider.currentWeekStart();
 
-        weeklyTierRepository.save(WeeklyTier.builder()
-                .userId(user.getId())
-                .weekStartDate(weekStart)
-                .tierCode("CHEETAH")
-                .tierScore(157)
-                .build());
+        saveWeeklyTier(user.getId(), weekStart, "CHEETAH", 157);
+        saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(1));
 
         mockMvc.perform(get("/weekly/tiers/current")
                         .header("Authorization", bearer(accessToken(user.getId()))))
@@ -929,6 +924,26 @@ class ApiContractIntegrationTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.weekStartDate").value(weekStart.toString()))
+                .andExpect(jsonPath("$.data.tierCode").value("CHEETAH"))
+                .andExpect(jsonPath("$.data.tierGrade").value("S"))
+                .andExpect(jsonPath("$.data.tierScore").value(1.57));
+    }
+
+    @Test
+    void getCurrentWeeklyTier_usesPreviousSnapshotBeforeCurrentWeekSnapshotExists() throws Exception {
+        User user = saveUser("runner-weekly-tier-previous");
+        LocalDate currentWeekStart = serviceDateProvider.currentWeekStart();
+        LocalDate previousWeekStart = currentWeekStart.minusWeeks(1);
+
+        saveWeeklyTier(user.getId(), previousWeekStart, "CHEETAH", 157);
+        saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(1));
+
+        mockMvc.perform(get("/weekly/tiers/current")
+                        .header("Authorization", bearer(accessToken(user.getId()))))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.weekStartDate").value(previousWeekStart.toString()))
                 .andExpect(jsonPath("$.data.tierCode").value("CHEETAH"))
                 .andExpect(jsonPath("$.data.tierGrade").value("S"))
                 .andExpect(jsonPath("$.data.tierScore").value(1.57));
@@ -1082,6 +1097,15 @@ class ApiContractIntegrationTest {
         RecordIdResponse response = recordService.saveRecord(userId, request);
         recordOutboxEventProcessor.processDueEvents(10, 300);
         return runningRecordRepository.findById(response.getRecordId()).orElseThrow();
+    }
+
+    private void saveWeeklyTier(Long userId, LocalDate weekStart, String tierCode, int tierScore) {
+        weeklyTierRepository.save(WeeklyTier.builder()
+                .userId(userId)
+                .weekStartDate(weekStart)
+                .tierCode(tierCode)
+                .tierScore(tierScore)
+                .build());
     }
 
     private String accessToken(Long userId) {

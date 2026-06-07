@@ -10,7 +10,10 @@ import java.time.LocalDate;
 import java.util.Optional;
 
 public interface WeeklyTierRepository extends JpaRepository<WeeklyTier, Long> {
-    Optional<WeeklyTier> findByUserIdAndWeekStartDate(Long userId, LocalDate weekStartDate);
+    Optional<WeeklyTier> findTopByUserIdAndWeekStartDateLessThanEqualOrderByWeekStartDateDesc(
+            Long userId,
+            LocalDate weekStartDate
+    );
 
     @Modifying
     @Query(value = """
