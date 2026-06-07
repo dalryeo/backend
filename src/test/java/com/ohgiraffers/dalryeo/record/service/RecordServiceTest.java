@@ -44,7 +44,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -323,7 +322,6 @@ class RecordServiceTest {
         assertThat(response.getWeeklyAvgPace()).isEqualTo(300);
         assertThat(response.getWeeklyDistance()).isEqualTo(5.0);
         verify(currentTierResolver).resolve(userId, weekStart);
-        verify(currentTierResolver, never()).resolve(eq(userId), any(LocalDate.class), anyList());
     }
 
     @Test
@@ -445,7 +443,6 @@ class RecordServiceTest {
         assertThat(response.get(0).getAveragePace()).isEqualTo(300);
         assertThat(response.get(0).getWeeklyDistance()).isEqualTo(5.0);
         verify(currentTierResolver, never()).resolve(eq(userId), any(LocalDate.class));
-        verify(currentTierResolver, never()).resolve(eq(userId), any(LocalDate.class), anyList());
     }
 
     private RunningRecordRequest request(

@@ -1,7 +1,6 @@
 package com.ohgiraffers.dalryeo.tier.service;
 
 import com.ohgiraffers.dalryeo.common.time.ServiceDateProvider;
-import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
 import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
 import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -33,10 +31,6 @@ public class CurrentTierResolver {
                         weekStart
                 )
                 .map(this::fromWeeklyTier);
-    }
-
-    public Optional<CurrentTier> resolve(Long userId, LocalDate weekStart, List<RunningRecord> weeklyRecords) {
-        return resolve(userId, weekStart);
     }
 
     private CurrentTier fromWeeklyTier(WeeklyTier weeklyTier) {
