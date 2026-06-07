@@ -17,6 +17,8 @@
 - 단위 테스트는 Service, validator, 계산 로직처럼 좁은 규칙을 빠르게 검증할 때 우선한다.
 - 통합 테스트는 API 계약, 예외 응답, 영속성, 트랜잭션, outbox 영향을 검증할 때 사용한다.
 - 날짜/시간 변경은 `Asia/Seoul`, `OffsetDateTime`, offset 포함 여부를 명시적으로 확인한다.
+- 로컬/에이전트 테스트는 루트의 `./scripts/test-local.sh`를 우선 사용하고, 실제 DB 접속 정보는 커밋하지 않는 `.env.test`에 둔다.
+- 특정 테스트만 실행할 때는 `./scripts/test-local.sh --tests <테스트 클래스명>`처럼 Gradle test 옵션을 그대로 전달한다.
 - 완료 전에는 변경 범위와 직접 연결된 테스트를 먼저 실행하고, 머지 전에는 가능한 한 `./gradlew test`로 전체 회귀를 확인한다.
 - 보고할 때는 실행한 검증과 실행하지 못한 검증을 구분한다.
 
