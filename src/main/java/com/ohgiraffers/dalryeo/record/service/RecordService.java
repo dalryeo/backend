@@ -99,11 +99,11 @@ public class RecordService {
     }
 
     private RecordSummaryResponse buildRecordSummaryFromStats(WeeklyUserStats stats) {
-        TierService.TierInfo tierInfo = tierService.resolveByScore(stats.tierScoreAsDouble());
+        ResolvedTier currentTier = resolveCurrentTier(stats.getUserId(), stats.getWeekStartDate());
 
         return RecordSummaryResponse.builder()
-                .currentTier(tierInfo.tierCode())
-                .currentTierGrade(tierInfo.tierGrade())
+                .currentTier(currentTier.tierCode())
+                .currentTierGrade(currentTier.tierGrade())
                 .weeklyCount(stats.getRunCount())
                 .weeklyAvgPace(stats.getAvgPaceSecPerKm())
                 .weeklyDistance(stats.totalDistanceAsDouble())
@@ -116,7 +116,7 @@ public class RecordService {
         List<RunningRecord> weeklyRecords = runningRecordRepository.findByUserIdAndWeekRange(
                 user.getId(), startDateTime, endDateTime);
         WeeklyStatsSnapshot snapshot = summarizeRawRecords(weeklyRecords);
-        ResolvedTier currentTier = resolveCurrentTier(user.getId(), weekStart, weeklyRecords);
+        ResolvedTier currentTier = resolveCurrentTier(user.getId(), weekStart);
 
         return RecordSummaryResponse.builder()
                 .currentTier(currentTier.tierCode())
@@ -128,11 +128,11 @@ public class RecordService {
     }
 
     private WeeklySummaryResponse buildWeeklySummaryFromStats(WeeklyUserStats stats) {
-        TierService.TierInfo tierInfo = tierService.resolveByScore(stats.tierScoreAsDouble());
+        ResolvedTier currentTier = resolveCurrentTier(stats.getUserId(), stats.getWeekStartDate());
 
         return WeeklySummaryResponse.builder()
-                .currentTier(tierInfo.tierCode())
-                .currentTierGrade(tierInfo.tierGrade())
+                .currentTier(currentTier.tierCode())
+                .currentTierGrade(currentTier.tierGrade())
                 .weeklyCount(stats.getRunCount())
                 .weeklyAvgPace(stats.getAvgPaceSecPerKm())
                 .weeklyDistance(stats.totalDistanceAsDouble())
@@ -147,7 +147,7 @@ public class RecordService {
         List<RunningRecord> summaryRecords = runningRecordRepository.findByUserIdAndWeekRange(
                 user.getId(), effectiveStart, endDateTime);
         WeeklyStatsSnapshot snapshot = summarizeRawRecords(summaryRecords);
-        ResolvedTier currentTier = resolveCurrentTier(user.getId(), weekStart, summaryRecords);
+        ResolvedTier currentTier = resolveCurrentTier(user.getId(), weekStart);
 
         return WeeklySummaryResponse.builder()
                 .currentTier(currentTier.tierCode())
@@ -291,11 +291,11 @@ public class RecordService {
                 user.getId(), effectiveStart, endDateTime);
 
         WeeklyStatsSnapshot snapshot = summarizeRawRecords(summaryRecords);
-        ResolvedTier currentTier = resolveCurrentTier(user.getId(), weekStartDate, summaryRecords);
+        ResolvedTier performanceTier = resolveWeeklyPerformanceTier(summaryRecords);
 
         return WeeklySummaryByWeekResponse.builder()
-                .tierCode(currentTier.tierCode())
-                .tierGrade(currentTier.tierGrade())
+                .tierCode(performanceTier.tierCode())
+                .tierGrade(performanceTier.tierGrade())
                 .runCount(snapshot.runCount())
                 .averagePace(snapshot.averagePace())
                 .weeklyDistance(snapshot.weeklyDistance())
@@ -316,10 +316,26 @@ public class RecordService {
                 : weekStartDateTime;
     }
 
-    private ResolvedTier resolveCurrentTier(Long userId, LocalDate weekStartDate, List<RunningRecord> weeklyRecords) {
-        return currentTierResolver.resolve(userId, weekStartDate, weeklyRecords)
+    private ResolvedTier resolveCurrentTier(Long userId, LocalDate weekStartDate) {
+        return currentTierResolver.resolve(userId, weekStartDate)
                 .map(ResolvedTier::from)
                 .orElseGet(() -> new ResolvedTier("TURTLE", "B"));
+    }
+
+    private ResolvedTier resolveWeeklyPerformanceTier(List<RunningRecord> weeklyRecords) {
+        if (weeklyRecords.isEmpty()) {
+            return new ResolvedTier("TURTLE", "B");
+        }
+
+        double totalScore = weeklyRecords.stream()
+                .mapToDouble(record -> tierScoreCalculator.calculateRecordScore(
+                        record.getDistanceKm(),
+                        record.getAvgPaceSecPerKm()
+                ))
+                .sum();
+        double weeklyTierScore = tierScoreCalculator.calculateWeeklyScore(totalScore, weeklyRecords.size());
+        TierService.TierInfo tierInfo = tierService.resolveByScore(weeklyTierScore);
+        return new ResolvedTier(tierInfo.tierCode(), tierInfo.tierGrade());
     }
 
     private record ResolvedTier(String tierCode, String tierGrade) {

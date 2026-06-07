@@ -6,7 +6,10 @@ import com.ohgiraffers.dalryeo.common.time.ServiceDateProvider;
 import com.ohgiraffers.dalryeo.record.dto.RecordIdResponse;
 import com.ohgiraffers.dalryeo.record.dto.RecordSummaryResponse;
 import com.ohgiraffers.dalryeo.record.dto.RunningRecordRequest;
+import com.ohgiraffers.dalryeo.record.dto.WeeklySummaryItemResponse;
+import com.ohgiraffers.dalryeo.record.dto.WeeklySummaryResponse;
 import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
+import com.ohgiraffers.dalryeo.record.entity.WeeklyUserStats;
 import com.ohgiraffers.dalryeo.record.exception.RecordValidationErrorCode;
 import com.ohgiraffers.dalryeo.record.exception.RecordValidationException;
 import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEvent;
@@ -29,6 +32,7 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -39,6 +43,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -279,8 +284,9 @@ class RecordServiceTest {
     }
 
     @Test
-    void getSummary_usesCurrentWeekRecordsToResolveTier() {
+    void getSummary_keepsCurrentWeekMetricsButUsesFinalizedTier() {
         Long userId = 1L;
+        LocalDate weekStart = LocalDate.of(2026, 3, 30);
         User user = user(userId);
         RunningRecord runningRecord = RunningRecord.builder()
                 .userId(userId)
@@ -295,37 +301,12 @@ class RecordServiceTest {
                 .build();
 
         when(userLookupService.getActiveById(userId)).thenReturn(user);
-        when(serviceDateProvider.currentWeekStart()).thenReturn(LocalDate.of(2026, 3, 30));
+        when(serviceDateProvider.currentWeekStart()).thenReturn(weekStart);
+        when(weeklyUserStatsService.findByUserIdAndWeekStartDate(userId, weekStart))
+                .thenReturn(Optional.empty());
         when(runningRecordRepository.findByUserIdAndWeekRange(eq(userId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of(runningRecord));
-        when(currentTierResolver.resolve(eq(userId), any(LocalDate.class), anyList()))
-                .thenReturn(Optional.of(new CurrentTierResolver.CurrentTier(
-                        "DEER",
-                        "사슴",
-                        "B",
-                        1.24,
-                        "/profiles/tiers/deer.png"
-                )));
-
-        RecordSummaryResponse response = recordService.getSummary(userId);
-
-        assertThat(response.getCurrentTier()).isEqualTo("DEER");
-        assertThat(response.getCurrentTierGrade()).isEqualTo("B");
-        assertThat(response.getWeeklyCount()).isEqualTo(1);
-        assertThat(response.getWeeklyAvgPace()).isEqualTo(300);
-        assertThat(response.getWeeklyDistance()).isEqualTo(5.0);
-    }
-
-    @Test
-    void getSummary_fallsBackToWeeklyTierWhenNoCurrentWeekRecordsExist() {
-        Long userId = 2L;
-        User user = user(userId);
-
-        when(userLookupService.getActiveById(userId)).thenReturn(user);
-        when(serviceDateProvider.currentWeekStart()).thenReturn(LocalDate.of(2026, 3, 30));
-        when(runningRecordRepository.findByUserIdAndWeekRange(eq(userId), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of());
-        when(currentTierResolver.resolve(eq(userId), any(LocalDate.class), anyList()))
+        when(currentTierResolver.resolve(userId, weekStart))
                 .thenReturn(Optional.of(new CurrentTierResolver.CurrentTier(
                         "FOX",
                         "여우",
@@ -338,9 +319,133 @@ class RecordServiceTest {
 
         assertThat(response.getCurrentTier()).isEqualTo("FOX");
         assertThat(response.getCurrentTierGrade()).isEqualTo("S");
+        assertThat(response.getWeeklyCount()).isEqualTo(1);
+        assertThat(response.getWeeklyAvgPace()).isEqualTo(300);
+        assertThat(response.getWeeklyDistance()).isEqualTo(5.0);
+        verify(currentTierResolver).resolve(userId, weekStart);
+        verify(currentTierResolver, never()).resolve(eq(userId), any(LocalDate.class), anyList());
+    }
+
+    @Test
+    void getSummary_fallsBackToDefaultTierWhenNoFinalizedTierExists() {
+        Long userId = 2L;
+        LocalDate weekStart = LocalDate.of(2026, 3, 30);
+        User user = user(userId);
+
+        when(userLookupService.getActiveById(userId)).thenReturn(user);
+        when(serviceDateProvider.currentWeekStart()).thenReturn(weekStart);
+        when(weeklyUserStatsService.findByUserIdAndWeekStartDate(userId, weekStart))
+                .thenReturn(Optional.empty());
+        when(runningRecordRepository.findByUserIdAndWeekRange(eq(userId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+        when(currentTierResolver.resolve(userId, weekStart))
+                .thenReturn(Optional.empty());
+
+        RecordSummaryResponse response = recordService.getSummary(userId);
+
+        assertThat(response.getCurrentTier()).isEqualTo("TURTLE");
+        assertThat(response.getCurrentTierGrade()).isEqualTo("B");
         assertThat(response.getWeeklyCount()).isEqualTo(0);
         assertThat(response.getWeeklyAvgPace()).isEqualTo(0);
         assertThat(response.getWeeklyDistance()).isEqualTo(0.0);
+    }
+
+    @Test
+    void getSummary_usesFinalizedTierWhenCurrentWeekStatsExist() {
+        Long userId = 1L;
+        LocalDate weekStart = LocalDate.of(2026, 3, 30);
+
+        when(userLookupService.getActiveById(userId)).thenReturn(user(userId));
+        when(serviceDateProvider.currentWeekStart()).thenReturn(weekStart);
+        when(weeklyUserStatsService.findByUserIdAndWeekStartDate(userId, weekStart))
+                .thenReturn(Optional.of(weeklyStats(userId, weekStart)));
+        when(currentTierResolver.resolve(userId, weekStart))
+                .thenReturn(Optional.of(new CurrentTierResolver.CurrentTier(
+                        "FOX",
+                        "여우",
+                        "S",
+                        0.90,
+                        "/profiles/tiers/fox.png"
+                )));
+
+        RecordSummaryResponse response = recordService.getSummary(userId);
+
+        assertThat(response.getCurrentTier()).isEqualTo("FOX");
+        assertThat(response.getCurrentTierGrade()).isEqualTo("S");
+        assertThat(response.getWeeklyCount()).isEqualTo(1);
+        assertThat(response.getWeeklyAvgPace()).isEqualTo(300);
+        assertThat(response.getWeeklyDistance()).isEqualTo(5.0);
+        verify(tierService, never()).resolveByScore(anyDouble());
+    }
+
+    @Test
+    void getCurrentWeeklySummary_usesFinalizedTierWhenCurrentWeekStatsExist() {
+        Long userId = 1L;
+        LocalDate weekStart = LocalDate.of(2026, 3, 30);
+
+        when(userLookupService.getActiveById(userId)).thenReturn(user(userId));
+        when(serviceDateProvider.currentWeekStart()).thenReturn(weekStart);
+        when(weeklyUserStatsService.findByUserIdAndWeekStartDate(userId, weekStart))
+                .thenReturn(Optional.of(weeklyStats(userId, weekStart)));
+        when(currentTierResolver.resolve(userId, weekStart))
+                .thenReturn(Optional.of(new CurrentTierResolver.CurrentTier(
+                        "HUSKY",
+                        "허스키",
+                        "B",
+                        1.00,
+                        "/profiles/tiers/husky.png"
+                )));
+
+        WeeklySummaryResponse response = recordService.getCurrentWeeklySummary(userId);
+
+        assertThat(response.getCurrentTier()).isEqualTo("HUSKY");
+        assertThat(response.getCurrentTierGrade()).isEqualTo("B");
+        assertThat(response.getWeeklyCount()).isEqualTo(1);
+        assertThat(response.getWeeklyAvgPace()).isEqualTo(300);
+        assertThat(response.getWeeklyDistance()).isEqualTo(5.0);
+        verify(tierService, never()).resolveByScore(anyDouble());
+    }
+
+    @Test
+    void getWeeklySummaryList_usesRawWeeklyPerformanceTierWhenStatsDoNotExist() {
+        Long userId = 5L;
+        LocalDate today = LocalDate.of(2026, 4, 2);
+        LocalDate weekStart = LocalDate.of(2026, 3, 30);
+        User user = user(userId);
+        RunningRecord runningRecord = RunningRecord.builder()
+                .userId(userId)
+                .platform("IOS")
+                .distanceKm(5.0)
+                .durationSec(1500)
+                .avgPaceSecPerKm(300)
+                .avgHeartRate(150)
+                .caloriesKcal(300)
+                .startAt(LocalDateTime.of(2026, 3, 31, 7, 0))
+                .endAt(LocalDateTime.of(2026, 3, 31, 7, 25))
+                .build();
+
+        when(userLookupService.getActiveById(userId)).thenReturn(user);
+        when(serviceDateProvider.today()).thenReturn(today);
+        when(serviceDateProvider.currentWeekStart(today)).thenReturn(weekStart);
+        when(serviceDateProvider.currentWeekStart()).thenReturn(weekStart);
+        when(weeklyUserStatsService.findByUserIdAndWeekStartDate(userId, weekStart))
+                .thenReturn(Optional.empty());
+        when(runningRecordRepository.findByUserIdAndWeekRange(eq(userId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of(runningRecord));
+        when(tierService.resolveByScore(1.24))
+                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.png"));
+
+        List<WeeklySummaryItemResponse> response = recordService.getWeeklySummaryList(userId);
+
+        assertThat(response).hasSize(1);
+        assertThat(response.get(0).getWeekStart()).isEqualTo(weekStart);
+        assertThat(response.get(0).getTierCode()).isEqualTo("DEER");
+        assertThat(response.get(0).getTierGrade()).isEqualTo("B");
+        assertThat(response.get(0).getRunCount()).isEqualTo(1);
+        assertThat(response.get(0).getAveragePace()).isEqualTo(300);
+        assertThat(response.get(0).getWeeklyDistance()).isEqualTo(5.0);
+        verify(currentTierResolver, never()).resolve(eq(userId), any(LocalDate.class));
+        verify(currentTierResolver, never()).resolve(eq(userId), any(LocalDate.class), anyList());
     }
 
     private RunningRecordRequest request(
@@ -372,5 +477,19 @@ class RecordServiceTest {
                 .build();
         ReflectionTestUtils.setField(user, "id", userId);
         return user;
+    }
+
+    private WeeklyUserStats weeklyStats(Long userId, LocalDate weekStart) {
+        return WeeklyUserStats.builder()
+                .userId(userId)
+                .weekStartDate(weekStart)
+                .runCount(1)
+                .totalDistanceKm(BigDecimal.valueOf(5.000))
+                .totalDurationSec(1500)
+                .weightedPaceSum(BigDecimal.valueOf(1500.000))
+                .avgPaceSecPerKm(300)
+                .tierScoreSum(BigDecimal.valueOf(1.24))
+                .tierScore(BigDecimal.valueOf(1.24))
+                .build();
     }
 }
