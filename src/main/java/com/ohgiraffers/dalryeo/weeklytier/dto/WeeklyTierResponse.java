@@ -15,5 +15,6 @@ public class WeeklyTierResponse {
     private LocalDate weekStartDate;
     private String tierCode;
     private String tierGrade;
+    private String defaultProfileImage;
     private Double tierScore;
 }

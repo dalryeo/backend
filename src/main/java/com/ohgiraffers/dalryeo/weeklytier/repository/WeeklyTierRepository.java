@@ -7,12 +7,47 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface WeeklyTierRepository extends JpaRepository<WeeklyTier, Long> {
+    interface CurrentTierSnapshot {
+        Long getUserId();
+
+        String getTierCode();
+
+        Integer getTierScore();
+    }
+
     Optional<WeeklyTier> findTopByUserIdAndWeekStartDateLessThanEqualOrderByWeekStartDateDesc(
             Long userId,
             LocalDate weekStartDate
+    );
+
+    @Query(value = """
+            SELECT
+                ranked.user_id AS "userId",
+                ranked.tier_code AS "tierCode",
+                ranked.tier_score AS "tierScore"
+            FROM (
+                SELECT
+                    wt.user_id,
+                    wt.tier_code,
+                    wt.tier_score,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY wt.user_id
+                        ORDER BY wt.week_start_date DESC
+                    ) AS row_number
+                FROM weekly_tiers wt
+                WHERE wt.user_id IN (:userIds)
+                  AND wt.week_start_date <= :weekStartDate
+            ) ranked
+            WHERE ranked.row_number = 1
+            """, nativeQuery = true)
+    List<CurrentTierSnapshot> findLatestSnapshotsByUserIdsAndWeekStartDateLessThanEqual(
+            @Param("userIds") Collection<Long> userIds,
+            @Param("weekStartDate") LocalDate weekStartDate
     );
 
     @Modifying
