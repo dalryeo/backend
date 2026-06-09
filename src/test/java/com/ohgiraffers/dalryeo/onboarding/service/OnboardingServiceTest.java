@@ -155,6 +155,14 @@ class OnboardingServiceTest {
         ReflectionTestUtils.setField(user, "profileImage", "image2.png");
 
         when(userLookupService.getActiveById(userId)).thenReturn(user);
+        when(currentTierResolver.resolve(userId))
+                .thenReturn(Optional.of(new CurrentTierResolver.CurrentTier(
+                        "FOX",
+                        "여우",
+                        "S",
+                        0.90,
+                        "/profiles/tiers/fox.png"
+                )));
 
         OnboardingResponse response = onboardingService.getOnboarding(userId);
 
@@ -165,6 +173,9 @@ class OnboardingServiceTest {
         assertThat(response.getWeight()).isEqualTo(70);
         assertThat(response.getDisplayProfileImage()).isEqualTo("image2.png");
         assertThat(response.getCustomProfileImage()).isEqualTo("image2.png");
+        assertThat(response.getTierCode()).isEqualTo("FOX");
+        assertThat(response.getTierGrade()).isEqualTo("S");
+        assertThat(response.getDefaultProfileImage()).isEqualTo("/profiles/tiers/fox.png");
     }
 
     @Test
@@ -187,6 +198,9 @@ class OnboardingServiceTest {
 
         assertThat(response.getDisplayProfileImage()).isEqualTo("/profiles/tiers/deer.png");
         assertThat(response.getCustomProfileImage()).isNull();
+        assertThat(response.getTierCode()).isEqualTo("DEER");
+        assertThat(response.getTierGrade()).isEqualTo("B");
+        assertThat(response.getDefaultProfileImage()).isEqualTo("/profiles/tiers/deer.png");
     }
 
     @Test
@@ -208,6 +222,9 @@ class OnboardingServiceTest {
 
         assertThat(response.getDisplayProfileImage()).isEqualTo("/profiles/tiers/turtle.png");
         assertThat(response.getCustomProfileImage()).isNull();
+        assertThat(response.getTierCode()).isEqualTo("TURTLE");
+        assertThat(response.getTierGrade()).isEqualTo("B");
+        assertThat(response.getDefaultProfileImage()).isEqualTo("/profiles/tiers/turtle.png");
     }
 
     @Test
@@ -222,6 +239,9 @@ class OnboardingServiceTest {
 
         assertThat(response.getDisplayProfileImage()).isNull();
         assertThat(response.getCustomProfileImage()).isNull();
+        assertThat(response.getTierCode()).isNull();
+        assertThat(response.getTierGrade()).isNull();
+        assertThat(response.getDefaultProfileImage()).isNull();
     }
 
     @Test

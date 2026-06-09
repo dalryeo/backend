@@ -12,8 +12,8 @@ import lombok.NoArgsConstructor;
 public class RecordSummaryResponse {
     private String currentTier;
     private String currentTierGrade;
+    private String currentTierImage;
     private Integer weeklyCount;
     private Integer weeklyAvgPace;
     private Double weeklyDistance;
 }
-

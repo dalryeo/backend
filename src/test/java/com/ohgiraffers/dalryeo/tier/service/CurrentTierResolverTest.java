@@ -10,7 +10,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
@@ -96,5 +99,51 @@ class CurrentTierResolverTest {
         assertThat(result).isPresent();
         assertThat(result.get().tierCode()).isEqualTo("CHEETAH");
         assertThat(result.get().score()).isEqualTo(1.57);
+    }
+
+    @Test
+    void resolveAll_returnsLatestFinalizedSnapshotsForRequestedUsers() {
+        LocalDate currentWeekStart = LocalDate.of(2026, 6, 8);
+        WeeklyTierRepository.CurrentTierSnapshot betaSnapshot = currentTierSnapshot(2L, "CHEETAH", 157);
+        WeeklyTierRepository.CurrentTierSnapshot alphaSnapshot = currentTierSnapshot(1L, "FOX", 90);
+
+        when(weeklyTierRepository.findLatestSnapshotsByUserIdsAndWeekStartDateLessThanEqual(
+                Set.of(1L, 2L),
+                currentWeekStart
+        )).thenReturn(List.of(betaSnapshot, alphaSnapshot));
+        when(tierService.resolveByTierCodeAndScore("CHEETAH", 1.57))
+                .thenReturn(new TierService.TierInfo("CHEETAH", "치타", "S", "/profiles/tiers/cheetah.png"));
+        when(tierService.resolveByTierCodeAndScore("FOX", 0.90))
+                .thenReturn(new TierService.TierInfo("FOX", "여우", "S", "/profiles/tiers/fox.png"));
+
+        Map<Long, CurrentTierResolver.CurrentTier> result = currentTierResolver.resolveAll(
+                Set.of(1L, 2L),
+                currentWeekStart
+        );
+
+        assertThat(result).containsOnlyKeys(1L, 2L);
+        assertThat(result.get(1L).tierCode()).isEqualTo("FOX");
+        assertThat(result.get(1L).defaultProfileImage()).isEqualTo("/profiles/tiers/fox.png");
+        assertThat(result.get(2L).tierCode()).isEqualTo("CHEETAH");
+        assertThat(result.get(2L).defaultProfileImage()).isEqualTo("/profiles/tiers/cheetah.png");
+    }
+
+    private WeeklyTierRepository.CurrentTierSnapshot currentTierSnapshot(Long userId, String tierCode, Integer tierScore) {
+        return new WeeklyTierRepository.CurrentTierSnapshot() {
+            @Override
+            public Long getUserId() {
+                return userId;
+            }
+
+            @Override
+            public String getTierCode() {
+                return tierCode;
+            }
+
+            @Override
+            public Integer getTierScore() {
+                return tierScore;
+            }
+        };
     }
 }

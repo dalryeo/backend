@@ -98,20 +98,25 @@ public class OnboardingController {
     }
 
     private OnboardingResponse enrichTierDefaultImageUrl(OnboardingResponse response) {
-        String displayProfileImage = response.getDisplayProfileImage();
-        if (!isTierDefaultImagePath(displayProfileImage)) {
-            return response;
-        }
-
         return OnboardingResponse.builder()
                 .nickname(response.getNickname())
                 .gender(response.getGender())
                 .birth(response.getBirth())
                 .height(response.getHeight())
                 .weight(response.getWeight())
-                .displayProfileImage(toAbsoluteUrl(displayProfileImage))
+                .displayProfileImage(toAbsoluteTierDefaultImageUrl(response.getDisplayProfileImage()))
                 .customProfileImage(response.getCustomProfileImage())
+                .tierCode(response.getTierCode())
+                .tierGrade(response.getTierGrade())
+                .defaultProfileImage(toAbsoluteTierDefaultImageUrl(response.getDefaultProfileImage()))
                 .build();
+    }
+
+    private String toAbsoluteTierDefaultImageUrl(String path) {
+        if (!isTierDefaultImagePath(path)) {
+            return path;
+        }
+        return toAbsoluteUrl(path);
     }
 
     private boolean isTierDefaultImagePath(String path) {

@@ -16,8 +16,8 @@ public class ScoreRankingResponse {
     private String nickname;
     private String tierCode;
     private String tierGrade;
+    private String defaultProfileImage;
     private Double tierScore;
     private Integer weeklyAvgPace;
     private Double weeklyDistance;
 }
-
