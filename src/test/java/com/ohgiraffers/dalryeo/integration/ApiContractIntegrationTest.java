@@ -11,13 +11,12 @@ import com.ohgiraffers.dalryeo.auth.repository.OAuthClientRepository;
 import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
 import com.ohgiraffers.dalryeo.common.time.ServiceDateProvider;
 import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
-import com.ohgiraffers.dalryeo.record.dto.RecordIdResponse;
 import com.ohgiraffers.dalryeo.record.dto.RunningRecordRequest;
 import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEventProcessor;
 import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEventRepository;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
-import com.ohgiraffers.dalryeo.record.service.RecordService;
+import com.ohgiraffers.dalryeo.record.service.WeeklyUserStatsService;
 import com.ohgiraffers.dalryeo.tier.entity.Tier;
 import com.ohgiraffers.dalryeo.tier.entity.TierGrade;
 import com.ohgiraffers.dalryeo.tier.repository.TierGradeRepository;
@@ -97,9 +96,6 @@ class ApiContractIntegrationTest {
     private RecordOutboxEventProcessor recordOutboxEventProcessor;
 
     @Autowired
-    private RecordService recordService;
-
-    @Autowired
     private WeeklyTierRepository weeklyTierRepository;
 
     @Autowired
@@ -116,6 +112,9 @@ class ApiContractIntegrationTest {
 
     @Autowired
     private ServiceDateProvider serviceDateProvider;
+
+    @Autowired
+    private WeeklyUserStatsService weeklyUserStatsService;
 
     @MockBean
     private AppleOAuthValidator appleOAuthValidator;
@@ -363,7 +362,10 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.data.height").value(165))
                 .andExpect(jsonPath("$.data.weight").value(52))
                 .andExpect(jsonPath("$.data.displayProfileImage").value("profile.png"))
-                .andExpect(jsonPath("$.data.customProfileImage").value("profile.png"));
+                .andExpect(jsonPath("$.data.customProfileImage").value("profile.png"))
+                .andExpect(jsonPath("$.data.tierCode").value("TURTLE"))
+                .andExpect(jsonPath("$.data.tierGrade").value("B"))
+                .andExpect(jsonPath("$.data.defaultProfileImage").value("https://api.dalryeo.store/profiles/tiers/turtle.png"));
     }
 
     @Test
@@ -403,7 +405,10 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.data.height").value(178))
                 .andExpect(jsonPath("$.data.weight").value(70))
                 .andExpect(jsonPath("$.data.displayProfileImage").value("https://cdn.example.com/updated.png"))
-                .andExpect(jsonPath("$.data.customProfileImage").value("https://cdn.example.com/updated.png"));
+                .andExpect(jsonPath("$.data.customProfileImage").value("https://cdn.example.com/updated.png"))
+                .andExpect(jsonPath("$.data.tierCode").value("TURTLE"))
+                .andExpect(jsonPath("$.data.tierGrade").value("B"))
+                .andExpect(jsonPath("$.data.defaultProfileImage").value("https://api.dalryeo.store/profiles/tiers/turtle.png"));
     }
 
     @Test
@@ -600,7 +605,10 @@ class ApiContractIntegrationTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.displayProfileImage").value("https://api.dalryeo.store/profiles/tiers/turtle.png"))
-                .andExpect(jsonPath("$.data.customProfileImage").isEmpty());
+                .andExpect(jsonPath("$.data.customProfileImage").isEmpty())
+                .andExpect(jsonPath("$.data.tierCode").value("TURTLE"))
+                .andExpect(jsonPath("$.data.tierGrade").value("B"))
+                .andExpect(jsonPath("$.data.defaultProfileImage").value("https://api.dalryeo.store/profiles/tiers/turtle.png"));
     }
 
     @Test
@@ -621,7 +629,10 @@ class ApiContractIntegrationTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.displayProfileImage").value("https://api.dalryeo.store/profiles/tiers/deer.png"))
-                .andExpect(jsonPath("$.data.customProfileImage").isEmpty());
+                .andExpect(jsonPath("$.data.customProfileImage").isEmpty())
+                .andExpect(jsonPath("$.data.tierCode").value("DEER"))
+                .andExpect(jsonPath("$.data.tierGrade").value("B"))
+                .andExpect(jsonPath("$.data.defaultProfileImage").value("https://api.dalryeo.store/profiles/tiers/deer.png"));
     }
 
     @Test
@@ -630,7 +641,7 @@ class ApiContractIntegrationTest {
         LocalDate weekStart = serviceDateProvider.currentWeekStart();
 
         saveWeeklyTier(user.getId(), weekStart, "CHEETAH", 157);
-        saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(1));
+        saveRecord(user.getId(), 5.0, 300, weekStart.atTime(0, 0));
 
         mockMvc.perform(get("/onboarding")
                 .header("Authorization", bearer(accessToken(user.getId()))))
@@ -638,7 +649,10 @@ class ApiContractIntegrationTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.displayProfileImage").value("https://api.dalryeo.store/profiles/tiers/cheetah.png"))
-                .andExpect(jsonPath("$.data.customProfileImage").isEmpty());
+                .andExpect(jsonPath("$.data.customProfileImage").isEmpty())
+                .andExpect(jsonPath("$.data.tierCode").value("CHEETAH"))
+                .andExpect(jsonPath("$.data.tierGrade").value("S"))
+                .andExpect(jsonPath("$.data.defaultProfileImage").value("https://api.dalryeo.store/profiles/tiers/cheetah.png"));
     }
 
     @Test
@@ -841,7 +855,7 @@ class ApiContractIntegrationTest {
         User user = saveUser(null);
         LocalDate weekStart = serviceDateProvider.currentWeekStart();
         saveWeeklyTier(user.getId(), weekStart, "FOX", 90);
-        saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(2));
+        saveRecord(user.getId(), 5.0, 300, weekStart.atTime(0, 0));
 
         mockMvc.perform(get("/records/summary")
                         .header("Authorization", bearer(accessToken(user.getId()))))
@@ -850,6 +864,7 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.currentTier").value("FOX"))
                 .andExpect(jsonPath("$.data.currentTierGrade").value("S"))
+                .andExpect(jsonPath("$.data.currentTierImage").value("/profiles/tiers/fox.png"))
                 .andExpect(jsonPath("$.data.weeklyCount").value(1))
                 .andExpect(jsonPath("$.data.weeklyAvgPace").value(300))
                 .andExpect(jsonPath("$.data.weeklyDistance").value(5.0));
@@ -858,7 +873,8 @@ class ApiContractIntegrationTest {
     @Test
     void getWeeklyRecords_keepsWeeklyRecordsResponseContract() throws Exception {
         User user = saveUser("runner-weekly");
-        RunningRecord record = saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(3));
+        LocalDate weekStart = serviceDateProvider.currentWeekStart();
+        RunningRecord record = saveRecord(user.getId(), 5.0, 300, weekStart.atTime(0, 0));
 
         mockMvc.perform(get("/records/weekly")
                         .header("Authorization", bearer(accessToken(user.getId()))))
@@ -877,7 +893,7 @@ class ApiContractIntegrationTest {
         User user = saveUser("runner-summary");
         LocalDate weekStart = serviceDateProvider.currentWeekStart();
         saveWeeklyTier(user.getId(), weekStart, "HUSKY", 100);
-        saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(4));
+        saveRecord(user.getId(), 5.0, 300, weekStart.atTime(0, 0));
 
         mockMvc.perform(get("/weekly/summary/current")
                         .header("Authorization", bearer(accessToken(user.getId()))))
@@ -886,6 +902,7 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.currentTier").value("HUSKY"))
                 .andExpect(jsonPath("$.data.currentTierGrade").value("B"))
+                .andExpect(jsonPath("$.data.currentTierImage").value("/profiles/tiers/husky.png"))
                 .andExpect(jsonPath("$.data.weeklyCount").value(1))
                 .andExpect(jsonPath("$.data.weeklyAvgPace").value(300))
                 .andExpect(jsonPath("$.data.weeklyDistance").value(5.0));
@@ -894,8 +911,8 @@ class ApiContractIntegrationTest {
     @Test
     void getWeeklySummaryList_keepsResponseContract() throws Exception {
         User user = saveUser("runner-summary-list");
-        saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(5));
         LocalDate weekStart = serviceDateProvider.currentWeekStart();
+        saveRecord(user.getId(), 5.0, 300, weekStart.atTime(0, 0));
 
         mockMvc.perform(get("/weekly/summary/list")
                         .header("Authorization", bearer(accessToken(user.getId()))))
@@ -916,7 +933,7 @@ class ApiContractIntegrationTest {
         LocalDate weekStart = serviceDateProvider.currentWeekStart();
 
         saveWeeklyTier(user.getId(), weekStart, "CHEETAH", 157);
-        saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(1));
+        saveRecord(user.getId(), 5.0, 300, weekStart.atTime(0, 0));
 
         mockMvc.perform(get("/weekly/tiers/current")
                         .header("Authorization", bearer(accessToken(user.getId()))))
@@ -926,6 +943,7 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.data.weekStartDate").value(weekStart.toString()))
                 .andExpect(jsonPath("$.data.tierCode").value("CHEETAH"))
                 .andExpect(jsonPath("$.data.tierGrade").value("S"))
+                .andExpect(jsonPath("$.data.defaultProfileImage").value("/profiles/tiers/cheetah.png"))
                 .andExpect(jsonPath("$.data.tierScore").value(1.57));
     }
 
@@ -936,7 +954,7 @@ class ApiContractIntegrationTest {
         LocalDate previousWeekStart = currentWeekStart.minusWeeks(1);
 
         saveWeeklyTier(user.getId(), previousWeekStart, "CHEETAH", 157);
-        saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(1));
+        saveRecord(user.getId(), 5.0, 300, currentWeekStart.atTime(0, 0));
 
         mockMvc.perform(get("/weekly/tiers/current")
                         .header("Authorization", bearer(accessToken(user.getId()))))
@@ -946,6 +964,7 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.data.weekStartDate").value(previousWeekStart.toString()))
                 .andExpect(jsonPath("$.data.tierCode").value("CHEETAH"))
                 .andExpect(jsonPath("$.data.tierGrade").value("S"))
+                .andExpect(jsonPath("$.data.defaultProfileImage").value("/profiles/tiers/cheetah.png"))
                 .andExpect(jsonPath("$.data.tierScore").value(1.57));
     }
 
@@ -953,8 +972,11 @@ class ApiContractIntegrationTest {
     void getWeeklyScoreRanking_keepsResponseContract() throws Exception {
         User alpha = saveUser("alpha");
         User beta = saveUser("beta");
-        saveRecord(alpha.getId(), 5.0, 300, LocalDateTime.now().minusHours(2));
-        saveRecord(beta.getId(), 10.0, 300, LocalDateTime.now().minusHours(1));
+        LocalDate weekStart = serviceDateProvider.currentWeekStart();
+        saveRecord(alpha.getId(), 5.0, 300, weekStart.atTime(0, 0));
+        saveRecord(beta.getId(), 10.0, 300, weekStart.atTime(1, 0));
+        saveWeeklyTier(alpha.getId(), weekStart, "FOX", 90);
+        saveWeeklyTier(beta.getId(), weekStart, "CHEETAH", 157);
 
         mockMvc.perform(get("/ranking/weekly/score"))
                 .andExpect(status().isOk())
@@ -962,19 +984,43 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data[0].rank").value(1))
                 .andExpect(jsonPath("$.data[0].nickname").value("beta"))
-                .andExpect(jsonPath("$.data[0].tierCode").value("DEER"))
-                .andExpect(jsonPath("$.data[0].tierGrade").value("B"))
+                .andExpect(jsonPath("$.data[0].tierCode").value("CHEETAH"))
+                .andExpect(jsonPath("$.data[0].tierGrade").value("S"))
+                .andExpect(jsonPath("$.data[0].defaultProfileImage").value("/profiles/tiers/cheetah.png"))
                 .andExpect(jsonPath("$.data[0].tierScore").value(1.27))
                 .andExpect(jsonPath("$.data[1].rank").value(2))
-                .andExpect(jsonPath("$.data[1].nickname").value("alpha"));
+                .andExpect(jsonPath("$.data[1].nickname").value("alpha"))
+                .andExpect(jsonPath("$.data[1].tierCode").value("FOX"))
+                .andExpect(jsonPath("$.data[1].tierGrade").value("S"))
+                .andExpect(jsonPath("$.data[1].defaultProfileImage").value("/profiles/tiers/fox.png"));
+    }
+
+    @Test
+    void getWeeklyScoreRanking_defaultsToTurtleWhenWeeklyTierSnapshotDoesNotExist() throws Exception {
+        User user = saveUser("runner-no-weekly-tier");
+        LocalDate weekStart = serviceDateProvider.currentWeekStart();
+        saveRecord(user.getId(), 10.0, 240, weekStart.atTime(0, 0));
+
+        mockMvc.perform(get("/ranking/weekly/score"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].nickname").value("runner-no-weekly-tier"))
+                .andExpect(jsonPath("$.data[0].tierCode").value("TURTLE"))
+                .andExpect(jsonPath("$.data[0].tierGrade").value("B"))
+                .andExpect(jsonPath("$.data[0].defaultProfileImage").value("/profiles/tiers/turtle.png"))
+                .andExpect(jsonPath("$.data[0].tierScore").value(1.59));
     }
 
     @Test
     void getWeeklyDistanceRanking_keepsResponseContract() throws Exception {
         User alpha = saveUser("alpha");
         User beta = saveUser("beta");
-        saveRecord(alpha.getId(), 5.0, 300, LocalDateTime.now().minusHours(2));
-        saveRecord(beta.getId(), 10.0, 300, LocalDateTime.now().minusHours(1));
+        LocalDate weekStart = serviceDateProvider.currentWeekStart();
+        saveRecord(alpha.getId(), 5.0, 300, weekStart.atTime(0, 0));
+        saveRecord(beta.getId(), 10.0, 300, weekStart.atTime(1, 0));
+        saveWeeklyTier(alpha.getId(), weekStart, "FOX", 90);
+        saveWeeklyTier(beta.getId(), weekStart, "CHEETAH", 157);
 
         mockMvc.perform(get("/ranking/weekly/distance"))
                 .andExpect(status().isOk())
@@ -983,16 +1029,25 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.data[0].rank").value(1))
                 .andExpect(jsonPath("$.data[0].nickname").value("beta"))
                 .andExpect(jsonPath("$.data[0].weeklyDistance").value(10.0))
+                .andExpect(jsonPath("$.data[0].tierCode").value("CHEETAH"))
+                .andExpect(jsonPath("$.data[0].tierGrade").value("S"))
+                .andExpect(jsonPath("$.data[0].defaultProfileImage").value("/profiles/tiers/cheetah.png"))
                 .andExpect(jsonPath("$.data[1].rank").value(2))
-                .andExpect(jsonPath("$.data[1].nickname").value("alpha"));
+                .andExpect(jsonPath("$.data[1].nickname").value("alpha"))
+                .andExpect(jsonPath("$.data[1].tierCode").value("FOX"))
+                .andExpect(jsonPath("$.data[1].tierGrade").value("S"))
+                .andExpect(jsonPath("$.data[1].defaultProfileImage").value("/profiles/tiers/fox.png"));
     }
 
     @Test
     void getMyRanking_keepsResponseContract() throws Exception {
         User alpha = saveUser("alpha");
         User beta = saveUser("beta");
-        saveRecord(alpha.getId(), 5.0, 300, LocalDateTime.now().minusHours(2));
-        saveRecord(beta.getId(), 10.0, 300, LocalDateTime.now().minusHours(1));
+        LocalDate weekStart = serviceDateProvider.currentWeekStart();
+        saveRecord(alpha.getId(), 5.0, 300, weekStart.atTime(0, 0));
+        saveRecord(beta.getId(), 10.0, 300, weekStart.atTime(1, 0));
+        saveWeeklyTier(alpha.getId(), weekStart, "FOX", 90);
+        saveWeeklyTier(beta.getId(), weekStart, "CHEETAH", 157);
 
         mockMvc.perform(get("/ranking/me")
                         .header("Authorization", bearer(accessToken(alpha.getId()))))
@@ -1002,8 +1057,9 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.data.nickname").value("alpha"))
                 .andExpect(jsonPath("$.data.scoreRank").value(2))
                 .andExpect(jsonPath("$.data.distanceRank").value(2))
-                .andExpect(jsonPath("$.data.tierCode").value("DEER"))
-                .andExpect(jsonPath("$.data.tierGrade").value("B"))
+                .andExpect(jsonPath("$.data.tierCode").value("FOX"))
+                .andExpect(jsonPath("$.data.tierGrade").value("S"))
+                .andExpect(jsonPath("$.data.defaultProfileImage").value("/profiles/tiers/fox.png"))
                 .andExpect(jsonPath("$.data.tierScore").value(1.24))
                 .andExpect(jsonPath("$.data.weeklyAvgPace").value(300))
                 .andExpect(jsonPath("$.data.weeklyDistance").value(5.0));
@@ -1084,19 +1140,22 @@ class ApiContractIntegrationTest {
     }
 
     private RunningRecord saveRecord(Long userId, double distanceKm, int avgPaceSecPerKm, LocalDateTime startAt) {
-        RunningRecordRequest request = new RunningRecordRequest();
-        ReflectionTestUtils.setField(request, "platform", "IOS");
-        ReflectionTestUtils.setField(request, "distanceKm", distanceKm);
-        ReflectionTestUtils.setField(request, "durationSec", (int) Math.round(distanceKm * avgPaceSecPerKm));
-        ReflectionTestUtils.setField(request, "avgPaceSecPerKm", avgPaceSecPerKm);
-        ReflectionTestUtils.setField(request, "avgHeartRate", 150);
-        ReflectionTestUtils.setField(request, "caloriesKcal", 300);
-        ReflectionTestUtils.setField(request, "startAt", startAt.atOffset(TEST_ZONE_OFFSET));
-        ReflectionTestUtils.setField(request, "endAt", startAt.plusSeconds((long) Math.round(distanceKm * avgPaceSecPerKm)).atOffset(TEST_ZONE_OFFSET));
+        int durationSec = (int) Math.round(distanceKm * avgPaceSecPerKm);
+        RunningRecord record = RunningRecord.builder()
+                .userId(userId)
+                .platform("IOS")
+                .distanceKm(distanceKm)
+                .durationSec(durationSec)
+                .avgPaceSecPerKm(avgPaceSecPerKm)
+                .avgHeartRate(150)
+                .caloriesKcal(300)
+                .startAt(startAt)
+                .endAt(startAt.plusSeconds(durationSec))
+                .build();
+        RunningRecord savedRecord = runningRecordRepository.save(record);
+        weeklyUserStatsService.applyRecord(savedRecord);
 
-        RecordIdResponse response = recordService.saveRecord(userId, request);
-        recordOutboxEventProcessor.processDueEvents(10, 300);
-        return runningRecordRepository.findById(response.getRecordId()).orElseThrow();
+        return savedRecord;
     }
 
     private void saveWeeklyTier(Long userId, LocalDate weekStart, String tierCode, int tierScore) {
