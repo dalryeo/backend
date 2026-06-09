@@ -318,6 +318,7 @@ class RecordServiceTest {
 
         assertThat(response.getCurrentTier()).isEqualTo("FOX");
         assertThat(response.getCurrentTierGrade()).isEqualTo("S");
+        assertThat(response.getCurrentTierImage()).isEqualTo("/profiles/tiers/fox.png");
         assertThat(response.getWeeklyCount()).isEqualTo(1);
         assertThat(response.getWeeklyAvgPace()).isEqualTo(300);
         assertThat(response.getWeeklyDistance()).isEqualTo(5.0);
@@ -338,11 +339,14 @@ class RecordServiceTest {
                 .thenReturn(List.of());
         when(currentTierResolver.resolve(userId, weekStart))
                 .thenReturn(Optional.empty());
+        when(tierService.findDefaultProfileImageByTierCode("TURTLE"))
+                .thenReturn(Optional.of("/profiles/tiers/turtle.png"));
 
         RecordSummaryResponse response = recordService.getSummary(userId);
 
         assertThat(response.getCurrentTier()).isEqualTo("TURTLE");
         assertThat(response.getCurrentTierGrade()).isEqualTo("B");
+        assertThat(response.getCurrentTierImage()).isEqualTo("/profiles/tiers/turtle.png");
         assertThat(response.getWeeklyCount()).isEqualTo(0);
         assertThat(response.getWeeklyAvgPace()).isEqualTo(0);
         assertThat(response.getWeeklyDistance()).isEqualTo(0.0);
@@ -370,6 +374,7 @@ class RecordServiceTest {
 
         assertThat(response.getCurrentTier()).isEqualTo("FOX");
         assertThat(response.getCurrentTierGrade()).isEqualTo("S");
+        assertThat(response.getCurrentTierImage()).isEqualTo("/profiles/tiers/fox.png");
         assertThat(response.getWeeklyCount()).isEqualTo(1);
         assertThat(response.getWeeklyAvgPace()).isEqualTo(300);
         assertThat(response.getWeeklyDistance()).isEqualTo(5.0);
@@ -398,6 +403,7 @@ class RecordServiceTest {
 
         assertThat(response.getCurrentTier()).isEqualTo("HUSKY");
         assertThat(response.getCurrentTierGrade()).isEqualTo("B");
+        assertThat(response.getCurrentTierImage()).isEqualTo("/profiles/tiers/husky.png");
         assertThat(response.getWeeklyCount()).isEqualTo(1);
         assertThat(response.getWeeklyAvgPace()).isEqualTo(300);
         assertThat(response.getWeeklyDistance()).isEqualTo(5.0);

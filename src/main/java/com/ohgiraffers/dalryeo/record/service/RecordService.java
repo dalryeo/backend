@@ -104,6 +104,7 @@ public class RecordService {
         return RecordSummaryResponse.builder()
                 .currentTier(currentTier.tierCode())
                 .currentTierGrade(currentTier.tierGrade())
+                .currentTierImage(currentTier.defaultProfileImage())
                 .weeklyCount(stats.getRunCount())
                 .weeklyAvgPace(stats.getAvgPaceSecPerKm())
                 .weeklyDistance(stats.totalDistanceAsDouble())
@@ -121,6 +122,7 @@ public class RecordService {
         return RecordSummaryResponse.builder()
                 .currentTier(currentTier.tierCode())
                 .currentTierGrade(currentTier.tierGrade())
+                .currentTierImage(currentTier.defaultProfileImage())
                 .weeklyCount(snapshot.runCount())
                 .weeklyAvgPace(snapshot.averagePace())
                 .weeklyDistance(snapshot.weeklyDistance())
@@ -133,6 +135,7 @@ public class RecordService {
         return WeeklySummaryResponse.builder()
                 .currentTier(currentTier.tierCode())
                 .currentTierGrade(currentTier.tierGrade())
+                .currentTierImage(currentTier.defaultProfileImage())
                 .weeklyCount(stats.getRunCount())
                 .weeklyAvgPace(stats.getAvgPaceSecPerKm())
                 .weeklyDistance(stats.totalDistanceAsDouble())
@@ -152,6 +155,7 @@ public class RecordService {
         return WeeklySummaryResponse.builder()
                 .currentTier(currentTier.tierCode())
                 .currentTierGrade(currentTier.tierGrade())
+                .currentTierImage(currentTier.defaultProfileImage())
                 .weeklyCount(snapshot.runCount())
                 .weeklyAvgPace(snapshot.averagePace())
                 .weeklyDistance(snapshot.weeklyDistance())
@@ -319,12 +323,16 @@ public class RecordService {
     private ResolvedTier resolveCurrentTier(Long userId, LocalDate weekStartDate) {
         return currentTierResolver.resolve(userId, weekStartDate)
                 .map(ResolvedTier::from)
-                .orElseGet(() -> new ResolvedTier("TURTLE", "B"));
+                .orElseGet(() -> new ResolvedTier(
+                        "TURTLE",
+                        "B",
+                        tierService.findDefaultProfileImageByTierCode("TURTLE").orElse(null)
+                ));
     }
 
     private ResolvedTier resolveWeeklyPerformanceTier(List<RunningRecord> weeklyRecords) {
         if (weeklyRecords.isEmpty()) {
-            return new ResolvedTier("TURTLE", "B");
+            return new ResolvedTier("TURTLE", "B", null);
         }
 
         double totalScore = weeklyRecords.stream()
@@ -335,13 +343,17 @@ public class RecordService {
                 .sum();
         double weeklyTierScore = tierScoreCalculator.calculateWeeklyScore(totalScore, weeklyRecords.size());
         TierService.TierInfo tierInfo = tierService.resolveByScore(weeklyTierScore);
-        return new ResolvedTier(tierInfo.tierCode(), tierInfo.tierGrade());
+        return new ResolvedTier(tierInfo.tierCode(), tierInfo.tierGrade(), tierInfo.defaultProfileImage());
     }
 
-    private record ResolvedTier(String tierCode, String tierGrade) {
+    private record ResolvedTier(String tierCode, String tierGrade, String defaultProfileImage) {
         private static ResolvedTier from(CurrentTierResolver.CurrentTier currentTier) {
             String tierGrade = currentTier.tierGrade();
-            return new ResolvedTier(currentTier.tierCode(), tierGrade == null ? "B" : tierGrade);
+            return new ResolvedTier(
+                    currentTier.tierCode(),
+                    tierGrade == null ? "B" : tierGrade,
+                    currentTier.defaultProfileImage()
+            );
         }
     }
 
