@@ -8,6 +8,7 @@ import com.ohgiraffers.dalryeo.ranking.dto.ScoreRankingResponse;
 import com.ohgiraffers.dalryeo.record.entity.WeeklyUserStats;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository.WeeklyRankingRow;
+import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
 import com.ohgiraffers.dalryeo.user.service.UserLookupService;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -25,10 +28,13 @@ import java.util.stream.IntStream;
 public class RankingService {
 
     private static final int DEFAULT_RANKING_LIMIT = 100;
+    private static final String DEFAULT_TIER_CODE = "TURTLE";
+    private static final String DEFAULT_TIER_GRADE = "B";
 
     private final WeeklyUserStatsRepository weeklyUserStatsRepository;
     private final UserLookupService userLookupService;
     private final TierService tierService;
+    private final CurrentTierResolver currentTierResolver;
     private final ServiceDateProvider serviceDateProvider;
 
     // 점수 기준 주간 랭킹 목록을 조회한다.
@@ -38,9 +44,10 @@ public class RankingService {
                 weekStart,
                 DEFAULT_RANKING_LIMIT
         );
+        Map<Long, CurrentTierResolver.CurrentTier> currentTiers = resolveCurrentTiers(rankingRows, weekStart);
 
         return IntStream.range(0, rankingRows.size())
-                .mapToObj(index -> toScoreRankingResponse(index, rankingRows.get(index)))
+                .mapToObj(index -> toScoreRankingResponse(index, rankingRows.get(index), currentTiers))
                 .collect(Collectors.toList());
     }
 
@@ -51,9 +58,10 @@ public class RankingService {
                 weekStart,
                 DEFAULT_RANKING_LIMIT
         );
+        Map<Long, CurrentTierResolver.CurrentTier> currentTiers = resolveCurrentTiers(rankingRows, weekStart);
 
         return IntStream.range(0, rankingRows.size())
-                .mapToObj(index -> toDistanceRankingResponse(index, rankingRows.get(index)))
+                .mapToObj(index -> toDistanceRankingResponse(index, rankingRows.get(index), currentTiers))
                 .collect(Collectors.toList());
     }
 
@@ -65,21 +73,23 @@ public class RankingService {
         return weeklyUserStatsRepository.findByUserIdAndWeekStartDate(userId, weekStart)
                 .filter(WeeklyUserStats::hasRecords)
                 .map(stats -> buildMyRankingFromStats(user, weekStart, stats))
-                .orElseGet(() -> buildEmptyMyRanking(user));
+                .orElseGet(() -> buildEmptyMyRanking(user, weekStart));
     }
 
     // 점수 랭킹 조회 row를 응답 DTO로 변환한다.
     private ScoreRankingResponse toScoreRankingResponse(
             int index,
-            WeeklyRankingRow row
+            WeeklyRankingRow row,
+            Map<Long, CurrentTierResolver.CurrentTier> currentTiers
     ) {
         double tierScore = row.getTierScoreAsDouble();
-        TierService.TierInfo tierInfo = tierService.resolveByScore(tierScore);
+        TierDisplay tierDisplay = resolveTierDisplay(row.getUserId(), currentTiers);
         return ScoreRankingResponse.builder()
                 .rank(index + 1)
                 .nickname(row.getNickname())
-                .tierCode(tierInfo.tierCode())
-                .tierGrade(tierInfo.tierGrade())
+                .tierCode(tierDisplay.tierCode())
+                .tierGrade(tierDisplay.tierGrade())
+                .defaultProfileImage(tierDisplay.defaultProfileImage())
                 .tierScore(tierScore)
                 .weeklyAvgPace(row.getAvgPaceSecPerKm())
                 .weeklyDistance(row.getTotalDistanceKmAsDouble())
@@ -89,17 +99,18 @@ public class RankingService {
     // 거리 랭킹 조회 row를 응답 DTO로 변환한다.
     private DistanceRankingResponse toDistanceRankingResponse(
             int index,
-            WeeklyRankingRow row
+            WeeklyRankingRow row,
+            Map<Long, CurrentTierResolver.CurrentTier> currentTiers
     ) {
-        double tierScore = row.getTierScoreAsDouble();
-        TierService.TierInfo tierInfo = tierService.resolveByScore(tierScore);
+        TierDisplay tierDisplay = resolveTierDisplay(row.getUserId(), currentTiers);
         return DistanceRankingResponse.builder()
                 .rank(index + 1)
                 .nickname(row.getNickname())
                 .weeklyDistance(row.getTotalDistanceKmAsDouble())
                 .weeklyAvgPace(row.getAvgPaceSecPerKm())
-                .tierCode(tierInfo.tierCode())
-                .tierGrade(tierInfo.tierGrade())
+                .tierCode(tierDisplay.tierCode())
+                .tierGrade(tierDisplay.tierGrade())
+                .defaultProfileImage(tierDisplay.defaultProfileImage())
                 .build();
     }
 
@@ -117,14 +128,15 @@ public class RankingService {
                 stats.getTierScore(),
                 user.getId()
         ));
-        TierService.TierInfo tierInfo = tierService.resolveByScore(stats.tierScoreAsDouble());
+        TierDisplay tierDisplay = resolveTierDisplay(user.getId(), weekStart);
 
         return RankingMeResponse.builder()
                 .nickname(user.getNickname())
                 .scoreRank(scoreRank)
                 .distanceRank(distanceRank)
-                .tierCode(tierInfo.tierCode())
-                .tierGrade(tierInfo.tierGrade())
+                .tierCode(tierDisplay.tierCode())
+                .tierGrade(tierDisplay.tierGrade())
+                .defaultProfileImage(tierDisplay.defaultProfileImage())
                 .tierScore(stats.tierScoreAsDouble())
                 .weeklyAvgPace(stats.getAvgPaceSecPerKm())
                 .weeklyDistance(stats.totalDistanceAsDouble())
@@ -132,18 +144,52 @@ public class RankingService {
     }
 
     // 이번 주 기록이 없는 사용자의 기본 내 랭킹 응답을 만든다.
-    private RankingMeResponse buildEmptyMyRanking(User user) {
-        TierService.TierInfo tierInfo = tierService.resolveByScore(0.0);
+    private RankingMeResponse buildEmptyMyRanking(User user, LocalDate weekStart) {
+        TierDisplay tierDisplay = resolveTierDisplay(user.getId(), weekStart);
         return RankingMeResponse.builder()
                 .nickname(user.getNickname())
                 .scoreRank(null)
                 .distanceRank(null)
-                .tierCode(tierInfo.tierCode())
-                .tierGrade(tierInfo.tierGrade())
+                .tierCode(tierDisplay.tierCode())
+                .tierGrade(tierDisplay.tierGrade())
+                .defaultProfileImage(tierDisplay.defaultProfileImage())
                 .tierScore(0.0)
                 .weeklyAvgPace(0)
                 .weeklyDistance(0.0)
                 .build();
+    }
+
+    private Map<Long, CurrentTierResolver.CurrentTier> resolveCurrentTiers(
+            List<WeeklyRankingRow> rows,
+            LocalDate weekStart
+    ) {
+        Set<Long> userIds = rows.stream()
+                .map(WeeklyRankingRow::getUserId)
+                .collect(Collectors.toSet());
+        return currentTierResolver.resolveAll(userIds, weekStart);
+    }
+
+    private TierDisplay resolveTierDisplay(
+            Long userId,
+            Map<Long, CurrentTierResolver.CurrentTier> currentTiers
+    ) {
+        CurrentTierResolver.CurrentTier currentTier = currentTiers.get(userId);
+        if (currentTier != null) {
+            return TierDisplay.from(currentTier);
+        }
+        return defaultTierDisplay();
+    }
+
+    private TierDisplay resolveTierDisplay(Long userId, LocalDate weekStart) {
+        return currentTierResolver.resolve(userId, weekStart)
+                .map(TierDisplay::from)
+                .orElseGet(this::defaultTierDisplay);
+    }
+
+    private TierDisplay defaultTierDisplay() {
+        String defaultProfileImage = tierService.findDefaultProfileImageByTierCode(DEFAULT_TIER_CODE)
+                .orElse(null);
+        return new TierDisplay(DEFAULT_TIER_CODE, DEFAULT_TIER_GRADE, defaultProfileImage);
     }
 
     // 나보다 앞선 사용자 수를 1부터 시작하는 순위로 변환한다.
@@ -154,5 +200,20 @@ public class RankingService {
     // 오늘 날짜를 기준으로 이번 주 월요일을 구한다.
     private LocalDate currentWeekStart() {
         return serviceDateProvider.currentWeekStart();
+    }
+
+    private record TierDisplay(
+            String tierCode,
+            String tierGrade,
+            String defaultProfileImage
+    ) {
+        private static TierDisplay from(CurrentTierResolver.CurrentTier currentTier) {
+            return new TierDisplay(
+                    currentTier.tierCode(),
+                    currentTier.tierGrade(),
+                    currentTier.defaultProfileImage()
+            );
+        }
+
     }
 }
