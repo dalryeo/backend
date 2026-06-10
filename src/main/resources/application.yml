@@ -9,11 +9,13 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 5
-      minimum-idle: 1
-      connection-timeout: 30000
-      idle-timeout: 300000
-      max-lifetime: 600000
+      maximum-pool-size: ${DB_HIKARI_MAXIMUM_POOL_SIZE:3}
+      minimum-idle: ${DB_HIKARI_MINIMUM_IDLE:1}
+      connection-timeout: ${DB_HIKARI_CONNECTION_TIMEOUT_MS:20000}
+      idle-timeout: ${DB_HIKARI_IDLE_TIMEOUT_MS:60000}
+      max-lifetime: ${DB_HIKARI_MAX_LIFETIME_MS:240000}
+      keepalive-time: ${DB_HIKARI_KEEPALIVE_TIME_MS:60000}
+      validation-timeout: ${DB_HIKARI_VALIDATION_TIMEOUT_MS:5000}
 
   # JPA 설정
   jpa:
@@ -114,7 +116,7 @@ record:
   outbox:
     scheduler:
       enabled: ${RECORD_OUTBOX_SCHEDULER_ENABLED:true}
-      fixed-delay-ms: ${RECORD_OUTBOX_SCHEDULER_FIXED_DELAY_MS:5000}
+      fixed-delay-ms: ${RECORD_OUTBOX_SCHEDULER_FIXED_DELAY_MS:30000}
       batch-size: ${RECORD_OUTBOX_SCHEDULER_BATCH_SIZE:20}
       stale-timeout-seconds: ${RECORD_OUTBOX_STALE_TIMEOUT_SECONDS:300}
     retry:
