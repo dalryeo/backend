@@ -25,23 +25,23 @@
 ## Hikari 설정 방향
 
 - `maximum-pool-size` 기본값을 `5`에서 `3`으로 낮춘다.
-- `minimum-idle` 기본값을 `1`에서 `0`으로 낮춘다.
+- `minimum-idle` 기본값은 `1`을 유지한다.
 - `connection-timeout` 기본값을 `30000ms`에서 `20000ms`로 낮춘다.
 - `idle-timeout` 기본값을 `300000ms`에서 `60000ms`로 낮춘다.
 - `max-lifetime` 기본값을 `600000ms`에서 `240000ms`로 낮춘다.
 - `keepalive-time` 기본값을 `60000ms`로 추가한다.
 - `validation-timeout` 기본값을 `5000ms`로 추가한다.
 
-각 값은 환경변수로 덮어쓸 수 있게 둔다. 운영 관측 결과에 따라 Azure Container App 환경변수만 조정해 재배포 부담을 줄이기 위함이다.
+각 값은 환경변수로 덮어쓸 수 있게 둔다. 운영 관측 결과에 따라 Azure Container App 환경변수만 조정해 재배포 부담을 줄이기 위함이다. `minimum-idle`은 1개 유휴 연결을 유지해 간헐적 요청에서 매번 새 DB 커넥션을 만드는 부담을 줄인다.
 
 ## Outbox 스케줄러 설정 방향
 
 scheduled task의 DB connection timeout이 반복됐으므로, outbox 스케줄러가 DB를 두드리는 빈도와 한 번에 처리하는 작업량도 낮춘다.
 
 - `fixed-delay-ms` 기본값을 `5000ms`에서 `30000ms`로 늘린다.
-- `batch-size` 기본값을 `20`에서 `5`로 낮춘다.
+- `batch-size` 기본값은 `20`을 유지한다.
 
-이 변경은 러닝 기록 저장 후 주간 집계와 랭킹 반영이 최대 수십 초 늦어질 수 있다. 대신 DB connection pool이 불안정할 때 scheduled task가 반복적으로 연결을 요구하는 압력을 줄인다.
+이 변경은 DB connection pool이 불안정할 때 scheduled task가 반복적으로 연결을 요구하는 압력을 줄인다. batch size는 기존 처리량을 유지해 러닝 기록 저장 후 주간 집계와 랭킹 반영이 과하게 밀리는 위험을 낮춘다.
 
 ## 기대 효과
 
