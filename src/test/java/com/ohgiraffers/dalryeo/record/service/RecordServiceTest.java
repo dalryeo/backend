@@ -17,7 +17,7 @@ import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEventRepository;
 import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEventStatus;
 import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEventType;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
-import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
+import com.ohgiraffers.dalryeo.tier.service.CurrentWeeklyTierResolver;
 import com.ohgiraffers.dalryeo.tier.service.TierScoreCalculator;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
 import com.ohgiraffers.dalryeo.user.exception.UserErrorCode;
@@ -64,7 +64,7 @@ class RecordServiceTest {
     private UserLookupService userLookupService;
 
     @Mock
-    private CurrentTierResolver currentTierResolver;
+    private CurrentWeeklyTierResolver currentWeeklyTierResolver;
 
     @Mock
     private TierService tierService;
@@ -305,8 +305,8 @@ class RecordServiceTest {
                 .thenReturn(Optional.empty());
         when(runningRecordRepository.findByUserIdAndWeekRange(eq(userId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of(runningRecord));
-        when(currentTierResolver.resolve(userId, weekStart))
-                .thenReturn(Optional.of(new CurrentTierResolver.CurrentTier(
+        when(currentWeeklyTierResolver.resolve(userId, weekStart))
+                .thenReturn(Optional.of(new CurrentWeeklyTierResolver.CurrentTier(
                         "FOX",
                         "여우",
                         "S",
@@ -321,7 +321,7 @@ class RecordServiceTest {
         assertThat(response.getWeeklyCount()).isEqualTo(1);
         assertThat(response.getWeeklyAvgPace()).isEqualTo(300);
         assertThat(response.getWeeklyDistance()).isEqualTo(5.0);
-        verify(currentTierResolver).resolve(userId, weekStart);
+        verify(currentWeeklyTierResolver).resolve(userId, weekStart);
     }
 
     @Test
@@ -336,7 +336,7 @@ class RecordServiceTest {
                 .thenReturn(Optional.empty());
         when(runningRecordRepository.findByUserIdAndWeekRange(eq(userId), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of());
-        when(currentTierResolver.resolve(userId, weekStart))
+        when(currentWeeklyTierResolver.resolve(userId, weekStart))
                 .thenReturn(Optional.empty());
 
         RecordSummaryResponse response = recordService.getSummary(userId);
@@ -357,8 +357,8 @@ class RecordServiceTest {
         when(serviceDateProvider.currentWeekStart()).thenReturn(weekStart);
         when(weeklyUserStatsService.findByUserIdAndWeekStartDate(userId, weekStart))
                 .thenReturn(Optional.of(weeklyStats(userId, weekStart)));
-        when(currentTierResolver.resolve(userId, weekStart))
-                .thenReturn(Optional.of(new CurrentTierResolver.CurrentTier(
+        when(currentWeeklyTierResolver.resolve(userId, weekStart))
+                .thenReturn(Optional.of(new CurrentWeeklyTierResolver.CurrentTier(
                         "FOX",
                         "여우",
                         "S",
@@ -385,8 +385,8 @@ class RecordServiceTest {
         when(serviceDateProvider.currentWeekStart()).thenReturn(weekStart);
         when(weeklyUserStatsService.findByUserIdAndWeekStartDate(userId, weekStart))
                 .thenReturn(Optional.of(weeklyStats(userId, weekStart)));
-        when(currentTierResolver.resolve(userId, weekStart))
-                .thenReturn(Optional.of(new CurrentTierResolver.CurrentTier(
+        when(currentWeeklyTierResolver.resolve(userId, weekStart))
+                .thenReturn(Optional.of(new CurrentWeeklyTierResolver.CurrentTier(
                         "HUSKY",
                         "허스키",
                         "B",
@@ -442,7 +442,7 @@ class RecordServiceTest {
         assertThat(response.get(0).getRunCount()).isEqualTo(1);
         assertThat(response.get(0).getAveragePace()).isEqualTo(300);
         assertThat(response.get(0).getWeeklyDistance()).isEqualTo(5.0);
-        verify(currentTierResolver, never()).resolve(eq(userId), any(LocalDate.class));
+        verify(currentWeeklyTierResolver, never()).resolve(eq(userId), any(LocalDate.class));
     }
 
     private RunningRecordRequest request(

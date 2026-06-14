@@ -29,6 +29,16 @@ public class TierScoreCalculator {
         return calculateWeeklyScore(tierScoreSum.doubleValue(), runCount);
     }
 
+    public double displayScoreFromStoredScore(Integer storedScore) {
+        if (storedScore == null) {
+            return 0.0;
+        }
+        return BigDecimal.valueOf(storedScore)
+                .movePointLeft(2)
+                .setScale(2, RoundingMode.HALF_UP)
+                .doubleValue();
+    }
+
     private double getDistanceWeight(double distanceKm) {
         if (distanceKm < 1.00) {
             return 0.50;

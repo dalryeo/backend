@@ -1,7 +1,5 @@
 package com.ohgiraffers.dalryeo.tier.service;
 
-import com.ohgiraffers.dalryeo.tier.entity.TierGrade;
-import com.ohgiraffers.dalryeo.tier.repository.TierGradeRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -17,26 +15,15 @@ import static org.mockito.Mockito.when;
 class TierServiceTest {
 
     @Mock
-    private TierGradeRepository tierGradeRepository;
+    private TierMetadataCache tierMetadataCache;
 
     @InjectMocks
     private TierService tierService;
 
     @Test
     void resolveByScore_returnsTierCodeDisplayNameGradeAndDefaultProfileImage() {
-        TierGrade deerBronze = tierGrade(
-                "DEER",
-                "사슴",
-                "B",
-                1.20,
-                1.28,
-                "/profiles/tiers/deer.png"
-        );
-
-        when(tierGradeRepository.findFirstByMinScoreLessThanEqualAndMaxScoreGreaterThanEqualOrderByMinScoreDesc(
-                1.24,
-                1.24
-        )).thenReturn(Optional.of(deerBronze));
+        when(tierMetadataCache.resolveByScore(1.24))
+                .thenReturn(new TierService.TierInfo("DEER", "사슴", "B", "/profiles/tiers/deer.png"));
 
         TierService.TierInfo result = tierService.resolveByScore(1.24);
 
@@ -48,20 +35,8 @@ class TierServiceTest {
 
     @Test
     void resolveByTierCodeAndScore_returnsTurtleBronzeMetadata() {
-        TierGrade turtleBronze = tierGrade(
-                "TURTLE",
-                "거북이",
-                "B",
-                0.00,
-                0.45,
-                "/profiles/tiers/turtle.png"
-        );
-
-        when(tierGradeRepository.findFirstByTierCodeAndMinScoreLessThanEqualAndMaxScoreGreaterThanEqualOrderByMinScoreDesc(
-                "TURTLE",
-                0.30,
-                0.30
-        )).thenReturn(Optional.of(turtleBronze));
+        when(tierMetadataCache.resolveByTierCodeAndScore("TURTLE", 0.30))
+                .thenReturn(new TierService.TierInfo("TURTLE", "거북이", "B", "/profiles/tiers/turtle.png"));
 
         TierService.TierInfo result = tierService.resolveByTierCodeAndScore("TURTLE", 0.30);
 
@@ -73,38 +48,11 @@ class TierServiceTest {
 
     @Test
     void findDefaultProfileImageByTierCode_returnsLowestGradeImage() {
-        TierGrade turtleBronze = tierGrade(
-                "TURTLE",
-                "거북이",
-                "B",
-                0.00,
-                0.45,
-                "/profiles/tiers/turtle.png"
-        );
-
-        when(tierGradeRepository.findFirstByTierCodeOrderByMinScoreAsc("TURTLE"))
-                .thenReturn(Optional.of(turtleBronze));
+        when(tierMetadataCache.findDefaultProfileImageByTierCode("TURTLE"))
+                .thenReturn(Optional.of("/profiles/tiers/turtle.png"));
 
         Optional<String> result = tierService.findDefaultProfileImageByTierCode("TURTLE");
 
         assertThat(result).contains("/profiles/tiers/turtle.png");
-    }
-
-    private TierGrade tierGrade(
-            String tierCode,
-            String displayName,
-            String grade,
-            double minScore,
-            double maxScore,
-            String defaultProfileImage
-    ) {
-        return TierGrade.builder()
-                .tierCode(tierCode)
-                .displayName(displayName)
-                .grade(grade)
-                .minScore(minScore)
-                .maxScore(maxScore)
-                .defaultProfileImage(defaultProfileImage)
-                .build();
     }
 }

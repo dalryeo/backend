@@ -11,15 +11,15 @@ import com.ohgiraffers.dalryeo.auth.repository.OAuthClientRepository;
 import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
 import com.ohgiraffers.dalryeo.common.time.ServiceDateProvider;
 import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
-import com.ohgiraffers.dalryeo.record.dto.RecordIdResponse;
 import com.ohgiraffers.dalryeo.record.dto.RunningRecordRequest;
 import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEventProcessor;
 import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEventRepository;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
-import com.ohgiraffers.dalryeo.record.service.RecordService;
+import com.ohgiraffers.dalryeo.record.service.WeeklyUserStatsService;
 import com.ohgiraffers.dalryeo.tier.entity.TierGrade;
 import com.ohgiraffers.dalryeo.tier.repository.TierGradeRepository;
+import com.ohgiraffers.dalryeo.tier.service.TierMetadataCache;
 import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
 import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +41,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.Comparator;
 
@@ -95,9 +96,6 @@ class ApiContractIntegrationTest {
     private RecordOutboxEventProcessor recordOutboxEventProcessor;
 
     @Autowired
-    private RecordService recordService;
-
-    @Autowired
     private WeeklyTierRepository weeklyTierRepository;
 
     @Autowired
@@ -108,6 +106,12 @@ class ApiContractIntegrationTest {
 
     @Autowired
     private TierGradeRepository tierGradeRepository;
+
+    @Autowired
+    private TierMetadataCache tierMetadataCache;
+
+    @Autowired
+    private WeeklyUserStatsService weeklyUserStatsService;
 
     @Autowired
     private ServiceDateProvider serviceDateProvider;
@@ -127,6 +131,7 @@ class ApiContractIntegrationTest {
         tierGradeRepository.deleteAll();
         cleanProfileImageDirectory();
         seedTierMetadata();
+        tierMetadataCache.reload();
     }
 
     @Test
@@ -624,7 +629,7 @@ class ApiContractIntegrationTest {
         LocalDate weekStart = serviceDateProvider.currentWeekStart();
 
         saveWeeklyTier(user.getId(), weekStart, "CHEETAH", 157);
-        saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(1));
+        saveRecord(user.getId(), 5.0, 300, currentWeekRecordAt(10));
 
         mockMvc.perform(get("/onboarding")
                 .header("Authorization", bearer(accessToken(user.getId()))))
@@ -835,7 +840,7 @@ class ApiContractIntegrationTest {
         User user = saveUser(null);
         LocalDate weekStart = serviceDateProvider.currentWeekStart();
         saveWeeklyTier(user.getId(), weekStart, "FOX", 90);
-        saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(2));
+        saveRecord(user.getId(), 5.0, 300, currentWeekRecordAt(11));
 
         mockMvc.perform(get("/records/summary")
                         .header("Authorization", bearer(accessToken(user.getId()))))
@@ -852,7 +857,7 @@ class ApiContractIntegrationTest {
     @Test
     void getWeeklyRecords_keepsWeeklyRecordsResponseContract() throws Exception {
         User user = saveUser("runner-weekly");
-        RunningRecord record = saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(3));
+        RunningRecord record = saveRecord(user.getId(), 5.0, 300, currentWeekRecordAt(12));
 
         mockMvc.perform(get("/records/weekly")
                         .header("Authorization", bearer(accessToken(user.getId()))))
@@ -871,7 +876,7 @@ class ApiContractIntegrationTest {
         User user = saveUser("runner-summary");
         LocalDate weekStart = serviceDateProvider.currentWeekStart();
         saveWeeklyTier(user.getId(), weekStart, "HUSKY", 100);
-        saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(4));
+        saveRecord(user.getId(), 5.0, 300, currentWeekRecordAt(13));
 
         mockMvc.perform(get("/weekly/summary/current")
                         .header("Authorization", bearer(accessToken(user.getId()))))
@@ -888,7 +893,7 @@ class ApiContractIntegrationTest {
     @Test
     void getWeeklySummaryList_keepsResponseContract() throws Exception {
         User user = saveUser("runner-summary-list");
-        saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(5));
+        saveRecord(user.getId(), 5.0, 300, currentWeekRecordAt(14));
         LocalDate weekStart = serviceDateProvider.currentWeekStart();
 
         mockMvc.perform(get("/weekly/summary/list")
@@ -910,7 +915,7 @@ class ApiContractIntegrationTest {
         LocalDate weekStart = serviceDateProvider.currentWeekStart();
 
         saveWeeklyTier(user.getId(), weekStart, "CHEETAH", 157);
-        saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(1));
+        saveRecord(user.getId(), 5.0, 300, currentWeekRecordAt(10));
 
         mockMvc.perform(get("/weekly/tiers/current")
                         .header("Authorization", bearer(accessToken(user.getId()))))
@@ -930,7 +935,7 @@ class ApiContractIntegrationTest {
         LocalDate previousWeekStart = currentWeekStart.minusWeeks(1);
 
         saveWeeklyTier(user.getId(), previousWeekStart, "CHEETAH", 157);
-        saveRecord(user.getId(), 5.0, 300, LocalDateTime.now().minusHours(1));
+        saveRecord(user.getId(), 5.0, 300, currentWeekRecordAt(10));
 
         mockMvc.perform(get("/weekly/tiers/current")
                         .header("Authorization", bearer(accessToken(user.getId()))))
@@ -947,8 +952,8 @@ class ApiContractIntegrationTest {
     void getWeeklyScoreRanking_keepsResponseContract() throws Exception {
         User alpha = saveUser("alpha");
         User beta = saveUser("beta");
-        saveRecord(alpha.getId(), 5.0, 300, LocalDateTime.now().minusHours(2));
-        saveRecord(beta.getId(), 10.0, 300, LocalDateTime.now().minusHours(1));
+        saveRecord(alpha.getId(), 5.0, 300, currentWeekRecordAt(10));
+        saveRecord(beta.getId(), 10.0, 300, currentWeekRecordAt(11));
 
         mockMvc.perform(get("/ranking/weekly/score"))
                 .andExpect(status().isOk())
@@ -967,8 +972,8 @@ class ApiContractIntegrationTest {
     void getWeeklyDistanceRanking_keepsResponseContract() throws Exception {
         User alpha = saveUser("alpha");
         User beta = saveUser("beta");
-        saveRecord(alpha.getId(), 5.0, 300, LocalDateTime.now().minusHours(2));
-        saveRecord(beta.getId(), 10.0, 300, LocalDateTime.now().minusHours(1));
+        saveRecord(alpha.getId(), 5.0, 300, currentWeekRecordAt(10));
+        saveRecord(beta.getId(), 10.0, 300, currentWeekRecordAt(11));
 
         mockMvc.perform(get("/ranking/weekly/distance"))
                 .andExpect(status().isOk())
@@ -985,8 +990,8 @@ class ApiContractIntegrationTest {
     void getMyRanking_keepsResponseContract() throws Exception {
         User alpha = saveUser("alpha");
         User beta = saveUser("beta");
-        saveRecord(alpha.getId(), 5.0, 300, LocalDateTime.now().minusHours(2));
-        saveRecord(beta.getId(), 10.0, 300, LocalDateTime.now().minusHours(1));
+        saveRecord(alpha.getId(), 5.0, 300, currentWeekRecordAt(10));
+        saveRecord(beta.getId(), 10.0, 300, currentWeekRecordAt(11));
 
         mockMvc.perform(get("/ranking/me")
                         .header("Authorization", bearer(accessToken(alpha.getId()))))
@@ -1078,19 +1083,24 @@ class ApiContractIntegrationTest {
     }
 
     private RunningRecord saveRecord(Long userId, double distanceKm, int avgPaceSecPerKm, LocalDateTime startAt) {
-        RunningRecordRequest request = new RunningRecordRequest();
-        ReflectionTestUtils.setField(request, "platform", "IOS");
-        ReflectionTestUtils.setField(request, "distanceKm", distanceKm);
-        ReflectionTestUtils.setField(request, "durationSec", (int) Math.round(distanceKm * avgPaceSecPerKm));
-        ReflectionTestUtils.setField(request, "avgPaceSecPerKm", avgPaceSecPerKm);
-        ReflectionTestUtils.setField(request, "avgHeartRate", 150);
-        ReflectionTestUtils.setField(request, "caloriesKcal", 300);
-        ReflectionTestUtils.setField(request, "startAt", startAt.atOffset(TEST_ZONE_OFFSET));
-        ReflectionTestUtils.setField(request, "endAt", startAt.plusSeconds((long) Math.round(distanceKm * avgPaceSecPerKm)).atOffset(TEST_ZONE_OFFSET));
+        int durationSec = (int) Math.round(distanceKm * avgPaceSecPerKm);
+        RunningRecord record = runningRecordRepository.save(RunningRecord.builder()
+                .userId(userId)
+                .platform("IOS")
+                .distanceKm(distanceKm)
+                .durationSec(durationSec)
+                .avgPaceSecPerKm(avgPaceSecPerKm)
+                .avgHeartRate(150)
+                .caloriesKcal(300)
+                .startAt(startAt)
+                .endAt(startAt.plusSeconds(durationSec))
+                .build());
+        weeklyUserStatsService.applyRecord(record);
+        return record;
+    }
 
-        RecordIdResponse response = recordService.saveRecord(userId, request);
-        recordOutboxEventProcessor.processDueEvents(10, 300);
-        return runningRecordRepository.findById(response.getRecordId()).orElseThrow();
+    private LocalDateTime currentWeekRecordAt(int hour) {
+        return LocalDateTime.of(serviceDateProvider.currentWeekStart(), LocalTime.of(hour, 0));
     }
 
     private void saveWeeklyTier(Long userId, LocalDate weekStart, String tierCode, int tierScore) {

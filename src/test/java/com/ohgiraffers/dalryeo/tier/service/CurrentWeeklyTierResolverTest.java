@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
@@ -16,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class CurrentTierResolverTest {
+class CurrentWeeklyTierResolverTest {
 
     @Mock
     private WeeklyTierRepository weeklyTierRepository;
@@ -24,11 +25,14 @@ class CurrentTierResolverTest {
     @Mock
     private TierService tierService;
 
+    @Spy
+    private TierScoreCalculator tierScoreCalculator = new TierScoreCalculator();
+
     @Mock
     private ServiceDateProvider serviceDateProvider;
 
     @InjectMocks
-    private CurrentTierResolver currentTierResolver;
+    private CurrentWeeklyTierResolver currentWeeklyTierResolver;
 
     @Test
     void resolve_returnsLatestFinalizedSnapshotAtOrBeforeRequestedWeekStart() {
@@ -48,7 +52,7 @@ class CurrentTierResolverTest {
         when(tierService.resolveByTierCodeAndScore("FOX", 0.90))
                 .thenReturn(new TierService.TierInfo("FOX", "여우", "S", "/profiles/tiers/fox.png"));
 
-        Optional<CurrentTierResolver.CurrentTier> result = currentTierResolver.resolve(userId, currentWeekStart);
+        Optional<CurrentWeeklyTierResolver.CurrentTier> result = currentWeeklyTierResolver.resolve(userId, currentWeekStart);
 
         assertThat(result).isPresent();
         assertThat(result.get().tierCode()).isEqualTo("FOX");
@@ -67,7 +71,7 @@ class CurrentTierResolverTest {
                 currentWeekStart
         )).thenReturn(Optional.empty());
 
-        Optional<CurrentTierResolver.CurrentTier> result = currentTierResolver.resolve(userId, currentWeekStart);
+        Optional<CurrentWeeklyTierResolver.CurrentTier> result = currentWeeklyTierResolver.resolve(userId, currentWeekStart);
 
         assertThat(result).isEmpty();
     }
@@ -91,7 +95,7 @@ class CurrentTierResolverTest {
         when(tierService.resolveByTierCodeAndScore("CHEETAH", 1.57))
                 .thenReturn(new TierService.TierInfo("CHEETAH", "치타", "S", "/profiles/tiers/cheetah.png"));
 
-        Optional<CurrentTierResolver.CurrentTier> result = currentTierResolver.resolve(userId);
+        Optional<CurrentWeeklyTierResolver.CurrentTier> result = currentWeeklyTierResolver.resolve(userId);
 
         assertThat(result).isPresent();
         assertThat(result.get().tierCode()).isEqualTo("CHEETAH");

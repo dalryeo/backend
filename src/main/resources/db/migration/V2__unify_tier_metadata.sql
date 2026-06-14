@@ -35,14 +35,20 @@ DO $$
 BEGIN
     IF EXISTS (
         SELECT 1
-        FROM public.tier t
-        WHERE NOT EXISTS (
-            SELECT 1
-            FROM public.tier_grade tg
-            WHERE tg.tier_code = t.tier_code
-        )
+        FROM public.tier_grade
+        WHERE display_name IS NULL
+           OR default_profile_image IS NULL
     ) THEN
-        RAISE EXCEPTION 'tier_grade metadata is missing for at least one tier_code';
+        RAISE EXCEPTION 'tier_grade metadata contains null display_name or default_profile_image';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM public.tier_grade
+        WHERE tier_code = 'TURTLE'
+          AND grade = 'B'
+    ) THEN
+        RAISE EXCEPTION 'tier_grade TURTLE/B metadata is missing';
     END IF;
 END $$;
 

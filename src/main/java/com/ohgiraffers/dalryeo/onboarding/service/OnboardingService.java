@@ -8,7 +8,7 @@ import com.ohgiraffers.dalryeo.onboarding.dto.NicknameCheckResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingRequest;
 import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.ProfileImageUploadResponse;
-import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
+import com.ohgiraffers.dalryeo.tier.service.CurrentWeeklyTierResolver;
 import com.ohgiraffers.dalryeo.tier.service.TierScoreCalculator;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
 import com.ohgiraffers.dalryeo.user.service.UserLookupService;
@@ -27,7 +27,7 @@ public class OnboardingService {
     private final UserRepository userRepository;
     private final UserLookupService userLookupService;
     private final TierService tierService;
-    private final CurrentTierResolver currentTierResolver;
+    private final CurrentWeeklyTierResolver currentWeeklyTierResolver;
     private final ProfileImageStorageService profileImageStorageService;
     private final TierScoreCalculator tierScoreCalculator;
     private static final String DEFAULT_ONBOARDING_TIER_CODE = "TURTLE";
@@ -133,8 +133,8 @@ public class OnboardingService {
             return user.getProfileImage();
         }
 
-        return currentTierResolver.resolve(userId)
-                .map(CurrentTierResolver.CurrentTier::defaultProfileImage)
+        return currentWeeklyTierResolver.resolve(userId)
+                .map(CurrentWeeklyTierResolver.CurrentTier::defaultProfileImage)
                 .orElseGet(() -> resolveDefaultOnboardingProfileImage(user));
     }
 
