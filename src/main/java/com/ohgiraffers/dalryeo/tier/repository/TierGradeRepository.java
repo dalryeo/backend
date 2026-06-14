@@ -8,9 +8,16 @@ import java.util.Optional;
 public interface TierGradeRepository extends JpaRepository<TierGrade, Long> {
     Optional<TierGrade> findByTierCodeAndGrade(String tierCode, String grade);
 
+    Optional<TierGrade> findFirstByMinScoreLessThanEqualAndMaxScoreGreaterThanEqualOrderByMinScoreDesc(
+            Double minScore,
+            Double maxScore
+    );
+
     Optional<TierGrade> findFirstByTierCodeAndMinScoreLessThanEqualAndMaxScoreGreaterThanEqualOrderByMinScoreDesc(
             String tierCode,
             Double minScore,
             Double maxScore
     );
+
+    Optional<TierGrade> findFirstByTierCodeOrderByMinScoreAsc(String tierCode);
 }
