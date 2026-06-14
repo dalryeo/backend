@@ -362,7 +362,10 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.data.height").value(165))
                 .andExpect(jsonPath("$.data.weight").value(52))
                 .andExpect(jsonPath("$.data.displayProfileImage").value("profile.png"))
-                .andExpect(jsonPath("$.data.customProfileImage").value("profile.png"));
+                .andExpect(jsonPath("$.data.customProfileImage").value("profile.png"))
+                .andExpect(jsonPath("$.data.tierCode").value("TURTLE"))
+                .andExpect(jsonPath("$.data.tierGrade").value("B"))
+                .andExpect(jsonPath("$.data.defaultProfileImage").value("https://api.dalryeo.store/profiles/tiers/turtle.png"));
     }
 
     @Test
@@ -402,7 +405,10 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.data.height").value(178))
                 .andExpect(jsonPath("$.data.weight").value(70))
                 .andExpect(jsonPath("$.data.displayProfileImage").value("https://cdn.example.com/updated.png"))
-                .andExpect(jsonPath("$.data.customProfileImage").value("https://cdn.example.com/updated.png"));
+                .andExpect(jsonPath("$.data.customProfileImage").value("https://cdn.example.com/updated.png"))
+                .andExpect(jsonPath("$.data.tierCode").value("TURTLE"))
+                .andExpect(jsonPath("$.data.tierGrade").value("B"))
+                .andExpect(jsonPath("$.data.defaultProfileImage").value("https://api.dalryeo.store/profiles/tiers/turtle.png"));
     }
 
     @Test
@@ -599,7 +605,10 @@ class ApiContractIntegrationTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.displayProfileImage").value("https://api.dalryeo.store/profiles/tiers/turtle.png"))
-                .andExpect(jsonPath("$.data.customProfileImage").isEmpty());
+                .andExpect(jsonPath("$.data.customProfileImage").isEmpty())
+                .andExpect(jsonPath("$.data.tierCode").value("TURTLE"))
+                .andExpect(jsonPath("$.data.tierGrade").value("B"))
+                .andExpect(jsonPath("$.data.defaultProfileImage").value("https://api.dalryeo.store/profiles/tiers/turtle.png"));
     }
 
     @Test
@@ -620,7 +629,10 @@ class ApiContractIntegrationTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.displayProfileImage").value("https://api.dalryeo.store/profiles/tiers/deer.png"))
-                .andExpect(jsonPath("$.data.customProfileImage").isEmpty());
+                .andExpect(jsonPath("$.data.customProfileImage").isEmpty())
+                .andExpect(jsonPath("$.data.tierCode").value("DEER"))
+                .andExpect(jsonPath("$.data.tierGrade").value("B"))
+                .andExpect(jsonPath("$.data.defaultProfileImage").value("https://api.dalryeo.store/profiles/tiers/deer.png"));
     }
 
     @Test
@@ -637,7 +649,10 @@ class ApiContractIntegrationTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.displayProfileImage").value("https://api.dalryeo.store/profiles/tiers/cheetah.png"))
-                .andExpect(jsonPath("$.data.customProfileImage").isEmpty());
+                .andExpect(jsonPath("$.data.customProfileImage").isEmpty())
+                .andExpect(jsonPath("$.data.tierCode").value("CHEETAH"))
+                .andExpect(jsonPath("$.data.tierGrade").value("S"))
+                .andExpect(jsonPath("$.data.defaultProfileImage").value("https://api.dalryeo.store/profiles/tiers/cheetah.png"));
     }
 
     @Test
@@ -849,6 +864,7 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.currentTier").value("FOX"))
                 .andExpect(jsonPath("$.data.currentTierGrade").value("S"))
+                .andExpect(jsonPath("$.data.currentTierImage").value("/profiles/tiers/fox.png"))
                 .andExpect(jsonPath("$.data.weeklyCount").value(1))
                 .andExpect(jsonPath("$.data.weeklyAvgPace").value(300))
                 .andExpect(jsonPath("$.data.weeklyDistance").value(5.0));
@@ -885,6 +901,7 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.currentTier").value("HUSKY"))
                 .andExpect(jsonPath("$.data.currentTierGrade").value("B"))
+                .andExpect(jsonPath("$.data.currentTierImage").value("/profiles/tiers/husky.png"))
                 .andExpect(jsonPath("$.data.weeklyCount").value(1))
                 .andExpect(jsonPath("$.data.weeklyAvgPace").value(300))
                 .andExpect(jsonPath("$.data.weeklyDistance").value(5.0));
@@ -893,8 +910,8 @@ class ApiContractIntegrationTest {
     @Test
     void getWeeklySummaryList_keepsResponseContract() throws Exception {
         User user = saveUser("runner-summary-list");
-        saveRecord(user.getId(), 5.0, 300, currentWeekRecordAt(14));
         LocalDate weekStart = serviceDateProvider.currentWeekStart();
+        saveRecord(user.getId(), 5.0, 300, currentWeekRecordAt(14));
 
         mockMvc.perform(get("/weekly/summary/list")
                         .header("Authorization", bearer(accessToken(user.getId()))))
@@ -925,6 +942,7 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.data.weekStartDate").value(weekStart.toString()))
                 .andExpect(jsonPath("$.data.tierCode").value("CHEETAH"))
                 .andExpect(jsonPath("$.data.tierGrade").value("S"))
+                .andExpect(jsonPath("$.data.defaultProfileImage").value("/profiles/tiers/cheetah.png"))
                 .andExpect(jsonPath("$.data.tierScore").value(1.57));
     }
 
@@ -945,6 +963,7 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.data.weekStartDate").value(previousWeekStart.toString()))
                 .andExpect(jsonPath("$.data.tierCode").value("CHEETAH"))
                 .andExpect(jsonPath("$.data.tierGrade").value("S"))
+                .andExpect(jsonPath("$.data.defaultProfileImage").value("/profiles/tiers/cheetah.png"))
                 .andExpect(jsonPath("$.data.tierScore").value(1.57));
     }
 
@@ -952,8 +971,11 @@ class ApiContractIntegrationTest {
     void getWeeklyScoreRanking_keepsResponseContract() throws Exception {
         User alpha = saveUser("alpha");
         User beta = saveUser("beta");
+        LocalDate weekStart = serviceDateProvider.currentWeekStart();
         saveRecord(alpha.getId(), 5.0, 300, currentWeekRecordAt(10));
         saveRecord(beta.getId(), 10.0, 300, currentWeekRecordAt(11));
+        saveWeeklyTier(alpha.getId(), weekStart, "FOX", 90);
+        saveWeeklyTier(beta.getId(), weekStart, "CHEETAH", 157);
 
         mockMvc.perform(get("/ranking/weekly/score"))
                 .andExpect(status().isOk())
@@ -961,19 +983,43 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data[0].rank").value(1))
                 .andExpect(jsonPath("$.data[0].nickname").value("beta"))
-                .andExpect(jsonPath("$.data[0].tierCode").value("DEER"))
-                .andExpect(jsonPath("$.data[0].tierGrade").value("B"))
+                .andExpect(jsonPath("$.data[0].tierCode").value("CHEETAH"))
+                .andExpect(jsonPath("$.data[0].tierGrade").value("S"))
+                .andExpect(jsonPath("$.data[0].defaultProfileImage").value("/profiles/tiers/cheetah.png"))
                 .andExpect(jsonPath("$.data[0].tierScore").value(1.27))
                 .andExpect(jsonPath("$.data[1].rank").value(2))
-                .andExpect(jsonPath("$.data[1].nickname").value("alpha"));
+                .andExpect(jsonPath("$.data[1].nickname").value("alpha"))
+                .andExpect(jsonPath("$.data[1].tierCode").value("FOX"))
+                .andExpect(jsonPath("$.data[1].tierGrade").value("S"))
+                .andExpect(jsonPath("$.data[1].defaultProfileImage").value("/profiles/tiers/fox.png"));
+    }
+
+    @Test
+    void getWeeklyScoreRanking_defaultsToTurtleWhenWeeklyTierSnapshotDoesNotExist() throws Exception {
+        User user = saveUser("runner-no-weekly-tier");
+        LocalDate weekStart = serviceDateProvider.currentWeekStart();
+        saveRecord(user.getId(), 10.0, 240, weekStart.atTime(0, 0));
+
+        mockMvc.perform(get("/ranking/weekly/score"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].nickname").value("runner-no-weekly-tier"))
+                .andExpect(jsonPath("$.data[0].tierCode").value("TURTLE"))
+                .andExpect(jsonPath("$.data[0].tierGrade").value("B"))
+                .andExpect(jsonPath("$.data[0].defaultProfileImage").value("/profiles/tiers/turtle.png"))
+                .andExpect(jsonPath("$.data[0].tierScore").value(1.59));
     }
 
     @Test
     void getWeeklyDistanceRanking_keepsResponseContract() throws Exception {
         User alpha = saveUser("alpha");
         User beta = saveUser("beta");
+        LocalDate weekStart = serviceDateProvider.currentWeekStart();
         saveRecord(alpha.getId(), 5.0, 300, currentWeekRecordAt(10));
         saveRecord(beta.getId(), 10.0, 300, currentWeekRecordAt(11));
+        saveWeeklyTier(alpha.getId(), weekStart, "FOX", 90);
+        saveWeeklyTier(beta.getId(), weekStart, "CHEETAH", 157);
 
         mockMvc.perform(get("/ranking/weekly/distance"))
                 .andExpect(status().isOk())
@@ -982,16 +1028,25 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.data[0].rank").value(1))
                 .andExpect(jsonPath("$.data[0].nickname").value("beta"))
                 .andExpect(jsonPath("$.data[0].weeklyDistance").value(10.0))
+                .andExpect(jsonPath("$.data[0].tierCode").value("CHEETAH"))
+                .andExpect(jsonPath("$.data[0].tierGrade").value("S"))
+                .andExpect(jsonPath("$.data[0].defaultProfileImage").value("/profiles/tiers/cheetah.png"))
                 .andExpect(jsonPath("$.data[1].rank").value(2))
-                .andExpect(jsonPath("$.data[1].nickname").value("alpha"));
+                .andExpect(jsonPath("$.data[1].nickname").value("alpha"))
+                .andExpect(jsonPath("$.data[1].tierCode").value("FOX"))
+                .andExpect(jsonPath("$.data[1].tierGrade").value("S"))
+                .andExpect(jsonPath("$.data[1].defaultProfileImage").value("/profiles/tiers/fox.png"));
     }
 
     @Test
     void getMyRanking_keepsResponseContract() throws Exception {
         User alpha = saveUser("alpha");
         User beta = saveUser("beta");
+        LocalDate weekStart = serviceDateProvider.currentWeekStart();
         saveRecord(alpha.getId(), 5.0, 300, currentWeekRecordAt(10));
         saveRecord(beta.getId(), 10.0, 300, currentWeekRecordAt(11));
+        saveWeeklyTier(alpha.getId(), weekStart, "FOX", 90);
+        saveWeeklyTier(beta.getId(), weekStart, "CHEETAH", 157);
 
         mockMvc.perform(get("/ranking/me")
                         .header("Authorization", bearer(accessToken(alpha.getId()))))
@@ -1001,8 +1056,9 @@ class ApiContractIntegrationTest {
                 .andExpect(jsonPath("$.data.nickname").value("alpha"))
                 .andExpect(jsonPath("$.data.scoreRank").value(2))
                 .andExpect(jsonPath("$.data.distanceRank").value(2))
-                .andExpect(jsonPath("$.data.tierCode").value("DEER"))
-                .andExpect(jsonPath("$.data.tierGrade").value("B"))
+                .andExpect(jsonPath("$.data.tierCode").value("FOX"))
+                .andExpect(jsonPath("$.data.tierGrade").value("S"))
+                .andExpect(jsonPath("$.data.defaultProfileImage").value("/profiles/tiers/fox.png"))
                 .andExpect(jsonPath("$.data.tierScore").value(1.24))
                 .andExpect(jsonPath("$.data.weeklyAvgPace").value(300))
                 .andExpect(jsonPath("$.data.weeklyDistance").value(5.0));
@@ -1084,7 +1140,7 @@ class ApiContractIntegrationTest {
 
     private RunningRecord saveRecord(Long userId, double distanceKm, int avgPaceSecPerKm, LocalDateTime startAt) {
         int durationSec = (int) Math.round(distanceKm * avgPaceSecPerKm);
-        RunningRecord record = runningRecordRepository.save(RunningRecord.builder()
+        RunningRecord record = RunningRecord.builder()
                 .userId(userId)
                 .platform("IOS")
                 .distanceKm(distanceKm)
@@ -1094,9 +1150,11 @@ class ApiContractIntegrationTest {
                 .caloriesKcal(300)
                 .startAt(startAt)
                 .endAt(startAt.plusSeconds(durationSec))
-                .build());
-        weeklyUserStatsService.applyRecord(record);
-        return record;
+                .build();
+        RunningRecord savedRecord = runningRecordRepository.save(record);
+        weeklyUserStatsService.applyRecord(savedRecord);
+
+        return savedRecord;
     }
 
     private LocalDateTime currentWeekRecordAt(int hour) {

@@ -45,6 +45,7 @@ public class WeeklyTierService {
                 .weekStartDate(tier.getWeekStartDate())
                 .tierCode(tierInfo.tierCode())
                 .tierGrade(tierInfo.tierGrade())
+                .defaultProfileImage(tierInfo.defaultProfileImage())
                 .tierScore(score)
                 .build();
     }

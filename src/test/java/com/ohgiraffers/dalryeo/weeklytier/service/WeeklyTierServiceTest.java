@@ -69,6 +69,7 @@ class WeeklyTierServiceTest {
         assertThat(response.getTierCode()).isEqualTo("CHEETAH");
         assertThat(response.getTierGrade()).isEqualTo("S");
         assertThat(response.getTierScore()).isEqualTo(1.57);
+        assertThat(response.getDefaultProfileImage()).isEqualTo("/profiles/tiers/cheetah.png");
         verify(weeklyTierRepository).findTopByUserIdAndWeekStartDateLessThanEqualOrderByWeekStartDateDesc(
                 userId,
                 currentWeekStart

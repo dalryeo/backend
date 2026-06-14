@@ -21,4 +21,7 @@ public class OnboardingResponse {
     private Integer weight;
     private String displayProfileImage;
     private String customProfileImage;
+    private String tierCode;
+    private String tierGrade;
+    private String defaultProfileImage;
 }

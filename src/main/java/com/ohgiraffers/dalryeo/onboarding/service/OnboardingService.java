@@ -94,6 +94,7 @@ public class OnboardingService {
     @Transactional(readOnly = true)
     public OnboardingResponse getOnboarding(Long userId) {
         User user = userLookupService.getActiveById(userId);
+        ResolvedOnboardingTier currentTier = resolveOnboardingTier(user, userId);
 
         return OnboardingResponse.builder()
                 .nickname(user.getNickname())
@@ -101,8 +102,11 @@ public class OnboardingService {
                 .birth(user.getBirth())
                 .height(user.getHeight())
                 .weight(user.getWeight())
-                .displayProfileImage(resolveDisplayProfileImage(user, userId))
+                .displayProfileImage(resolveDisplayProfileImage(user, currentTier))
                 .customProfileImage(user.getProfileImage())
+                .tierCode(currentTier.tierCode())
+                .tierGrade(currentTier.tierGrade())
+                .defaultProfileImage(currentTier.defaultProfileImage())
                 .build();
     }
 
@@ -128,22 +132,27 @@ public class OnboardingService {
                 .build();
     }
 
-    private String resolveDisplayProfileImage(User user, Long userId) {
+    private String resolveDisplayProfileImage(User user, ResolvedOnboardingTier currentTier) {
         if (hasText(user.getProfileImage())) {
             return user.getProfileImage();
         }
 
-        return currentWeeklyTierResolver.resolve(userId)
-                .map(CurrentWeeklyTierResolver.CurrentTier::defaultProfileImage)
-                .orElseGet(() -> resolveDefaultOnboardingProfileImage(user));
+        return currentTier.defaultProfileImage();
     }
 
-    private String resolveDefaultOnboardingProfileImage(User user) {
+    private ResolvedOnboardingTier resolveOnboardingTier(User user, Long userId) {
+        return currentWeeklyTierResolver.resolve(userId)
+                .map(ResolvedOnboardingTier::from)
+                .orElseGet(() -> resolveDefaultOnboardingTier(user));
+    }
+
+    private ResolvedOnboardingTier resolveDefaultOnboardingTier(User user) {
         if (!isOnboardingCompleted(user)) {
-            return null;
+            return ResolvedOnboardingTier.empty();
         }
-        return tierService.findDefaultProfileImageByTierCode(DEFAULT_ONBOARDING_TIER_CODE)
+        String defaultProfileImage = tierService.findDefaultProfileImageByTierCode(DEFAULT_ONBOARDING_TIER_CODE)
                 .orElse(null);
+        return new ResolvedOnboardingTier(DEFAULT_ONBOARDING_TIER_CODE, "B", defaultProfileImage);
     }
 
     private boolean isOnboardingCompleted(User user) {
@@ -166,6 +175,24 @@ public class OnboardingService {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private record ResolvedOnboardingTier(
+            String tierCode,
+            String tierGrade,
+            String defaultProfileImage
+    ) {
+        private static ResolvedOnboardingTier from(CurrentWeeklyTierResolver.CurrentTier currentTier) {
+            return new ResolvedOnboardingTier(
+                    currentTier.tierCode(),
+                    currentTier.tierGrade(),
+                    currentTier.defaultProfileImage()
+            );
+        }
+
+        private static ResolvedOnboardingTier empty() {
+            return new ResolvedOnboardingTier(null, null, null);
+        }
     }
 
 }

@@ -18,5 +18,5 @@ public class DistanceRankingResponse {
     private Integer weeklyAvgPace;
     private String tierCode;
     private String tierGrade;
+    private String defaultProfileImage;
 }
-
