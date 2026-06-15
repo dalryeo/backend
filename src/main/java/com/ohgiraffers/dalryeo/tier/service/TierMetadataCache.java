@@ -4,6 +4,7 @@ import com.ohgiraffers.dalryeo.tier.entity.TierGrade;
 import com.ohgiraffers.dalryeo.tier.repository.TierGradeRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.Comparator;
@@ -13,6 +14,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class TierMetadataCache {
 
     private final TierGradeRepository tierGradeRepository;
@@ -44,14 +46,19 @@ public class TierMetadataCache {
     }
 
     public TierService.TierInfo resolveByTierCodeAndScore(String tierCode, double score) {
-        return cache.get().stream()
+        List<TierMetadata> tierMetadataList = cache.get().stream()
                 .filter(metadata -> metadata.matchesTierCode(tierCode))
+                .toList();
+
+        if (tierMetadataList.isEmpty()) {
+            throw new IllegalStateException("존재하지 않는 티어 코드입니다. tierCode=" + tierCode);
+        }
+
+        return tierMetadataList.stream()
                 .filter(metadata -> metadata.containsScore(score))
                 .findFirst()
                 .map(TierMetadata::toTierInfo)
-                .orElseThrow(() -> new IllegalStateException(
-                        "티어 코드와 점수에 해당하는 티어 메타데이터를 찾을 수 없습니다. tierCode=" + tierCode + ", score=" + score
-                ));
+                .orElseGet(() -> fallbackToLowestGrade(tierMetadataList, tierCode, score).toTierInfo());
     }
 
     public Optional<String> findDefaultProfileImageByTierCode(String tierCode) {
@@ -59,6 +66,22 @@ public class TierMetadataCache {
                 .filter(metadata -> metadata.matchesTierCode(tierCode))
                 .min(Comparator.comparing(TierMetadata::minScore))
                 .map(TierMetadata::defaultProfileImage);
+    }
+
+    private TierMetadata fallbackToLowestGrade(List<TierMetadata> tierMetadataList, String tierCode, double score) {
+        TierMetadata fallback = tierMetadataList.stream()
+                .min(Comparator.comparingDouble(TierMetadata::minScore))
+                .orElseThrow(() -> new IllegalStateException("존재하지 않는 티어 코드입니다. tierCode=" + tierCode));
+
+        log.error(
+                "tier metadata mismatch. fallback applied. tierCode={}, score={}, fallbackGrade={}, fallbackMinScore={}, fallbackMaxScore={}",
+                tierCode,
+                score,
+                fallback.grade(),
+                fallback.minScore(),
+                fallback.maxScore()
+        );
+        return fallback;
     }
 
     private record TierMetadata(

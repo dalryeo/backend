@@ -57,6 +57,26 @@ class TierMetadataCacheTest {
     }
 
     @Test
+    void resolveByTierCodeAndScore_fallsBackToLowestGradeWhenTierCodeExistsButScoreRangeDoesNotMatch() {
+        TierMetadataCache cache = new TierMetadataCache(tierGradeRepository);
+        when(tierGradeRepository.findAllByOrderByMinScoreDesc())
+                .thenReturn(List.of(
+                        tierGrade("FOX", "여우", "G", 0.95, 0.99, "/profiles/tiers/fox-g.png"),
+                        tierGrade("FOX", "여우", "S", 0.90, 0.94, "/profiles/tiers/fox-s.png"),
+                        tierGrade("FOX", "여우", "B", 0.86, 0.89, "/profiles/tiers/fox-b.png")
+                ));
+
+        cache.reload();
+
+        TierService.TierInfo result = cache.resolveByTierCodeAndScore("FOX", 0.85);
+
+        assertThat(result.tierCode()).isEqualTo("FOX");
+        assertThat(result.displayName()).isEqualTo("여우");
+        assertThat(result.tierGrade()).isEqualTo("B");
+        assertThat(result.defaultProfileImage()).isEqualTo("/profiles/tiers/fox-b.png");
+    }
+
+    @Test
     void findDefaultProfileImageByTierCode_returnsLowestMinScoreImage() {
         TierMetadataCache cache = new TierMetadataCache(tierGradeRepository);
         when(tierGradeRepository.findAllByOrderByMinScoreDesc())
