@@ -7,8 +7,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -21,10 +19,11 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class CurrentTierResolver {
+public class CurrentWeeklyTierResolver {
 
     private final WeeklyTierRepository weeklyTierRepository;
     private final TierService tierService;
+    private final TierScoreCalculator tierScoreCalculator;
     private final ServiceDateProvider serviceDateProvider;
 
     public Optional<CurrentTier> resolve(Long userId) {
@@ -61,28 +60,18 @@ public class CurrentTierResolver {
     }
 
     private CurrentTier fromWeeklyTier(WeeklyTier weeklyTier) {
-        double score = scoreFromInt(weeklyTier.getTierScore());
+        double score = tierScoreCalculator.displayScoreFromStoredScore(weeklyTier.getTierScore());
         return fromTierCodeAndScore(weeklyTier.getTierCode(), score);
     }
 
     private CurrentTier fromSnapshot(WeeklyTierRepository.CurrentTierSnapshot snapshot) {
-        double score = scoreFromInt(snapshot.getTierScore());
+        double score = tierScoreCalculator.displayScoreFromStoredScore(snapshot.getTierScore());
         return fromTierCodeAndScore(snapshot.getTierCode(), score);
     }
 
     private CurrentTier fromTierCodeAndScore(String tierCode, double score) {
         TierService.TierInfo tierInfo = tierService.resolveByTierCodeAndScore(tierCode, score);
         return CurrentTier.from(tierInfo, score);
-    }
-
-    private double scoreFromInt(Integer score) {
-        if (score == null) {
-            return 0.0;
-        }
-        return BigDecimal.valueOf(score)
-                .movePointLeft(2)
-                .setScale(2, RoundingMode.HALF_UP)
-                .doubleValue();
     }
 
     public record CurrentTier(

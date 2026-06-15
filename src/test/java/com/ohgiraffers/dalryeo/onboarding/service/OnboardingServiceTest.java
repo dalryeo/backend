@@ -9,7 +9,7 @@ import com.ohgiraffers.dalryeo.onboarding.dto.NicknameCheckResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingRequest;
 import com.ohgiraffers.dalryeo.onboarding.dto.OnboardingResponse;
 import com.ohgiraffers.dalryeo.onboarding.dto.ProfileImageUploadResponse;
-import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
+import com.ohgiraffers.dalryeo.tier.service.CurrentWeeklyTierResolver;
 import com.ohgiraffers.dalryeo.tier.service.TierScoreCalculator;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
 import com.ohgiraffers.dalryeo.user.exception.UserErrorCode;
@@ -49,7 +49,7 @@ class OnboardingServiceTest {
     private TierService tierService;
 
     @Mock
-    private CurrentTierResolver currentTierResolver;
+    private CurrentWeeklyTierResolver currentWeeklyTierResolver;
 
     @Mock
     private ProfileImageStorageService profileImageStorageService;
@@ -155,8 +155,8 @@ class OnboardingServiceTest {
         ReflectionTestUtils.setField(user, "profileImage", "image2.png");
 
         when(userLookupService.getActiveById(userId)).thenReturn(user);
-        when(currentTierResolver.resolve(userId))
-                .thenReturn(Optional.of(new CurrentTierResolver.CurrentTier(
+        when(currentWeeklyTierResolver.resolve(userId))
+                .thenReturn(Optional.of(new CurrentWeeklyTierResolver.CurrentTier(
                         "FOX",
                         "여우",
                         "S",
@@ -185,8 +185,8 @@ class OnboardingServiceTest {
         ReflectionTestUtils.setField(user, "nickname", "runner5");
 
         when(userLookupService.getActiveById(userId)).thenReturn(user);
-        when(currentTierResolver.resolve(userId))
-                .thenReturn(Optional.of(new CurrentTierResolver.CurrentTier(
+        when(currentWeeklyTierResolver.resolve(userId))
+                .thenReturn(Optional.of(new CurrentWeeklyTierResolver.CurrentTier(
                         "DEER",
                         "사슴",
                         "B",
@@ -214,7 +214,7 @@ class OnboardingServiceTest {
         ReflectionTestUtils.setField(user, "weight", 52);
 
         when(userLookupService.getActiveById(userId)).thenReturn(user);
-        when(currentTierResolver.resolve(userId)).thenReturn(Optional.empty());
+        when(currentWeeklyTierResolver.resolve(userId)).thenReturn(Optional.empty());
         when(tierService.findDefaultProfileImageByTierCode("TURTLE"))
                 .thenReturn(Optional.of("/profiles/tiers/turtle.png"));
 
@@ -233,7 +233,7 @@ class OnboardingServiceTest {
         User user = userWithId(userId);
 
         when(userLookupService.getActiveById(userId)).thenReturn(user);
-        when(currentTierResolver.resolve(userId)).thenReturn(Optional.empty());
+        when(currentWeeklyTierResolver.resolve(userId)).thenReturn(Optional.empty());
 
         OnboardingResponse response = onboardingService.getOnboarding(userId);
 
@@ -283,7 +283,7 @@ class OnboardingServiceTest {
         assertThat(response.getDisplayName()).isEqualTo("사슴");
         assertThat(response.getTierGrade()).isEqualTo("B");
         assertThat(response.getScore()).isEqualTo(1.24);
-        verifyNoInteractions(userRepository, currentTierResolver, profileImageStorageService);
+        verifyNoInteractions(userRepository, currentWeeklyTierResolver, profileImageStorageService);
     }
 
     @Test

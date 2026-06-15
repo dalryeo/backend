@@ -1,6 +1,7 @@
 package com.ohgiraffers.dalryeo.weeklytier.service;
 
 import com.ohgiraffers.dalryeo.common.time.ServiceDateProvider;
+import com.ohgiraffers.dalryeo.tier.service.TierScoreCalculator;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
 import com.ohgiraffers.dalryeo.user.service.UserLookupService;
 import com.ohgiraffers.dalryeo.weeklytier.dto.WeeklyTierResponse;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
@@ -27,6 +29,9 @@ class WeeklyTierServiceTest {
 
     @Mock
     private TierService tierService;
+
+    @Spy
+    private TierScoreCalculator tierScoreCalculator = new TierScoreCalculator();
 
     @Mock
     private UserLookupService userLookupService;

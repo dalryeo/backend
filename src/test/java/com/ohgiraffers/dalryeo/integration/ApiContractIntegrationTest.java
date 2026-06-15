@@ -17,10 +17,9 @@ import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEventRepository;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.record.service.WeeklyUserStatsService;
-import com.ohgiraffers.dalryeo.tier.entity.Tier;
 import com.ohgiraffers.dalryeo.tier.entity.TierGrade;
 import com.ohgiraffers.dalryeo.tier.repository.TierGradeRepository;
-import com.ohgiraffers.dalryeo.tier.repository.TierRepository;
+import com.ohgiraffers.dalryeo.tier.service.TierMetadataCache;
 import com.ohgiraffers.dalryeo.weeklytier.entity.WeeklyTier;
 import com.ohgiraffers.dalryeo.weeklytier.repository.WeeklyTierRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,6 +41,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.Comparator;
 
@@ -105,16 +105,16 @@ class ApiContractIntegrationTest {
     private AuthTokenRepository authTokenRepository;
 
     @Autowired
-    private TierRepository tierRepository;
-
-    @Autowired
     private TierGradeRepository tierGradeRepository;
 
     @Autowired
-    private ServiceDateProvider serviceDateProvider;
+    private TierMetadataCache tierMetadataCache;
 
     @Autowired
     private WeeklyUserStatsService weeklyUserStatsService;
+
+    @Autowired
+    private ServiceDateProvider serviceDateProvider;
 
     @MockBean
     private AppleOAuthValidator appleOAuthValidator;
@@ -129,9 +129,9 @@ class ApiContractIntegrationTest {
         runningRecordRepository.deleteAll();
         userRepository.deleteAll();
         tierGradeRepository.deleteAll();
-        tierRepository.deleteAll();
         cleanProfileImageDirectory();
         seedTierMetadata();
+        tierMetadataCache.reload();
     }
 
     @Test
@@ -641,7 +641,7 @@ class ApiContractIntegrationTest {
         LocalDate weekStart = serviceDateProvider.currentWeekStart();
 
         saveWeeklyTier(user.getId(), weekStart, "CHEETAH", 157);
-        saveRecord(user.getId(), 5.0, 300, weekStart.atTime(0, 0));
+        saveRecord(user.getId(), 5.0, 300, currentWeekRecordAt(10));
 
         mockMvc.perform(get("/onboarding")
                 .header("Authorization", bearer(accessToken(user.getId()))))
@@ -855,7 +855,7 @@ class ApiContractIntegrationTest {
         User user = saveUser(null);
         LocalDate weekStart = serviceDateProvider.currentWeekStart();
         saveWeeklyTier(user.getId(), weekStart, "FOX", 90);
-        saveRecord(user.getId(), 5.0, 300, weekStart.atTime(0, 0));
+        saveRecord(user.getId(), 5.0, 300, currentWeekRecordAt(11));
 
         mockMvc.perform(get("/records/summary")
                         .header("Authorization", bearer(accessToken(user.getId()))))
@@ -873,8 +873,7 @@ class ApiContractIntegrationTest {
     @Test
     void getWeeklyRecords_keepsWeeklyRecordsResponseContract() throws Exception {
         User user = saveUser("runner-weekly");
-        LocalDate weekStart = serviceDateProvider.currentWeekStart();
-        RunningRecord record = saveRecord(user.getId(), 5.0, 300, weekStart.atTime(0, 0));
+        RunningRecord record = saveRecord(user.getId(), 5.0, 300, currentWeekRecordAt(12));
 
         mockMvc.perform(get("/records/weekly")
                         .header("Authorization", bearer(accessToken(user.getId()))))
@@ -893,7 +892,7 @@ class ApiContractIntegrationTest {
         User user = saveUser("runner-summary");
         LocalDate weekStart = serviceDateProvider.currentWeekStart();
         saveWeeklyTier(user.getId(), weekStart, "HUSKY", 100);
-        saveRecord(user.getId(), 5.0, 300, weekStart.atTime(0, 0));
+        saveRecord(user.getId(), 5.0, 300, currentWeekRecordAt(13));
 
         mockMvc.perform(get("/weekly/summary/current")
                         .header("Authorization", bearer(accessToken(user.getId()))))
@@ -912,7 +911,7 @@ class ApiContractIntegrationTest {
     void getWeeklySummaryList_keepsResponseContract() throws Exception {
         User user = saveUser("runner-summary-list");
         LocalDate weekStart = serviceDateProvider.currentWeekStart();
-        saveRecord(user.getId(), 5.0, 300, weekStart.atTime(0, 0));
+        saveRecord(user.getId(), 5.0, 300, currentWeekRecordAt(14));
 
         mockMvc.perform(get("/weekly/summary/list")
                         .header("Authorization", bearer(accessToken(user.getId()))))
@@ -933,7 +932,7 @@ class ApiContractIntegrationTest {
         LocalDate weekStart = serviceDateProvider.currentWeekStart();
 
         saveWeeklyTier(user.getId(), weekStart, "CHEETAH", 157);
-        saveRecord(user.getId(), 5.0, 300, weekStart.atTime(0, 0));
+        saveRecord(user.getId(), 5.0, 300, currentWeekRecordAt(10));
 
         mockMvc.perform(get("/weekly/tiers/current")
                         .header("Authorization", bearer(accessToken(user.getId()))))
@@ -954,7 +953,7 @@ class ApiContractIntegrationTest {
         LocalDate previousWeekStart = currentWeekStart.minusWeeks(1);
 
         saveWeeklyTier(user.getId(), previousWeekStart, "CHEETAH", 157);
-        saveRecord(user.getId(), 5.0, 300, currentWeekStart.atTime(0, 0));
+        saveRecord(user.getId(), 5.0, 300, currentWeekRecordAt(10));
 
         mockMvc.perform(get("/weekly/tiers/current")
                         .header("Authorization", bearer(accessToken(user.getId()))))
@@ -973,8 +972,8 @@ class ApiContractIntegrationTest {
         User alpha = saveUser("alpha");
         User beta = saveUser("beta");
         LocalDate weekStart = serviceDateProvider.currentWeekStart();
-        saveRecord(alpha.getId(), 5.0, 300, weekStart.atTime(0, 0));
-        saveRecord(beta.getId(), 10.0, 300, weekStart.atTime(1, 0));
+        saveRecord(alpha.getId(), 5.0, 300, currentWeekRecordAt(10));
+        saveRecord(beta.getId(), 10.0, 300, currentWeekRecordAt(11));
         saveWeeklyTier(alpha.getId(), weekStart, "FOX", 90);
         saveWeeklyTier(beta.getId(), weekStart, "CHEETAH", 157);
 
@@ -1017,8 +1016,8 @@ class ApiContractIntegrationTest {
         User alpha = saveUser("alpha");
         User beta = saveUser("beta");
         LocalDate weekStart = serviceDateProvider.currentWeekStart();
-        saveRecord(alpha.getId(), 5.0, 300, weekStart.atTime(0, 0));
-        saveRecord(beta.getId(), 10.0, 300, weekStart.atTime(1, 0));
+        saveRecord(alpha.getId(), 5.0, 300, currentWeekRecordAt(10));
+        saveRecord(beta.getId(), 10.0, 300, currentWeekRecordAt(11));
         saveWeeklyTier(alpha.getId(), weekStart, "FOX", 90);
         saveWeeklyTier(beta.getId(), weekStart, "CHEETAH", 157);
 
@@ -1044,8 +1043,8 @@ class ApiContractIntegrationTest {
         User alpha = saveUser("alpha");
         User beta = saveUser("beta");
         LocalDate weekStart = serviceDateProvider.currentWeekStart();
-        saveRecord(alpha.getId(), 5.0, 300, weekStart.atTime(0, 0));
-        saveRecord(beta.getId(), 10.0, 300, weekStart.atTime(1, 0));
+        saveRecord(alpha.getId(), 5.0, 300, currentWeekRecordAt(10));
+        saveRecord(beta.getId(), 10.0, 300, currentWeekRecordAt(11));
         saveWeeklyTier(alpha.getId(), weekStart, "FOX", 90);
         saveWeeklyTier(beta.getId(), weekStart, "CHEETAH", 157);
 
@@ -1158,6 +1157,10 @@ class ApiContractIntegrationTest {
         return savedRecord;
     }
 
+    private LocalDateTime currentWeekRecordAt(int hour) {
+        return LocalDateTime.of(serviceDateProvider.currentWeekStart(), LocalTime.of(hour, 0));
+    }
+
     private void saveWeeklyTier(Long userId, LocalDate weekStart, String tierCode, int tierScore) {
         weeklyTierRepository.save(WeeklyTier.builder()
                 .userId(userId)
@@ -1195,69 +1198,50 @@ class ApiContractIntegrationTest {
     }
 
     private void seedTierMetadata() {
-        tierRepository.saveAll(java.util.List.of(
-                tier("CHEETAH", "치타", 1.50, 999.99),
-                tier("DEER", "사슴", 1.20, 1.49),
-                tier("HUSKY", "허스키", 1.00, 1.19),
-                tier("FOX", "여우", 0.86, 0.99),
-                tier("WATERDEER", "고라니", 0.75, 0.85),
-                tier("SHEEP", "양", 0.67, 0.74),
-                tier("RABBIT", "토끼", 0.60, 0.66),
-                tier("PANDA", "판다", 0.55, 0.59),
-                tier("DUCK", "오리", 0.46, 0.54),
-                tier("TURTLE", "거북이", 0.00, 0.45)
-        ));
         tierGradeRepository.saveAll(java.util.List.of(
-                tierGrade("CHEETAH", "G", 1.64, 999.99),
-                tierGrade("CHEETAH", "S", 1.57, 1.63),
-                tierGrade("CHEETAH", "B", 1.50, 1.56),
-                tierGrade("DEER", "G", 1.39, 1.49),
-                tierGrade("DEER", "S", 1.29, 1.38),
-                tierGrade("DEER", "B", 1.20, 1.28),
-                tierGrade("HUSKY", "G", 1.13, 1.19),
-                tierGrade("HUSKY", "S", 1.06, 1.12),
-                tierGrade("HUSKY", "B", 1.00, 1.05),
-                tierGrade("FOX", "G", 0.95, 0.99),
-                tierGrade("FOX", "S", 0.90, 0.94),
-                tierGrade("FOX", "B", 0.86, 0.89),
-                tierGrade("WATERDEER", "G", 0.82, 0.85),
-                tierGrade("WATERDEER", "S", 0.78, 0.81),
-                tierGrade("WATERDEER", "B", 0.75, 0.77),
-                tierGrade("SHEEP", "G", 0.72, 0.74),
-                tierGrade("SHEEP", "S", 0.69, 0.71),
-                tierGrade("SHEEP", "B", 0.67, 0.68),
-                tierGrade("RABBIT", "G", 0.64, 0.66),
-                tierGrade("RABBIT", "S", 0.62, 0.63),
-                tierGrade("RABBIT", "B", 0.60, 0.61),
-                tierGrade("PANDA", "G", 0.58, 0.59),
-                tierGrade("PANDA", "S", 0.56, 0.57),
-                tierGrade("PANDA", "B", 0.55, 0.55),
-                tierGrade("DUCK", "G", 0.52, 0.54),
-                tierGrade("DUCK", "S", 0.49, 0.51),
-                tierGrade("DUCK", "B", 0.46, 0.48)
+                tierGrade("CHEETAH", "치타", "G", 1.64, 999.99),
+                tierGrade("CHEETAH", "치타", "S", 1.57, 1.63),
+                tierGrade("CHEETAH", "치타", "B", 1.50, 1.56),
+                tierGrade("DEER", "사슴", "G", 1.39, 1.49),
+                tierGrade("DEER", "사슴", "S", 1.29, 1.38),
+                tierGrade("DEER", "사슴", "B", 1.20, 1.28),
+                tierGrade("HUSKY", "허스키", "G", 1.13, 1.19),
+                tierGrade("HUSKY", "허스키", "S", 1.06, 1.12),
+                tierGrade("HUSKY", "허스키", "B", 1.00, 1.05),
+                tierGrade("FOX", "여우", "G", 0.95, 0.99),
+                tierGrade("FOX", "여우", "S", 0.90, 0.94),
+                tierGrade("FOX", "여우", "B", 0.86, 0.89),
+                tierGrade("WATERDEER", "고라니", "G", 0.82, 0.85),
+                tierGrade("WATERDEER", "고라니", "S", 0.78, 0.81),
+                tierGrade("WATERDEER", "고라니", "B", 0.75, 0.77),
+                tierGrade("SHEEP", "양", "G", 0.72, 0.74),
+                tierGrade("SHEEP", "양", "S", 0.69, 0.71),
+                tierGrade("SHEEP", "양", "B", 0.67, 0.68),
+                tierGrade("RABBIT", "토끼", "G", 0.64, 0.66),
+                tierGrade("RABBIT", "토끼", "S", 0.62, 0.63),
+                tierGrade("RABBIT", "토끼", "B", 0.60, 0.61),
+                tierGrade("PANDA", "판다", "G", 0.58, 0.59),
+                tierGrade("PANDA", "판다", "S", 0.56, 0.57),
+                tierGrade("PANDA", "판다", "B", 0.55, 0.55),
+                tierGrade("DUCK", "오리", "G", 0.52, 0.54),
+                tierGrade("DUCK", "오리", "S", 0.49, 0.51),
+                tierGrade("DUCK", "오리", "B", 0.46, 0.48),
+                tierGrade("TURTLE", "거북이", "B", 0.00, 0.45)
         ));
-    }
-
-    private Tier tier(String tierCode, String displayName, double minScore, double maxScore) {
-        return Tier.builder()
-                .tierCode(tierCode)
-                .displayName(displayName)
-                .minScore(minScore)
-                .maxScore(maxScore)
-                .defaultProfileImage(defaultProfileImagePath(tierCode))
-                .build();
     }
 
     private String defaultProfileImagePath(String tierCode) {
         return "/profiles/tiers/" + tierCode.toLowerCase() + ".png";
     }
 
-    private TierGrade tierGrade(String tierCode, String grade, double minScore, double maxScore) {
+    private TierGrade tierGrade(String tierCode, String displayName, String grade, double minScore, double maxScore) {
         return TierGrade.builder()
                 .tierCode(tierCode)
+                .displayName(displayName)
                 .grade(grade)
                 .minScore(minScore)
                 .maxScore(maxScore)
+                .defaultProfileImage(defaultProfileImagePath(tierCode))
                 .build();
     }
 }

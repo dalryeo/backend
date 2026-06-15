@@ -15,7 +15,7 @@ import com.ohgiraffers.dalryeo.record.entity.WeeklyUserStats;
 import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEvent;
 import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEventRepository;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
-import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
+import com.ohgiraffers.dalryeo.tier.service.CurrentWeeklyTierResolver;
 import com.ohgiraffers.dalryeo.tier.service.TierScoreCalculator;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
 import com.ohgiraffers.dalryeo.user.service.UserLookupService;
@@ -40,7 +40,7 @@ public class RecordService {
     private final UserLookupService userLookupService;
     private final RecordOutboxEventRepository recordOutboxEventRepository;
     private final TierService tierService;
-    private final CurrentTierResolver currentTierResolver;
+    private final CurrentWeeklyTierResolver currentWeeklyTierResolver;
     private final RunningRecordValidator runningRecordValidator;
     private final WeeklyUserStatsService weeklyUserStatsService;
     private final TierScoreCalculator tierScoreCalculator;
@@ -321,7 +321,7 @@ public class RecordService {
     }
 
     private ResolvedTier resolveCurrentTier(Long userId, LocalDate weekStartDate) {
-        return currentTierResolver.resolve(userId, weekStartDate)
+        return currentWeeklyTierResolver.resolve(userId, weekStartDate)
                 .map(ResolvedTier::from)
                 .orElseGet(() -> new ResolvedTier(
                         "TURTLE",
@@ -347,7 +347,7 @@ public class RecordService {
     }
 
     private record ResolvedTier(String tierCode, String tierGrade, String defaultProfileImage) {
-        private static ResolvedTier from(CurrentTierResolver.CurrentTier currentTier) {
+        private static ResolvedTier from(CurrentWeeklyTierResolver.CurrentTier currentTier) {
             String tierGrade = currentTier.tierGrade();
             return new ResolvedTier(
                     currentTier.tierCode(),

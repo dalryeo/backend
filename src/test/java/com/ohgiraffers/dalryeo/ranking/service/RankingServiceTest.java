@@ -9,7 +9,7 @@ import com.ohgiraffers.dalryeo.ranking.dto.ScoreRankingResponse;
 import com.ohgiraffers.dalryeo.record.entity.WeeklyUserStats;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository.WeeklyRankingRow;
-import com.ohgiraffers.dalryeo.tier.service.CurrentTierResolver;
+import com.ohgiraffers.dalryeo.tier.service.CurrentWeeklyTierResolver;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
 import com.ohgiraffers.dalryeo.user.exception.UserErrorCode;
 import com.ohgiraffers.dalryeo.user.exception.UserException;
@@ -47,7 +47,7 @@ class RankingServiceTest {
     private TierService tierService;
 
     @Mock
-    private CurrentTierResolver currentTierResolver;
+    private CurrentWeeklyTierResolver currentWeeklyTierResolver;
 
     @Mock
     private ServiceDateProvider serviceDateProvider;
@@ -64,7 +64,7 @@ class RankingServiceTest {
         when(serviceDateProvider.currentWeekStart()).thenReturn(weekStart);
         when(weeklyUserStatsRepository.findScoreRankingRows(any(LocalDate.class), eq(100)))
                 .thenReturn(List.of(betaStats, alphaStats));
-        when(currentTierResolver.resolveAll(Set.of(1L, 2L), weekStart))
+        when(currentWeeklyTierResolver.resolveAll(Set.of(1L, 2L), weekStart))
                 .thenReturn(Map.of(
                         1L, currentTier("FOX", "여우", "S", 0.90, "/profiles/tiers/fox.png"),
                         2L, currentTier("CHEETAH", "치타", "S", 1.57, "/profiles/tiers/cheetah.png")
@@ -96,7 +96,7 @@ class RankingServiceTest {
         when(serviceDateProvider.currentWeekStart()).thenReturn(weekStart);
         when(weeklyUserStatsRepository.findDistanceRankingRows(any(LocalDate.class), eq(100)))
                 .thenReturn(List.of(betaStats, alphaStats));
-        when(currentTierResolver.resolveAll(Set.of(1L, 2L), weekStart))
+        when(currentWeeklyTierResolver.resolveAll(Set.of(1L, 2L), weekStart))
                 .thenReturn(Map.of(
                         1L, currentTier("FOX", "여우", "S", 0.90, "/profiles/tiers/fox.png"),
                         2L, currentTier("CHEETAH", "치타", "S", 1.57, "/profiles/tiers/cheetah.png")
@@ -142,7 +142,7 @@ class RankingServiceTest {
                 eq(BigDecimal.valueOf(1.24)),
                 eq(userId)
         )).thenReturn(1L);
-        when(currentTierResolver.resolve(userId, weekStart))
+        when(currentWeeklyTierResolver.resolve(userId, weekStart))
                 .thenReturn(Optional.of(currentTier("FOX", "여우", "S", 0.90, "/profiles/tiers/fox.png")));
 
         RankingMeResponse response = rankingService.getMyRanking(userId);
@@ -231,14 +231,14 @@ class RankingServiceTest {
         };
     }
 
-    private CurrentTierResolver.CurrentTier currentTier(
+    private CurrentWeeklyTierResolver.CurrentTier currentTier(
             String tierCode,
             String displayName,
             String tierGrade,
             double score,
             String defaultProfileImage
     ) {
-        return new CurrentTierResolver.CurrentTier(
+        return new CurrentWeeklyTierResolver.CurrentTier(
                 tierCode,
                 displayName,
                 tierGrade,
