@@ -60,7 +60,7 @@ class RecordOutboxEventTransactionServiceTest {
 
         transactionService.processClaimedEvent(1L);
 
-        verify(weeklyUserStatsService).applyRecord(record);
+        verify(weeklyUserStatsService).rebuildForRecord(record);
         assertThat(event.getStatus()).isEqualTo(RecordOutboxEventStatus.DONE);
     }
 

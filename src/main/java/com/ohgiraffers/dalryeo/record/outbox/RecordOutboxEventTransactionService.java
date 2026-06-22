@@ -74,6 +74,6 @@ public class RecordOutboxEventTransactionService {
                 .orElseThrow(() -> new IllegalStateException(
                         "Running record not found for outbox event. recordId=" + event.getAggregateId()
                 ));
-        weeklyUserStatsService.applyRecord(record);
+        weeklyUserStatsService.rebuildForRecord(record);
     }
 }

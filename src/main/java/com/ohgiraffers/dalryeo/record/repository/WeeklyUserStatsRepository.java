@@ -52,7 +52,7 @@ public interface WeeklyUserStatsRepository extends JpaRepository<WeeklyUserStats
             """, nativeQuery = true)
     List<WeeklyUserStats> findFinalizationTargets(@Param("weekStartDate") LocalDate weekStartDate);
 
-    // 러닝 기록 1건을 해당 주의 사용자 집계에 누적 반영한다.
+    // 원본 러닝 기록 기준으로 다시 계산한 주간 사용자 집계를 교체 반영한다.
     @Modifying
     @Query(value = """
             INSERT INTO weekly_user_stats (
@@ -71,40 +71,35 @@ public interface WeeklyUserStatsRepository extends JpaRepository<WeeklyUserStats
             VALUES (
                 :userId,
                 :weekStartDate,
-                1,
-                :distanceKm,
-                :durationSec,
+                :runCount,
+                :totalDistanceKm,
+                :totalDurationSec,
                 :weightedPaceSum,
                 :avgPaceSecPerKm,
-                :tierScore,
+                :tierScoreSum,
                 :tierScore,
                 CURRENT_TIMESTAMP,
                 CURRENT_TIMESTAMP
             )
             ON CONFLICT (user_id, week_start_date)
             DO UPDATE SET
-                run_count = weekly_user_stats.run_count + EXCLUDED.run_count,
-                total_distance_km = weekly_user_stats.total_distance_km + EXCLUDED.total_distance_km,
-                total_duration_sec = weekly_user_stats.total_duration_sec + EXCLUDED.total_duration_sec,
-                weighted_pace_sum = weekly_user_stats.weighted_pace_sum + EXCLUDED.weighted_pace_sum,
-                tier_score_sum = weekly_user_stats.tier_score_sum + EXCLUDED.tier_score_sum,
-                avg_pace_sec_per_km = COALESCE(CAST(ROUND(
-                    (weekly_user_stats.weighted_pace_sum + EXCLUDED.weighted_pace_sum)
-                    / NULLIF(weekly_user_stats.total_distance_km + EXCLUDED.total_distance_km, 0)
-                ) AS INTEGER), 0),
-                tier_score = COALESCE(ROUND(
-                    (weekly_user_stats.tier_score_sum + EXCLUDED.tier_score_sum)
-                    / NULLIF(weekly_user_stats.run_count + EXCLUDED.run_count, 0),
-                    2
-                ), 0),
+                run_count = EXCLUDED.run_count,
+                total_distance_km = EXCLUDED.total_distance_km,
+                total_duration_sec = EXCLUDED.total_duration_sec,
+                weighted_pace_sum = EXCLUDED.weighted_pace_sum,
+                avg_pace_sec_per_km = EXCLUDED.avg_pace_sec_per_km,
+                tier_score_sum = EXCLUDED.tier_score_sum,
+                tier_score = EXCLUDED.tier_score,
                 updated_at = CURRENT_TIMESTAMP
             """, nativeQuery = true)
-    void upsertRecordDelta(
+    void replaceAggregate(
             @Param("userId") Long userId,
             @Param("weekStartDate") LocalDate weekStartDate,
-            @Param("distanceKm") BigDecimal distanceKm,
-            @Param("durationSec") Integer durationSec,
+            @Param("runCount") Integer runCount,
+            @Param("totalDistanceKm") BigDecimal totalDistanceKm,
+            @Param("totalDurationSec") Integer totalDurationSec,
             @Param("weightedPaceSum") BigDecimal weightedPaceSum,
+            @Param("tierScoreSum") BigDecimal tierScoreSum,
             @Param("avgPaceSecPerKm") Integer avgPaceSecPerKm,
             @Param("tierScore") BigDecimal tierScore
     );

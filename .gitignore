@@ -38,3 +38,6 @@ out/
 
 ### Local test environment ###
 .env.test
+
+### Local agent work ###
+docs/superpowers/

@@ -1152,7 +1152,7 @@ class ApiContractIntegrationTest {
                 .endAt(startAt.plusSeconds(durationSec))
                 .build();
         RunningRecord savedRecord = runningRecordRepository.save(record);
-        weeklyUserStatsService.applyRecord(savedRecord);
+        weeklyUserStatsService.rebuildForRecord(savedRecord);
 
         return savedRecord;
     }

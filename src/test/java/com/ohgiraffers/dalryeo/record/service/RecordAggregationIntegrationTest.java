@@ -5,9 +5,11 @@ import com.ohgiraffers.dalryeo.auth.entity.UserStatus;
 import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
 import com.ohgiraffers.dalryeo.record.dto.RunningRecordRequest;
 import com.ohgiraffers.dalryeo.record.entity.WeeklyUserStats;
+import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEvent;
 import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEventProcessor;
 import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEventRepository;
 import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEventStatus;
+import com.ohgiraffers.dalryeo.record.outbox.RecordOutboxEventTransactionService;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,6 +48,9 @@ class RecordAggregationIntegrationTest {
     private RecordOutboxEventProcessor recordOutboxEventProcessor;
 
     @Autowired
+    private RecordOutboxEventTransactionService recordOutboxEventTransactionService;
+
+    @Autowired
     private UserRepository userRepository;
 
     @BeforeEach
@@ -57,7 +62,7 @@ class RecordAggregationIntegrationTest {
     }
 
     @Test
-    void saveRecord_accumulatesWeeklyUserStatsInSameWeek() {
+    void saveRecord_rebuildsWeeklyUserStatsInSameWeek() {
         User user = userRepository.save(User.builder()
                 .status(UserStatus.NORMAL)
                 .build());
@@ -92,6 +97,43 @@ class RecordAggregationIntegrationTest {
         assertThat(stats.getAvgPaceSecPerKm()).isEqualTo(300);
         assertThat(stats.getTierScoreSum()).isEqualByComparingTo(BigDecimal.valueOf(2.51));
         assertThat(stats.getTierScore()).isEqualByComparingTo(BigDecimal.valueOf(1.26));
+    }
+
+    @Test
+    void processOutboxEvent_rebuildsWeeklyUserStatsWithoutDuplicateCountingWhenSameEventRunsAgain() {
+        User user = userRepository.save(User.builder()
+                .status(UserStatus.NORMAL)
+                .build());
+
+        recordService.saveRecord(user.getId(), request(
+                5.0,
+                300,
+                LocalDateTime.of(2026, 3, 31, 7, 0)
+        ));
+
+        RecordOutboxEvent event = recordOutboxEventRepository.findAll().get(0);
+        event.markProcessing();
+        recordOutboxEventRepository.saveAndFlush(event);
+        recordOutboxEventTransactionService.processClaimedEvent(event.getId());
+
+        RecordOutboxEvent reprocessedEvent = recordOutboxEventRepository.findById(event.getId()).orElseThrow();
+        reprocessedEvent.markProcessing();
+        recordOutboxEventRepository.saveAndFlush(reprocessedEvent);
+        recordOutboxEventTransactionService.processClaimedEvent(reprocessedEvent.getId());
+
+        WeeklyUserStats stats = weeklyUserStatsRepository.findByUserIdAndWeekStartDate(
+                user.getId(),
+                LocalDate.of(2026, 3, 30)
+        ).orElseThrow();
+
+        assertThat(runningRecordRepository.count()).isEqualTo(1);
+        assertThat(stats.getRunCount()).isEqualTo(1);
+        assertThat(stats.getTotalDistanceKm()).isEqualByComparingTo(BigDecimal.valueOf(5.000).setScale(3));
+        assertThat(stats.getTotalDurationSec()).isEqualTo(1500);
+        assertThat(stats.getWeightedPaceSum()).isEqualByComparingTo(BigDecimal.valueOf(1500.000).setScale(3));
+        assertThat(stats.getAvgPaceSecPerKm()).isEqualTo(300);
+        assertThat(stats.getTierScoreSum()).isEqualByComparingTo(BigDecimal.valueOf(1.24));
+        assertThat(stats.getTierScore()).isEqualByComparingTo(BigDecimal.valueOf(1.24));
     }
 
     private RunningRecordRequest request(double distanceKm, int avgPaceSecPerKm, LocalDateTime startAt) {
