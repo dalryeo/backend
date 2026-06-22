@@ -34,17 +34,39 @@ public class WeeklyUserStatsService {
 
     @Transactional
     public void rebuildUserWeek(Long userId, LocalDate weekStartDate) {
-        RunningRecordRepository.UserWeekAggregate aggregate = runningRecordRepository.aggregateUserWeek(
+        List<RunningRecord> records = runningRecordRepository.findByUserIdAndWeekRange(
                 userId,
                 weekStartDate.atStartOfDay(),
                 weekStartDate.plusWeeks(1).atStartOfDay()
         );
 
-        Integer runCount = valueOrZero(aggregate.getRunCount());
-        BigDecimal totalDistanceKm = decimal(aggregate.getTotalDistanceKm(), 3);
-        Integer totalDurationSec = valueOrZero(aggregate.getTotalDurationSec());
-        BigDecimal weightedPaceSum = decimal(aggregate.getWeightedPaceSum(), 3);
-        BigDecimal tierScoreSum = decimal(aggregate.getTierScoreSum(), 2);
+        Integer runCount = records.size();
+        BigDecimal totalDistanceKm = BigDecimal.ZERO;
+        Integer totalDurationSec = 0;
+        BigDecimal weightedPaceSum = BigDecimal.ZERO;
+        BigDecimal tierScoreSum = BigDecimal.ZERO;
+
+        for (RunningRecord record : records) {
+            BigDecimal distanceKm = decimal(record.getDistanceKm(), 3);
+
+            totalDistanceKm = totalDistanceKm.add(distanceKm);
+            totalDurationSec += record.getDurationSec();
+            weightedPaceSum = weightedPaceSum.add(
+                    distanceKm.multiply(BigDecimal.valueOf(record.getAvgPaceSecPerKm()))
+            );
+            tierScoreSum = tierScoreSum.add(decimal(
+                    tierScoreCalculator.calculateRecordScore(
+                            record.getDistanceKm(),
+                            record.getAvgPaceSecPerKm()
+                    ),
+                    2
+            ));
+        }
+
+        totalDistanceKm = decimal(totalDistanceKm, 3);
+        weightedPaceSum = decimal(weightedPaceSum, 3);
+        tierScoreSum = decimal(tierScoreSum, 2);
+
         Integer avgPaceSecPerKm = calculateAveragePaceSecPerKm(weightedPaceSum, totalDistanceKm);
         BigDecimal tierScore = decimal(tierScoreCalculator.calculateWeeklyScore(tierScoreSum, runCount), 2);
 
@@ -92,10 +114,6 @@ public class WeeklyUserStatsService {
     private BigDecimal decimal(BigDecimal value, int scale) {
         return (value == null ? BigDecimal.ZERO : value)
                 .setScale(scale, RoundingMode.HALF_UP);
-    }
-
-    private Integer valueOrZero(Integer value) {
-        return value == null ? 0 : value;
     }
 
     private Integer calculateAveragePaceSecPerKm(BigDecimal weightedPaceSum, BigDecimal totalDistanceKm) {

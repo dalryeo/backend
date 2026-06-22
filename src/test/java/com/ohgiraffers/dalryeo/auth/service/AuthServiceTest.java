@@ -13,6 +13,7 @@ import com.ohgiraffers.dalryeo.auth.oauth.AppleOAuthValidator;
 import com.ohgiraffers.dalryeo.auth.repository.AuthTokenRepository;
 import com.ohgiraffers.dalryeo.auth.repository.OAuthClientRepository;
 import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
+import com.ohgiraffers.dalryeo.common.time.ServiceDateProvider;
 import com.ohgiraffers.dalryeo.onboarding.service.ProfileImageStorageService;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
@@ -48,6 +49,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
 
+    private static final ZoneId SERVICE_ZONE = ZoneId.of("Asia/Seoul");
+
     @Mock
     private AppleOAuthValidator appleOAuthValidator;
 
@@ -62,6 +65,9 @@ class AuthServiceTest {
 
     @Mock
     private AuthTokenRepository authTokenRepository;
+
+    @Mock
+    private ServiceDateProvider serviceDateProvider;
 
     @Mock
     private RunningRecordRepository runningRecordRepository;
@@ -97,6 +103,7 @@ class AuthServiceTest {
         when(jwtTokenProvider.generateAccessToken(userId)).thenReturn(accessToken);
         when(jwtTokenProvider.generateRefreshToken(userId)).thenReturn(refreshToken);
         when(jwtTokenProvider.getRefreshTokenExpiration(refreshToken)).thenReturn(refreshExpiry);
+        when(serviceDateProvider.zoneId()).thenReturn(SERVICE_ZONE);
         when(authTokenRepository.findByUserId(userId)).thenReturn(Optional.empty());
 
         TokenResponse response = authService.loginWithApple(identityToken);
@@ -118,7 +125,7 @@ class AuthServiceTest {
         assertThat(authToken.getUserId()).isEqualTo(userId);
         assertThat(authToken.getRefreshTokenHash()).isEqualTo(sha256(refreshToken));
         assertThat(authToken.getExpiresAt())
-                .isEqualTo(LocalDateTime.ofInstant(refreshExpiry.toInstant(), ZoneId.systemDefault()));
+                .isEqualTo(LocalDateTime.ofInstant(refreshExpiry.toInstant(), SERVICE_ZONE));
     }
 
     @Test
@@ -143,6 +150,7 @@ class AuthServiceTest {
         when(jwtTokenProvider.generateAccessToken(userId)).thenReturn(accessToken);
         when(jwtTokenProvider.generateRefreshToken(userId)).thenReturn(refreshToken);
         when(jwtTokenProvider.getRefreshTokenExpiration(refreshToken)).thenReturn(refreshExpiry);
+        when(serviceDateProvider.zoneId()).thenReturn(SERVICE_ZONE);
         when(authTokenRepository.findByUserId(userId)).thenReturn(Optional.empty());
 
         TokenResponse response = authService.loginWithApple(identityToken);
@@ -181,7 +189,7 @@ class AuthServiceTest {
         AuthToken existingAuthToken = AuthToken.builder()
                 .userId(userId)
                 .refreshTokenHash(sha256(currentRefreshToken))
-                .expiresAt(LocalDateTime.now().plusDays(1))
+                .expiresAt(LocalDateTime.now(SERVICE_ZONE).plusDays(1))
                 .build();
 
         when(jwtTokenProvider.getUserIdFromRefreshToken(currentRefreshToken)).thenReturn(userId);
@@ -191,11 +199,12 @@ class AuthServiceTest {
         when(jwtTokenProvider.generateAccessToken(userId)).thenReturn(newAccessToken);
         when(jwtTokenProvider.generateRefreshToken(userId)).thenReturn(newRefreshToken);
         when(jwtTokenProvider.getRefreshTokenExpiration(newRefreshToken)).thenReturn(newRefreshExpiry);
+        when(serviceDateProvider.zoneId()).thenReturn(SERVICE_ZONE);
         when(authTokenRepository.rotateRefreshTokenIfCurrent(
                 eq(userId),
                 eq(sha256(currentRefreshToken)),
                 eq(sha256(newRefreshToken)),
-                eq(LocalDateTime.ofInstant(newRefreshExpiry.toInstant(), ZoneId.systemDefault()))
+                eq(LocalDateTime.ofInstant(newRefreshExpiry.toInstant(), SERVICE_ZONE))
         )).thenReturn(1);
 
         TokenResponse response = authService.refreshToken(request);
@@ -208,7 +217,7 @@ class AuthServiceTest {
                 userId,
                 sha256(currentRefreshToken),
                 sha256(newRefreshToken),
-                LocalDateTime.ofInstant(newRefreshExpiry.toInstant(), ZoneId.systemDefault())
+                LocalDateTime.ofInstant(newRefreshExpiry.toInstant(), SERVICE_ZONE)
         );
         verify(authTokenRepository, never()).findByUserId(userId);
         verify(authTokenRepository, never()).save(any(AuthToken.class));
@@ -226,7 +235,7 @@ class AuthServiceTest {
         AuthToken existingAuthToken = AuthToken.builder()
                 .userId(userId)
                 .refreshTokenHash(sha256(currentRefreshToken))
-                .expiresAt(LocalDateTime.now().plusDays(1))
+                .expiresAt(LocalDateTime.now(SERVICE_ZONE).plusDays(1))
                 .build();
 
         when(jwtTokenProvider.getUserIdFromRefreshToken(currentRefreshToken)).thenReturn(userId);
@@ -236,11 +245,12 @@ class AuthServiceTest {
         when(jwtTokenProvider.generateAccessToken(userId)).thenReturn(newAccessToken);
         when(jwtTokenProvider.generateRefreshToken(userId)).thenReturn(newRefreshToken);
         when(jwtTokenProvider.getRefreshTokenExpiration(newRefreshToken)).thenReturn(newRefreshExpiry);
+        when(serviceDateProvider.zoneId()).thenReturn(SERVICE_ZONE);
         when(authTokenRepository.rotateRefreshTokenIfCurrent(
                 eq(userId),
                 eq(sha256(currentRefreshToken)),
                 eq(sha256(newRefreshToken)),
-                eq(LocalDateTime.ofInstant(newRefreshExpiry.toInstant(), ZoneId.systemDefault()))
+                eq(LocalDateTime.ofInstant(newRefreshExpiry.toInstant(), SERVICE_ZONE))
         )).thenReturn(0);
 
         assertThatThrownBy(() -> authService.refreshToken(request))
