@@ -124,8 +124,18 @@ public class AuthService {
 
         String newAccessToken = jwtTokenProvider.generateAccessToken(user.getId());
         String newRefreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
+        String newRefreshTokenHash = hashRefreshToken(newRefreshToken);
+        LocalDateTime newRefreshTokenExpiresAt = resolveRefreshTokenExpiresAt(newRefreshToken);
 
-        saveRefreshToken(user.getId(), newRefreshToken);
+        int rotatedCount = authTokenRepository.rotateRefreshTokenIfCurrent(
+                user.getId(),
+                refreshTokenHash,
+                newRefreshTokenHash,
+                newRefreshTokenExpiresAt
+        );
+        if (rotatedCount != 1) {
+            throw new AuthException(AuthErrorCode.REFRESH_TOKEN_MISMATCH);
+        }
 
         return TokenResponse.builder()
                 .accessToken(newAccessToken)
@@ -161,10 +171,7 @@ public class AuthService {
 
     private void saveRefreshToken(Long userId, String refreshToken) {
         String refreshTokenHash = hashRefreshToken(refreshToken);
-        LocalDateTime expiresAt = LocalDateTime.ofInstant(
-                jwtTokenProvider.getRefreshTokenExpiration(refreshToken).toInstant(),
-                ZoneId.systemDefault()
-        );
+        LocalDateTime expiresAt = resolveRefreshTokenExpiresAt(refreshToken);
 
         AuthToken authToken = authTokenRepository.findByUserId(userId)
                 .orElseGet(() -> AuthToken.builder()
@@ -175,6 +182,13 @@ public class AuthService {
 
         authToken.rotate(refreshTokenHash, expiresAt);
         authTokenRepository.save(authToken);
+    }
+
+    private LocalDateTime resolveRefreshTokenExpiresAt(String refreshToken) {
+        return LocalDateTime.ofInstant(
+                jwtTokenProvider.getRefreshTokenExpiration(refreshToken).toInstant(),
+                ZoneId.systemDefault()
+        );
     }
 
     private String hashRefreshToken(String refreshToken) {

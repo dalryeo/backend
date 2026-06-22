@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers, Codex
 - Source of Truth: Yes
-- Last Reviewed: 2026-06-16
+- Last Reviewed: 2026-06-22
 
 ## 도메인 개요
 
@@ -180,6 +180,8 @@ Refresh Token은 새 token pair를 발급받기 위한 JWT다.
 - 저장된 token의 user id와 JWT subject user id가 같아야 한다.
 - 만료되었거나 revoke된 token은 사용할 수 없다.
 - 재발급에 성공하면 새 Access Token과 새 Refresh Token을 발급하고 저장 hash를 회전한다.
+- 저장 hash 회전은 요청 token hash가 아직 현재 저장 hash와 일치할 때만 성공해야 한다.
+- 같은 Refresh Token으로 동시에 재발급이 들어오면 하나의 요청만 회전에 성공해야 한다.
 
 ### Auth Token
 

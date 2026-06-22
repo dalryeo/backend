@@ -191,7 +191,12 @@ class AuthServiceTest {
         when(jwtTokenProvider.generateAccessToken(userId)).thenReturn(newAccessToken);
         when(jwtTokenProvider.generateRefreshToken(userId)).thenReturn(newRefreshToken);
         when(jwtTokenProvider.getRefreshTokenExpiration(newRefreshToken)).thenReturn(newRefreshExpiry);
-        when(authTokenRepository.findByUserId(userId)).thenReturn(Optional.of(existingAuthToken));
+        when(authTokenRepository.rotateRefreshTokenIfCurrent(
+                eq(userId),
+                eq(sha256(currentRefreshToken)),
+                eq(sha256(newRefreshToken)),
+                eq(LocalDateTime.ofInstant(newRefreshExpiry.toInstant(), ZoneId.systemDefault()))
+        )).thenReturn(1);
 
         TokenResponse response = authService.refreshToken(request);
 
@@ -199,12 +204,52 @@ class AuthServiceTest {
         assertThat(response.getRefreshToken()).isEqualTo(newRefreshToken);
         assertThat(response.getIsNewUser()).isNull();
 
-        ArgumentCaptor<AuthToken> authTokenCaptor = ArgumentCaptor.forClass(AuthToken.class);
-        verify(authTokenRepository).save(authTokenCaptor.capture());
-        AuthToken rotatedAuthToken = authTokenCaptor.getValue();
-        assertThat(rotatedAuthToken.getRefreshTokenHash()).isEqualTo(sha256(newRefreshToken));
-        assertThat(rotatedAuthToken.getExpiresAt())
-                .isEqualTo(LocalDateTime.ofInstant(newRefreshExpiry.toInstant(), ZoneId.systemDefault()));
+        verify(authTokenRepository).rotateRefreshTokenIfCurrent(
+                userId,
+                sha256(currentRefreshToken),
+                sha256(newRefreshToken),
+                LocalDateTime.ofInstant(newRefreshExpiry.toInstant(), ZoneId.systemDefault())
+        );
+        verify(authTokenRepository, never()).findByUserId(userId);
+        verify(authTokenRepository, never()).save(any(AuthToken.class));
+    }
+
+    @Test
+    void refreshToken_throwsMismatchWhenStoredRefreshTokenWasAlreadyRotated() {
+        Long userId = 3L;
+        String currentRefreshToken = "current-refresh-token";
+        String newAccessToken = "new-access-token";
+        String newRefreshToken = "new-refresh-token";
+        Date newRefreshExpiry = Date.from(Instant.parse("2026-04-02T00:00:00Z"));
+        RefreshTokenRequest request = refreshTokenRequest(currentRefreshToken);
+        User user = userWithId(userId, UserStatus.NORMAL);
+        AuthToken existingAuthToken = AuthToken.builder()
+                .userId(userId)
+                .refreshTokenHash(sha256(currentRefreshToken))
+                .expiresAt(LocalDateTime.now().plusDays(1))
+                .build();
+
+        when(jwtTokenProvider.getUserIdFromRefreshToken(currentRefreshToken)).thenReturn(userId);
+        when(userLookupService.getActiveById(userId)).thenReturn(user);
+        when(authTokenRepository.findByRefreshTokenHash(sha256(currentRefreshToken)))
+                .thenReturn(Optional.of(existingAuthToken));
+        when(jwtTokenProvider.generateAccessToken(userId)).thenReturn(newAccessToken);
+        when(jwtTokenProvider.generateRefreshToken(userId)).thenReturn(newRefreshToken);
+        when(jwtTokenProvider.getRefreshTokenExpiration(newRefreshToken)).thenReturn(newRefreshExpiry);
+        when(authTokenRepository.rotateRefreshTokenIfCurrent(
+                eq(userId),
+                eq(sha256(currentRefreshToken)),
+                eq(sha256(newRefreshToken)),
+                eq(LocalDateTime.ofInstant(newRefreshExpiry.toInstant(), ZoneId.systemDefault()))
+        )).thenReturn(0);
+
+        assertThatThrownBy(() -> authService.refreshToken(request))
+                .isInstanceOf(AuthException.class)
+                .extracting("errorCode")
+                .isEqualTo(AuthErrorCode.REFRESH_TOKEN_MISMATCH);
+
+        verify(authTokenRepository, never()).findByUserId(userId);
+        verify(authTokenRepository, never()).save(any(AuthToken.class));
     }
 
     @Test
