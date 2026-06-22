@@ -38,4 +38,4 @@
 
 `docs/pre-ops/`는 새 구조로 이관했다.
 
-기존 `docs/shared/` 아래 파일은 아직 기존 위치가 기준이다. 이동은 파일별로 확인하고 진행한다.
+새 기준 문서는 위 목차에서 찾는다. 예외 경로를 만들 필요가 있으면 먼저 `standards/documentation-system.md`를 갱신한다.

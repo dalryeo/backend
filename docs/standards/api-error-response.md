@@ -5,6 +5,12 @@
 - Source of Truth: No
 - Last Reviewed: 2026-06-16
 
+## 현재 상태
+
+이 문서는 공통 오류 응답 기준을 확정하기 전의 draft다. Codex는 이 문서를 공식 API 계약으로 단독 사용하지 않는다.
+
+오류 응답 작업을 할 때는 현재 구현된 `CommonResponse`, `GlobalExceptionHandler`, `BusinessException`, `ErrorCode`와 테스트를 먼저 확인한다. 이 문서를 `Active`와 `Source of Truth: Yes`로 올릴 때 구현, 테스트, API 계약을 함께 확정한다.
+
 ## 목적
 
 이 문서는 달려 백엔드 API가 오류를 응답할 때 지켜야 하는 공통 계약을 정리한다. 기준은 현재 구현된 `CommonResponse`, `GlobalExceptionHandler`, `BusinessException`, `ErrorCode` 구조다.
