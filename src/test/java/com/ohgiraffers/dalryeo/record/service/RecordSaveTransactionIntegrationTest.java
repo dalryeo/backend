@@ -67,7 +67,7 @@ class RecordSaveTransactionIntegrationTest {
                 .build());
         doThrow(new IllegalStateException("weekly stats update failed"))
                 .when(weeklyUserStatsService)
-                .applyRecord(any());
+                .rebuildForRecord(any());
 
         recordService.saveRecord(user.getId(), request());
         recordOutboxEventProcessor.processNextDueEvent();

@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers, Codex
 - Source of Truth: Yes
-- Last Reviewed: 2026-06-20
+- Last Reviewed: 2026-06-22
 
 ## 결정
 
@@ -31,7 +31,7 @@
 - `tier_score_sum`
 - `tier_score`
 
-러닝 기록이 저장되면 같은 트랜잭션에서 outbox 이벤트를 만든다. 별도 processor가 이벤트를 처리하면서 해당 주차의 `weekly_user_stats`를 upsert한다.
+러닝 기록이 저장되면 같은 트랜잭션에서 outbox 이벤트를 만든다. 별도 processor가 이벤트를 처리하면서 해당 기록이 속한 사용자와 주차의 `running_records`를 다시 집계하고, 그 결과로 `weekly_user_stats`를 upsert한다.
 
 랭킹 조회는 아래 기준을 사용한다.
 
@@ -43,6 +43,7 @@
 
 - `running_records`는 원본 데이터다. 랭킹 조회 최적화를 위해 원본을 대체하지 않는다.
 - `weekly_user_stats`는 반복 조회를 위한 read model이다.
+- outbox 이벤트 처리는 중복 실행될 수 있으므로, 주간 집계 갱신은 단일 기록 delta를 더하지 않고 원본 기준 재집계 결과로 교체한다.
 - 저장 성공과 랭킹 반영은 같은 순간을 보장하지 않는다.
 - outbox 지연이나 실패가 있으면 원본 기록과 주간 집계가 일시적으로 다를 수 있다.
 - 캐시는 현재 기본 구조가 아니다. DB read model과 인덱스가 먼저다.

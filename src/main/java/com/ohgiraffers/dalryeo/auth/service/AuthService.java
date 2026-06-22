@@ -13,6 +13,7 @@ import com.ohgiraffers.dalryeo.auth.oauth.AppleOAuthValidator;
 import com.ohgiraffers.dalryeo.auth.repository.AuthTokenRepository;
 import com.ohgiraffers.dalryeo.auth.repository.OAuthClientRepository;
 import com.ohgiraffers.dalryeo.auth.repository.UserRepository;
+import com.ohgiraffers.dalryeo.common.time.ServiceDateProvider;
 import com.ohgiraffers.dalryeo.onboarding.service.ProfileImageStorageService;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
@@ -29,7 +30,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.HexFormat;
 
 @Slf4j
@@ -46,6 +46,7 @@ public class AuthService {
     private final UserLookupService userLookupService;
     private final OAuthClientRepository oAuthClientRepository;
     private final AuthTokenRepository authTokenRepository;
+    private final ServiceDateProvider serviceDateProvider;
     private final RunningRecordRepository runningRecordRepository;
     private final WeeklyUserStatsRepository weeklyUserStatsRepository;
     private final WeeklyTierRepository weeklyTierRepository;
@@ -114,7 +115,7 @@ public class AuthService {
         String refreshTokenHash = hashRefreshToken(refreshToken);
         AuthToken authToken = authTokenRepository.findByRefreshTokenHash(refreshTokenHash)
                 .orElseThrow(() -> new AuthException(AuthErrorCode.REFRESH_TOKEN_MISMATCH));
-        if (authToken.isExpired(LocalDateTime.now())) {
+        if (authToken.isExpired(LocalDateTime.now(serviceDateProvider.zoneId()))) {
             throw new AuthException(AuthErrorCode.REFRESH_TOKEN_INVALID);
         }
 
@@ -124,8 +125,18 @@ public class AuthService {
 
         String newAccessToken = jwtTokenProvider.generateAccessToken(user.getId());
         String newRefreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
+        String newRefreshTokenHash = hashRefreshToken(newRefreshToken);
+        LocalDateTime newRefreshTokenExpiresAt = resolveRefreshTokenExpiresAt(newRefreshToken);
 
-        saveRefreshToken(user.getId(), newRefreshToken);
+        int rotatedCount = authTokenRepository.rotateRefreshTokenIfCurrent(
+                user.getId(),
+                refreshTokenHash,
+                newRefreshTokenHash,
+                newRefreshTokenExpiresAt
+        );
+        if (rotatedCount != 1) {
+            throw new AuthException(AuthErrorCode.REFRESH_TOKEN_MISMATCH);
+        }
 
         return TokenResponse.builder()
                 .accessToken(newAccessToken)
@@ -161,10 +172,7 @@ public class AuthService {
 
     private void saveRefreshToken(Long userId, String refreshToken) {
         String refreshTokenHash = hashRefreshToken(refreshToken);
-        LocalDateTime expiresAt = LocalDateTime.ofInstant(
-                jwtTokenProvider.getRefreshTokenExpiration(refreshToken).toInstant(),
-                ZoneId.systemDefault()
-        );
+        LocalDateTime expiresAt = resolveRefreshTokenExpiresAt(refreshToken);
 
         AuthToken authToken = authTokenRepository.findByUserId(userId)
                 .orElseGet(() -> AuthToken.builder()
@@ -175,6 +183,13 @@ public class AuthService {
 
         authToken.rotate(refreshTokenHash, expiresAt);
         authTokenRepository.save(authToken);
+    }
+
+    private LocalDateTime resolveRefreshTokenExpiresAt(String refreshToken) {
+        return LocalDateTime.ofInstant(
+                jwtTokenProvider.getRefreshTokenExpiration(refreshToken).toInstant(),
+                serviceDateProvider.zoneId()
+        );
     }
 
     private String hashRefreshToken(String refreshToken) {

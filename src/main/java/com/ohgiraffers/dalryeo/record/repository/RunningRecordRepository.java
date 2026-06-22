@@ -62,4 +62,3 @@ public interface RunningRecordRepository extends JpaRepository<RunningRecord, Lo
 
     void deleteByUserId(Long userId);
 }
-
