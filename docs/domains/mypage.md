@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers, Codex
 - Source of Truth: Yes
-- Last Reviewed: 2026-06-16
+- Last Reviewed: 2026-06-23
 
 ## 도메인 개요
 
@@ -57,6 +57,7 @@ _Input Contract_
 #### 규칙
 
 - 닉네임은 필수값이다.
+- 닉네임은 30자 이하여야 한다.
 - 성별은 필수값이며 `F`, `M`, `O` 중 하나여야 한다.
 - 생년월일은 필수값이며 `yyyy-MM-dd` 형식의 날짜다.
 - 키와 몸무게는 필수값이다.

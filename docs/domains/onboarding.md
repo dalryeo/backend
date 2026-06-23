@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers, Codex
 - Source of Truth: Yes
-- Last Reviewed: 2026-06-16
+- Last Reviewed: 2026-06-23
 
 ## 도메인 개요
 
@@ -59,6 +59,7 @@ _User Profile State_
 #### 규칙
 
 - 온보딩 저장은 인증된 사용자 기준으로 수행한다.
+- 닉네임은 30자 이하여야 한다.
 - 닉네임은 다른 사용자가 이미 사용 중이면 저장할 수 없다.
 - 성별은 `F`, `M`, `O` 중 하나여야 한다.
 - 생년월일은 `yyyy-MM-dd` 형식의 날짜다.
@@ -77,6 +78,7 @@ _Query Result_
 
 #### 규칙
 
+- 닉네임 확인 요청은 30자 이하여야 한다.
 - 닉네임 존재 여부는 `users.nickname` 기준으로 확인한다.
 - 저장 또는 수정 시점에는 다시 중복 검증을 수행해야 한다.
 - 닉네임 확인 결과만으로 닉네임 점유가 보장되지는 않는다.

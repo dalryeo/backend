@@ -13,6 +13,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -77,6 +78,26 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(CommonResponse.failure(error));
+    }
+
+    // 요청 파라미터 검증 실패를 공통 BAD_REQUEST 응답으로 바꾸고 운영 로그를 남긴다.
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<CommonResponse<Map<String, Object>>> handleHandlerMethodValidationException(
+            HandlerMethodValidationException e,
+            HttpServletRequest request
+    ) {
+        logApiError(BAD_REQUEST, HttpStatus.BAD_REQUEST, request, e);
+
+        String message = e.getAllValidationResults().stream()
+                .flatMap(result -> result.getResolvableErrors().stream())
+                .map(error -> error.getDefaultMessage())
+                .filter(errorMessage -> errorMessage != null && !errorMessage.isBlank())
+                .findFirst()
+                .orElse("요청 값이 올바르지 않습니다.");
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(CommonResponse.failure(errorBody(BAD_REQUEST, message)));
     }
 
     // JSON 파싱 실패를 안전한 요청 본문 오류 응답으로 바꾸고 운영 로그를 남긴다.
