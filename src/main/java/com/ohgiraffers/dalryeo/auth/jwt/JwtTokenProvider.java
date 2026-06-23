@@ -21,6 +21,7 @@ public class JwtTokenProvider {
     private static final String REFRESH_TOKEN_USE = "refresh";
     private static final String LEGACY_PUBLIC_SAMPLE_SECRET =
             "your-secret-key-change-this-in-production-use-long-random-string-minimum-32-characters";
+    private static final String EMPTY_SECRET_MESSAGE = "JWT 서명 키는 비어 있을 수 없습니다.";
 
     private final SecretKey secretKey;
     private final long accessTokenExpiration;
@@ -33,6 +34,9 @@ public class JwtTokenProvider {
             @Value("${jwt.secret}") String secret,
             @Value("${jwt.access-token-expiration}") long accessTokenExpiration,
             @Value("${jwt.refresh-token-expiration}") long refreshTokenExpiration) {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException(EMPTY_SECRET_MESSAGE);
+        }
         if (LEGACY_PUBLIC_SAMPLE_SECRET.equals(secret)) {
             throw new IllegalStateException("JWT_SECRET must not use the public sample value");
         }
