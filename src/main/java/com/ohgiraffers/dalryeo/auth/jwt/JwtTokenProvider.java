@@ -19,6 +19,8 @@ public class JwtTokenProvider {
     private static final String TOKEN_USE_CLAIM = "token_use";
     private static final String ACCESS_TOKEN_USE = "access";
     private static final String REFRESH_TOKEN_USE = "refresh";
+    private static final String LEGACY_PUBLIC_SAMPLE_SECRET =
+            "your-secret-key-change-this-in-production-use-long-random-string-minimum-32-characters";
 
     private final SecretKey secretKey;
     private final long accessTokenExpiration;
@@ -31,6 +33,9 @@ public class JwtTokenProvider {
             @Value("${jwt.secret}") String secret,
             @Value("${jwt.access-token-expiration}") long accessTokenExpiration,
             @Value("${jwt.refresh-token-expiration}") long refreshTokenExpiration) {
+        if (LEGACY_PUBLIC_SAMPLE_SECRET.equals(secret)) {
+            throw new IllegalStateException("JWT_SECRET must not use the public sample value");
+        }
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.accessTokenExpiration = accessTokenExpiration;
         this.refreshTokenExpiration = refreshTokenExpiration;
