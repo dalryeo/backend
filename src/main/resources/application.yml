@@ -61,7 +61,7 @@ springdoc:
 
 # JWT 설정
 jwt:
-  secret: ${JWT_SECRET:your-secret-key-change-this-in-production-use-long-random-string-minimum-32-characters}
+  secret: ${JWT_SECRET}
   access-token-expiration: 3600000  # 1시간 (밀리초)
   refresh-token-expiration: 604800000  # 7일 (밀리초)
 
