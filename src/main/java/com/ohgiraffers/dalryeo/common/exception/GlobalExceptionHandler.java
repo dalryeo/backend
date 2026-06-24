@@ -68,16 +68,9 @@ public class GlobalExceptionHandler {
             fieldErrors.putIfAbsent(fieldError.getField(), fieldError.getDefaultMessage());
         }
 
-        String message = fieldErrors.isEmpty()
-                ? "요청 값이 올바르지 않습니다."
-                : fieldErrors.values().iterator().next();
-
-        Map<String, Object> error = errorBody(BAD_REQUEST, message);
-        error.put("errors", fieldErrors);
-
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(CommonResponse.failure(error));
+                .body(CommonResponse.failure(validationErrorBody(fieldErrors)));
     }
 
     // 요청 파라미터 검증 실패를 공통 BAD_REQUEST 응답으로 바꾸고 운영 로그를 남긴다.
@@ -88,16 +81,24 @@ public class GlobalExceptionHandler {
     ) {
         logApiError(BAD_REQUEST, HttpStatus.BAD_REQUEST, request, e);
 
-        String message = e.getAllValidationResults().stream()
-                .flatMap(result -> result.getResolvableErrors().stream())
-                .map(error -> error.getDefaultMessage())
-                .filter(errorMessage -> errorMessage != null && !errorMessage.isBlank())
-                .findFirst()
-                .orElse("요청 값이 올바르지 않습니다.");
+        Map<String, String> parameterErrors = new LinkedHashMap<>();
+        e.getAllValidationResults().forEach(result -> {
+            String parameterName = result.getMethodParameter().getParameterName();
+            if (parameterName == null || parameterName.isBlank()) {
+                parameterName = "request";
+            }
+
+            String finalParameterName = parameterName;
+            result.getResolvableErrors().stream()
+                    .map(error -> error.getDefaultMessage())
+                    .filter(errorMessage -> errorMessage != null && !errorMessage.isBlank())
+                    .findFirst()
+                    .ifPresent(errorMessage -> parameterErrors.putIfAbsent(finalParameterName, errorMessage));
+        });
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(CommonResponse.failure(errorBody(BAD_REQUEST, message)));
+                .body(CommonResponse.failure(validationErrorBody(parameterErrors)));
     }
 
     // JSON 파싱 실패를 안전한 요청 본문 오류 응답으로 바꾸고 운영 로그를 남긴다.
@@ -138,6 +139,17 @@ public class GlobalExceptionHandler {
         Map<String, Object> error = new HashMap<>();
         error.put("code", code);
         error.put("message", message);
+        return error;
+    }
+
+    // 검증 오류를 message와 필드별 errors가 포함된 공통 본문으로 만든다.
+    private Map<String, Object> validationErrorBody(Map<String, String> errors) {
+        String message = errors.isEmpty()
+                ? "요청 값이 올바르지 않습니다."
+                : errors.values().iterator().next();
+
+        Map<String, Object> error = errorBody(BAD_REQUEST, message);
+        error.put("errors", errors);
         return error;
     }
 
