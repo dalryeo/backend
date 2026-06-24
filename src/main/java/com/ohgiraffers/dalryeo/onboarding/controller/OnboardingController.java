@@ -12,6 +12,9 @@ import com.ohgiraffers.dalryeo.onboarding.service.OnboardingService;
 import com.ohgiraffers.dalryeo.mypage.dto.ProfileUpdateRequest;
 import com.ohgiraffers.dalryeo.mypage.service.MypageService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -34,7 +37,14 @@ public class OnboardingController {
      * GET /onboarding/nickname/check?nickname=abc
      */
     @GetMapping("/nickname/check")
-    public CommonResponse<NicknameCheckResponse> checkNickname(@RequestParam String nickname) {
+    public CommonResponse<NicknameCheckResponse> checkNickname(
+            @RequestParam(required = false)
+            @NotBlank(message = "닉네임은 필수입니다.")
+            @Size(max = 30, message = "닉네임은 30자 이하여야 합니다.")
+            @Pattern(
+                    regexp = "^(?:\\s*|[가-힣a-zA-Z0-9]+)$",
+                    message = "닉네임은 한글, 영문, 숫자만 사용할 수 있습니다."
+            ) String nickname) {
         NicknameCheckResponse response = onboardingService.checkNickname(nickname);
         return CommonResponse.success(response);
     }

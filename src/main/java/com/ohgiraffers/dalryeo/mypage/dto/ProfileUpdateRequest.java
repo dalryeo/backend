@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -13,6 +14,11 @@ import java.time.LocalDate;
 @NoArgsConstructor
 public class ProfileUpdateRequest {
     @NotBlank(message = "닉네임은 필수입니다.")
+    @Size(max = 30, message = "닉네임은 30자 이하여야 합니다.")
+    @Pattern(
+            regexp = "^(?:\\s*|[가-힣a-zA-Z0-9]+)$",
+            message = "닉네임은 한글, 영문, 숫자만 사용할 수 있습니다."
+    )
     private String nickname;
 
     @NotBlank(message = "성별은 필수입니다.")

@@ -18,6 +18,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class JwtTokenProviderTest {
 
     private static final String SECRET = "12345678901234567890123456789012";
+    private static final String LEGACY_PUBLIC_SAMPLE_SECRET =
+            "your-secret-key-change-this-in-production-use-long-random-string-minimum-32-characters";
+    private static final String EMPTY_SECRET_MESSAGE = "JWT 서명 키는 비어 있을 수 없습니다.";
     private static final long ACCESS_TOKEN_EXPIRATION = 3_600_000L;
     private static final long REFRESH_TOKEN_EXPIRATION = 604_800_000L;
 
@@ -26,6 +29,42 @@ class JwtTokenProviderTest {
             ACCESS_TOKEN_EXPIRATION,
             REFRESH_TOKEN_EXPIRATION
     );
+
+    @Test
+    void nullSecretIsRejectedWithKoreanMessage() {
+        assertThatThrownBy(() -> new JwtTokenProvider(
+                null,
+                ACCESS_TOKEN_EXPIRATION,
+                REFRESH_TOKEN_EXPIRATION
+        ))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage(EMPTY_SECRET_MESSAGE);
+    }
+
+    @Test
+    void blankSecretIsRejectedWithKoreanMessage() {
+        for (String blankSecret : new String[]{"", "   "}) {
+            assertThatThrownBy(() -> new JwtTokenProvider(
+                    blankSecret,
+                    ACCESS_TOKEN_EXPIRATION,
+                    REFRESH_TOKEN_EXPIRATION
+            ))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage(EMPTY_SECRET_MESSAGE);
+        }
+    }
+
+    @Test
+    void publicSampleSecretIsRejectedWithoutExposingIt() {
+        assertThatThrownBy(() -> new JwtTokenProvider(
+                LEGACY_PUBLIC_SAMPLE_SECRET,
+                ACCESS_TOKEN_EXPIRATION,
+                REFRESH_TOKEN_EXPIRATION
+        ))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("JWT_SECRET")
+                .hasMessageNotContaining(LEGACY_PUBLIC_SAMPLE_SECRET);
+    }
 
     @Test
     void generatedAccessAndRefreshTokensExtractUserIdOnlyForTheirOwnPurpose() {

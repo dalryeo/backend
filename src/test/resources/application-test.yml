@@ -19,6 +19,9 @@ logging:
     org.hibernate.SQL: INFO
     org.hibernate.type.descriptor.sql.BasicBinder: INFO
 
+jwt:
+  secret: test-only-jwt-secret-not-for-production-2026
+
 app:
   public-base-url: https://api.dalryeo.store
   oauth:

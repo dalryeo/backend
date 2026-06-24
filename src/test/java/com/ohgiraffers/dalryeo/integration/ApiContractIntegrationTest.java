@@ -64,6 +64,11 @@ class ApiContractIntegrationTest {
 
     private static final Path TEST_PROFILE_IMAGE_UPLOAD_DIR = Path.of("build/test-uploads/profile-images");
     private static final ZoneOffset TEST_ZONE_OFFSET = ZoneOffset.ofHours(9);
+    private static final String NICKNAME_30_CHARACTERS = "n".repeat(30);
+    private static final String NICKNAME_31_CHARACTERS = "n".repeat(31);
+    private static final String NICKNAME_REQUIRED_MESSAGE = "닉네임은 필수입니다.";
+    private static final String NICKNAME_LENGTH_MESSAGE = "닉네임은 30자 이하여야 합니다.";
+    private static final String NICKNAME_PATTERN_MESSAGE = "닉네임은 한글, 영문, 숫자만 사용할 수 있습니다.";
     private static final String INVALID_REQUEST_BODY_MESSAGE = "요청 본문 형식이 올바르지 않습니다.";
     private static final String INVALID_OFFSET_DATE_TIME_MESSAGE =
             "시간 값은 timezone offset을 포함해야 합니다. 예: 2026-04-14T12:13:09+09:00";
@@ -319,14 +324,75 @@ class ApiContractIntegrationTest {
 
     @Test
     void checkNickname_keepsResponseContract() throws Exception {
-        saveUser("runner-existing");
+        saveUser("runnerexisting");
 
         mockMvc.perform(get("/onboarding/nickname/check")
-                        .param("nickname", "runner-existing"))
+                        .param("nickname", "runnerexisting"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.available").value(false));
+    }
+
+    @Test
+    void checkNickname_acceptsThirtyCharacters() throws Exception {
+        mockMvc.perform(get("/onboarding/nickname/check")
+                        .param("nickname", NICKNAME_30_CHARACTERS))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.available").value(true));
+    }
+
+    @Test
+    void checkNickname_rejectsThirtyOneCharacters() throws Exception {
+        mockMvc.perform(get("/onboarding/nickname/check")
+                        .param("nickname", NICKNAME_31_CHARACTERS))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.data.message").value(NICKNAME_LENGTH_MESSAGE))
+                .andExpect(jsonPath("$.data.errors.nickname").value(NICKNAME_LENGTH_MESSAGE));
+    }
+
+    @Test
+    void checkNickname_rejectsMissingNickname() throws Exception {
+        mockMvc.perform(get("/onboarding/nickname/check"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.data.message").value(NICKNAME_REQUIRED_MESSAGE))
+                .andExpect(jsonPath("$.data.errors.nickname").value(NICKNAME_REQUIRED_MESSAGE));
+    }
+
+    @Test
+    void checkNickname_rejectsBlankNickname() throws Exception {
+        mockMvc.perform(get("/onboarding/nickname/check")
+                        .param("nickname", "   "))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.data.message").value(NICKNAME_REQUIRED_MESSAGE))
+                .andExpect(jsonPath("$.data.errors.nickname").value(NICKNAME_REQUIRED_MESSAGE));
+    }
+
+    @Test
+    void checkNickname_rejectsUnsupportedCharacters() throws Exception {
+        mockMvc.perform(get("/onboarding/nickname/check")
+                        .param("nickname", "runner!"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.data.message").value(NICKNAME_PATTERN_MESSAGE))
+                .andExpect(jsonPath("$.data.errors.nickname").value(NICKNAME_PATTERN_MESSAGE));
+    }
+
+    @Test
+    void checkNickname_acceptsKoreanEnglishAndNumbers() throws Exception {
+        mockMvc.perform(get("/onboarding/nickname/check")
+                        .param("nickname", "러너Runner123"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.available").value(true));
     }
 
     @Test
@@ -369,6 +435,84 @@ class ApiContractIntegrationTest {
     }
 
     @Test
+    void onboardingSave_acceptsThirtyCharacterNickname() throws Exception {
+        User user = saveUser(null);
+        String accessToken = accessToken(user.getId());
+
+        mockMvc.perform(post("/onboarding")
+                        .header("Authorization", bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "%s",
+                                  "gender": "F",
+                                  "birth": "1998-05-12",
+                                  "height": 165,
+                                  "weight": 52,
+                                  "profileImage": null
+                                }
+                                """.formatted(NICKNAME_30_CHARACTERS)))
+                .andExpect(status().isOk());
+
+        assertThat(userRepository.findById(user.getId()).orElseThrow().getNickname())
+                .isEqualTo(NICKNAME_30_CHARACTERS);
+    }
+
+    @Test
+    void onboardingSave_rejectsThirtyOneCharacterNicknameWithoutChangingUser() throws Exception {
+        User user = saveUser(null);
+        String accessToken = accessToken(user.getId());
+
+        mockMvc.perform(post("/onboarding")
+                        .header("Authorization", bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "%s",
+                                  "gender": "F",
+                                  "birth": "1998-05-12",
+                                  "height": 165,
+                                  "weight": 52,
+                                  "profileImage": null
+                                }
+                                """.formatted(NICKNAME_31_CHARACTERS)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.data.message").value(NICKNAME_LENGTH_MESSAGE))
+                .andExpect(jsonPath("$.data.errors.nickname").value(NICKNAME_LENGTH_MESSAGE));
+
+        assertThat(userRepository.findById(user.getId()).orElseThrow().getNickname()).isNull();
+    }
+
+    @Test
+    void onboardingSave_rejectsUnsupportedNicknameCharactersWithoutChangingUser() throws Exception {
+        User user = saveUser(null);
+        String accessToken = accessToken(user.getId());
+
+        mockMvc.perform(post("/onboarding")
+                        .header("Authorization", bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "runner!",
+                                  "gender": "F",
+                                  "birth": "1998-05-12",
+                                  "height": 165,
+                                  "weight": 52,
+                                  "profileImage": null
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.data.message").value(NICKNAME_PATTERN_MESSAGE))
+                .andExpect(jsonPath("$.data.errors.nickname").value(NICKNAME_PATTERN_MESSAGE));
+
+        assertThat(userRepository.findById(user.getId()).orElseThrow().getNickname()).isNull();
+    }
+
+    @Test
     void onboardingUpdate_keepsResponseContract() throws Exception {
         User user = saveUser("runner-before");
         ReflectionTestUtils.setField(user, "gender", "F");
@@ -384,7 +528,7 @@ class ApiContractIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "nickname": "runner-after",
+                                  "nickname": "runnerafter",
                                   "gender": "M",
                                   "birth": "1997-01-03",
                                   "height": 178,
@@ -399,7 +543,7 @@ class ApiContractIntegrationTest {
         mockMvc.perform(get("/onboarding")
                         .header("Authorization", bearer(accessToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.nickname").value("runner-after"))
+                .andExpect(jsonPath("$.data.nickname").value("runnerafter"))
                 .andExpect(jsonPath("$.data.gender").value("M"))
                 .andExpect(jsonPath("$.data.birth").value("1997-01-03"))
                 .andExpect(jsonPath("$.data.height").value(178))
@@ -412,8 +556,64 @@ class ApiContractIntegrationTest {
     }
 
     @Test
+    void onboardingUpdate_rejectsThirtyOneCharacterNicknameWithoutChangingUser() throws Exception {
+        User user = saveUser("runner-before-length-check");
+        String accessToken = accessToken(user.getId());
+
+        mockMvc.perform(put("/onboarding")
+                        .header("Authorization", bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "%s",
+                                  "gender": "M",
+                                  "birth": "1997-01-03",
+                                  "height": 178,
+                                  "weight": 70,
+                                  "profileImage": null
+                                }
+                                """.formatted(NICKNAME_31_CHARACTERS)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.data.message").value(NICKNAME_LENGTH_MESSAGE))
+                .andExpect(jsonPath("$.data.errors.nickname").value(NICKNAME_LENGTH_MESSAGE));
+
+        assertThat(userRepository.findById(user.getId()).orElseThrow().getNickname())
+                .isEqualTo("runner-before-length-check");
+    }
+
+    @Test
+    void onboardingUpdate_rejectsUnsupportedNicknameCharactersWithoutChangingUser() throws Exception {
+        User user = saveUser("runner-before-pattern-check");
+        String accessToken = accessToken(user.getId());
+
+        mockMvc.perform(put("/onboarding")
+                        .header("Authorization", bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "runner!",
+                                  "gender": "M",
+                                  "birth": "1997-01-03",
+                                  "height": 178,
+                                  "weight": 70,
+                                  "profileImage": null
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.data.message").value(NICKNAME_PATTERN_MESSAGE))
+                .andExpect(jsonPath("$.data.errors.nickname").value(NICKNAME_PATTERN_MESSAGE));
+
+        assertThat(userRepository.findById(user.getId()).orElseThrow().getNickname())
+                .isEqualTo("runner-before-pattern-check");
+    }
+
+    @Test
     void onboardingUpdate_returnsConflictWhenNicknameAlreadyExists() throws Exception {
-        saveUser("runner-taken");
+        saveUser("runnertaken");
         User user = saveUser("runner-before-conflict");
         String accessToken = accessToken(user.getId());
 
@@ -422,7 +622,7 @@ class ApiContractIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "nickname": "runner-taken",
+                                  "nickname": "runnertaken",
                                   "gender": "M",
                                   "birth": "1997-01-03",
                                   "height": 178,
@@ -447,7 +647,7 @@ class ApiContractIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "nickname": "runner-invalid-birth",
+                                  "nickname": "runnerinvalidbirth",
                                   "gender": "F",
                                   "birth": "1998/05/12",
                                   "height": 165,
@@ -587,7 +787,7 @@ class ApiContractIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "nickname": "runner-turtle",
+                                  "nickname": "runnerturtle",
                                   "gender": "F",
                                   "birth": "1998-05-12",
                                   "height": 165,
