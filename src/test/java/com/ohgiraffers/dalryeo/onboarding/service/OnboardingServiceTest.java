@@ -15,16 +15,19 @@ import com.ohgiraffers.dalryeo.tier.service.TierService;
 import com.ohgiraffers.dalryeo.user.exception.UserErrorCode;
 import com.ohgiraffers.dalryeo.user.exception.UserException;
 import com.ohgiraffers.dalryeo.user.service.UserLookupService;
+import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.nio.charset.StandardCharsets;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.Optional;
 
@@ -83,7 +86,7 @@ class OnboardingServiceTest {
         );
 
         when(userLookupService.getActiveById(userId)).thenReturn(user);
-        when(userRepository.save(user)).thenReturn(user);
+        when(userRepository.saveAndFlush(user)).thenReturn(user);
 
         onboardingService.saveOnboarding(userId, request);
 
@@ -93,7 +96,7 @@ class OnboardingServiceTest {
         assertThat(user.getHeight()).isEqualTo(165);
         assertThat(user.getWeight()).isEqualTo(52);
         assertThat(user.getProfileImage()).isEqualTo("profile.png");
-        verify(userRepository).save(user);
+        verify(userRepository).saveAndFlush(user);
     }
 
     @Test
@@ -135,12 +138,38 @@ class OnboardingServiceTest {
         );
 
         when(userLookupService.getActiveById(userId)).thenReturn(user);
-        when(userRepository.save(user)).thenReturn(user);
+        when(userRepository.saveAndFlush(user)).thenReturn(user);
 
         onboardingService.saveOnboarding(userId, request);
 
         assertThat(user.getProfileImage()).isNull();
         verify(profileImageStorageService).deleteStoredProfileImage("/profiles/custom/original.png");
+    }
+
+    @Test
+    void saveOnboarding_translatesNicknameUniqueConstraintViolationWhenRaceOccurs() {
+        Long userId = 11L;
+        User user = userWithId(userId);
+        ReflectionTestUtils.setField(user, "profileImage", "/profiles/custom/original.png");
+        OnboardingRequest request = onboardingRequest(
+                "runner11",
+                "F",
+                LocalDate.of(1998, 5, 12),
+                165,
+                52,
+                null
+        );
+
+        when(userLookupService.getActiveById(userId)).thenReturn(user);
+        when(userRepository.saveAndFlush(user)).thenThrow(nicknameUniqueViolation());
+
+        assertThatThrownBy(() -> onboardingService.saveOnboarding(userId, request))
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode")
+                .isEqualTo(UserErrorCode.DUPLICATED_NICKNAME);
+
+        verify(userRepository).saveAndFlush(user);
+        verifyNoInteractions(profileImageStorageService);
     }
 
     @Test
@@ -308,6 +337,15 @@ class OnboardingServiceTest {
                 .build();
         ReflectionTestUtils.setField(user, "id", id);
         return user;
+    }
+
+    private DataIntegrityViolationException nicknameUniqueViolation() {
+        ConstraintViolationException cause = new ConstraintViolationException(
+                "duplicate nickname",
+                new SQLException("duplicate key"),
+                "users_nickname_key"
+        );
+        return new DataIntegrityViolationException("duplicate nickname", cause);
     }
 
     private OnboardingRequest onboardingRequest(
