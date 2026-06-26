@@ -8,20 +8,23 @@ import com.ohgiraffers.dalryeo.onboarding.service.ProfileImageStorageService;
 import com.ohgiraffers.dalryeo.user.exception.UserErrorCode;
 import com.ohgiraffers.dalryeo.user.exception.UserException;
 import com.ohgiraffers.dalryeo.user.service.UserLookupService;
+import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.sql.SQLException;
 import java.time.LocalDate;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -53,7 +56,7 @@ class MypageServiceTest {
         );
 
         when(userLookupService.getActiveById(userId)).thenReturn(user);
-        when(userRepository.save(user)).thenReturn(user);
+        when(userRepository.saveAndFlush(user)).thenReturn(user);
 
         mypageService.updateProfile(userId, request);
 
@@ -63,7 +66,7 @@ class MypageServiceTest {
         assertThat(user.getHeight()).isEqualTo(165);
         assertThat(user.getWeight()).isEqualTo(52);
         assertThat(user.getProfileImage()).isEqualTo("https://cdn.example.com/custom.jpg");
-        verify(userRepository).save(user);
+        verify(userRepository).saveAndFlush(user);
     }
 
     @Test
@@ -81,12 +84,12 @@ class MypageServiceTest {
         );
 
         when(userLookupService.getActiveById(userId)).thenReturn(user);
-        when(userRepository.save(user)).thenReturn(user);
+        when(userRepository.saveAndFlush(user)).thenReturn(user);
 
         mypageService.updateProfile(userId, request);
 
         assertThat(user.getProfileImage()).isNull();
-        verify(userRepository).save(user);
+        verify(userRepository).saveAndFlush(user);
         verify(profileImageStorageService).deleteStoredProfileImage("/profiles/custom/original.jpg");
     }
 
@@ -115,12 +118,48 @@ class MypageServiceTest {
                 .isEqualTo(UserErrorCode.DUPLICATED_NICKNAME);
     }
 
+    @Test
+    void updateProfile_translatesNicknameUniqueConstraintViolationWhenRaceOccurs() {
+        Long userId = 4L;
+        User user = userWithId(userId);
+        ReflectionTestUtils.setField(user, "nickname", "current");
+        ReflectionTestUtils.setField(user, "profileImage", "/profiles/custom/original.jpg");
+        ProfileUpdateRequest request = updateRequest(
+                "runner4",
+                "F",
+                LocalDate.of(1998, 5, 12),
+                165,
+                52,
+                null
+        );
+
+        when(userLookupService.getActiveById(userId)).thenReturn(user);
+        when(userRepository.saveAndFlush(user)).thenThrow(nicknameUniqueViolation());
+
+        assertThatThrownBy(() -> mypageService.updateProfile(userId, request))
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode")
+                .isEqualTo(UserErrorCode.DUPLICATED_NICKNAME);
+
+        verify(userRepository).saveAndFlush(user);
+        verifyNoInteractions(profileImageStorageService);
+    }
+
     private User userWithId(Long id) {
         User user = User.builder()
                 .status(UserStatus.NORMAL)
                 .build();
         ReflectionTestUtils.setField(user, "id", id);
         return user;
+    }
+
+    private DataIntegrityViolationException nicknameUniqueViolation() {
+        ConstraintViolationException cause = new ConstraintViolationException(
+                "duplicate nickname",
+                new SQLException("duplicate key"),
+                "users_nickname_key"
+        );
+        return new DataIntegrityViolationException("duplicate nickname", cause);
     }
 
     private ProfileUpdateRequest updateRequest(

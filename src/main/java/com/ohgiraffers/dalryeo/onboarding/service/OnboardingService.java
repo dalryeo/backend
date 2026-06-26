@@ -13,11 +13,14 @@ import com.ohgiraffers.dalryeo.tier.service.TierScoreCalculator;
 import com.ohgiraffers.dalryeo.tier.service.TierService;
 import com.ohgiraffers.dalryeo.user.service.UserLookupService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Objects;
+
+import static com.ohgiraffers.dalryeo.user.exception.UserConstraintViolationTranslator.translate;
 
 @Service
 @RequiredArgsConstructor
@@ -63,7 +66,11 @@ public class OnboardingService {
                 newProfileImage
         );
 
-        userRepository.save(user);
+        try {
+            userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException e) {
+            throw translate(e);
+        }
         deletePreviousManagedProfileImage(previousProfileImage, newProfileImage);
     }
 

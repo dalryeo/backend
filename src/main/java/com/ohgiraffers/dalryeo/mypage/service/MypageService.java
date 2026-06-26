@@ -6,10 +6,13 @@ import com.ohgiraffers.dalryeo.mypage.dto.ProfileUpdateRequest;
 import com.ohgiraffers.dalryeo.onboarding.service.ProfileImageStorageService;
 import com.ohgiraffers.dalryeo.user.service.UserLookupService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
+
+import static com.ohgiraffers.dalryeo.user.exception.UserConstraintViolationTranslator.translate;
 
 @Service
 @RequiredArgsConstructor
@@ -36,7 +39,11 @@ public class MypageService {
                 request.getWeight(),
                 newProfileImage
         );
-        userRepository.save(user);
+        try {
+            userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException e) {
+            throw translate(e);
+        }
 
         if (!Objects.equals(previousProfileImage, newProfileImage)) {
             profileImageStorageService.deleteStoredProfileImage(previousProfileImage);
