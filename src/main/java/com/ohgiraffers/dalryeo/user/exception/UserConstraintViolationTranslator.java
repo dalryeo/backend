@@ -3,6 +3,8 @@ package com.ohgiraffers.dalryeo.user.exception;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 
+import java.util.Locale;
+
 public final class UserConstraintViolationTranslator {
 
     private static final String NICKNAME_UNIQUE_CONSTRAINT = "users_nickname_key";
@@ -21,7 +23,7 @@ public final class UserConstraintViolationTranslator {
         Throwable current = exception;
         while (current != null) {
             if (current instanceof ConstraintViolationException constraintViolationException
-                    && NICKNAME_UNIQUE_CONSTRAINT.equals(constraintViolationException.getConstraintName())) {
+                    && equalsNicknameConstraintName(constraintViolationException.getConstraintName())) {
                 return true;
             }
             if (containsNicknameConstraintName(current)) {
@@ -32,8 +34,13 @@ public final class UserConstraintViolationTranslator {
         return false;
     }
 
+    private static boolean equalsNicknameConstraintName(String constraintName) {
+        return constraintName != null && NICKNAME_UNIQUE_CONSTRAINT.equalsIgnoreCase(constraintName);
+    }
+
     private static boolean containsNicknameConstraintName(Throwable throwable) {
         String message = throwable.getMessage();
-        return message != null && message.contains(NICKNAME_UNIQUE_CONSTRAINT);
+        return message != null
+                && message.toLowerCase(Locale.ROOT).contains(NICKNAME_UNIQUE_CONSTRAINT);
     }
 }
