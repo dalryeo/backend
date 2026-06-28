@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers, Codex
 - Source of Truth: Yes
-- Last Reviewed: 2026-06-22
+- Last Reviewed: 2026-06-28
 
 ## 결정
 
@@ -33,6 +33,8 @@
 
 러닝 기록이 저장되면 같은 트랜잭션에서 outbox 이벤트를 만든다. 별도 processor가 이벤트를 처리하면서 해당 기록이 속한 사용자와 주차의 `running_records`를 다시 집계하고, 그 결과로 `weekly_user_stats`를 upsert한다.
 
+같은 사용자와 같은 주차의 재집계는 PostgreSQL transaction advisory lock으로 직렬화한다. lock은 원본 `running_records` 조회 전에 잡고, 같은 트랜잭션의 `weekly_user_stats` 교체 반영이 끝날 때 해제된다.
+
 랭킹 조회는 아래 기준을 사용한다.
 
 - 점수 랭킹: `tier_score DESC`, `total_distance_km DESC`, `user_id ASC`
@@ -44,6 +46,9 @@
 - `running_records`는 원본 데이터다. 랭킹 조회 최적화를 위해 원본을 대체하지 않는다.
 - `weekly_user_stats`는 반복 조회를 위한 read model이다.
 - outbox 이벤트 처리는 중복 실행될 수 있으므로, 주간 집계 갱신은 단일 기록 delta를 더하지 않고 원본 기준 재집계 결과로 교체한다.
+- 같은 사용자와 같은 주차의 재집계가 동시에 실행되면 오래된 재집계 결과가 최신 결과를 덮어쓸 수 있으므로, user/week 단위 transaction advisory lock으로 원본 조회부터 교체 반영까지 직렬화한다.
+- advisory lock은 blocking 방식인 `pg_advisory_xact_lock`을 사용한다. 같은 사용자가 같은 주차 기록을 짧은 시간에 여러 건 저장하는 경합은 드물고, non-blocking 방식은 outbox 이벤트를 이미 `PROCESSING`으로 claim한 뒤 재대기시키는 추가 상태 전이가 필요하기 때문이다.
+- transaction advisory lock은 활성 트랜잭션 밖에서 호출되면 statement 종료와 함께 즉시 풀리므로, lock 획득 코드는 활성 트랜잭션이 없으면 예외를 던져 조용한 무력화를 막는다.
 - 저장 성공과 랭킹 반영은 같은 순간을 보장하지 않는다.
 - outbox 지연이나 실패가 있으면 원본 기록과 주간 집계가 일시적으로 다를 수 있다.
 - 캐시는 현재 기본 구조가 아니다. DB read model과 인덱스가 먼저다.
@@ -57,6 +62,7 @@
 - `weekly_user_stats`에 사용자와 주차별 row가 생성됐는지
 - 랭킹 목록 쿼리와 내 랭킹 count 쿼리가 같은 정렬 조건을 쓰는지
 - `week_start_date`가 서비스 시간대 기준 주차와 일치하는지
+- 같은 사용자와 같은 주차 재집계가 advisory lock 대기로 지연되고 있는지
 
 outbox 재처리나 주간 집계 재계산 절차가 필요하면 별도 runbook으로 다룬다.
 
@@ -65,11 +71,14 @@ outbox 재처리나 주간 집계 재계산 절차가 필요하면 별도 runboo
 - `src/main/resources/db/migration/V1__init.sql`
 - `src/main/java/com/ohgiraffers/dalryeo/record/entity/WeeklyUserStats.java`
 - `src/main/java/com/ohgiraffers/dalryeo/record/service/WeeklyUserStatsService.java`
+- `src/main/java/com/ohgiraffers/dalryeo/record/repository/WeeklyUserStatsRebuildLockRepository.java`
 - `src/main/java/com/ohgiraffers/dalryeo/record/repository/WeeklyUserStatsRepository.java`
 - `src/main/java/com/ohgiraffers/dalryeo/record/outbox/RecordOutboxEvent.java`
 - `src/main/java/com/ohgiraffers/dalryeo/record/outbox/RecordOutboxEventProcessor.java`
 - `src/main/java/com/ohgiraffers/dalryeo/ranking/service/RankingService.java`
 - `src/test/java/com/ohgiraffers/dalryeo/record/service/RecordAggregationIntegrationTest.java`
+- `src/test/java/com/ohgiraffers/dalryeo/record/service/WeeklyUserStatsRebuildAdvisoryLockIntegrationTest.java`
+- `src/test/java/com/ohgiraffers/dalryeo/record/repository/WeeklyUserStatsRebuildLockRepositoryTest.java`
 - `src/test/java/com/ohgiraffers/dalryeo/ranking/service/RankingServiceTest.java`
 
 ## 보관된 원문
