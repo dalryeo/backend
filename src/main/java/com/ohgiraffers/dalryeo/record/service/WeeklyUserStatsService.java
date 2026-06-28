@@ -3,6 +3,7 @@ package com.ohgiraffers.dalryeo.record.service;
 import com.ohgiraffers.dalryeo.record.entity.RunningRecord;
 import com.ohgiraffers.dalryeo.record.entity.WeeklyUserStats;
 import com.ohgiraffers.dalryeo.record.repository.RunningRecordRepository;
+import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRebuildLockRepository;
 import com.ohgiraffers.dalryeo.record.repository.WeeklyUserStatsRepository;
 import com.ohgiraffers.dalryeo.tier.service.TierScoreCalculator;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ import java.util.Optional;
 public class WeeklyUserStatsService {
 
     private final WeeklyUserStatsRepository weeklyUserStatsRepository;
+    private final WeeklyUserStatsRebuildLockRepository weeklyUserStatsRebuildLockRepository;
     private final RunningRecordRepository runningRecordRepository;
     private final TierScoreCalculator tierScoreCalculator;
 
@@ -34,6 +36,8 @@ public class WeeklyUserStatsService {
 
     @Transactional
     public void rebuildUserWeek(Long userId, LocalDate weekStartDate) {
+        weeklyUserStatsRebuildLockRepository.lockUserWeek(userId, weekStartDate);
+
         List<RunningRecord> records = runningRecordRepository.findByUserIdAndWeekRange(
                 userId,
                 weekStartDate.atStartOfDay(),

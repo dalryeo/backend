@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers, Codex
 - Source of Truth: Yes
-- Last Reviewed: 2026-06-22
+- Last Reviewed: 2026-06-28
 
 ## 도메인 개요
 
@@ -125,6 +125,8 @@ _Read Model_
 - 주차는 기록의 `startAt`을 서비스 시간대 날짜로 본 뒤, 해당 날짜의 월요일로 계산한다.
 - 집계 갱신은 영향을 받은 사용자와 주차의 `running_records`를 다시 집계한 뒤 `weekly_user_stats` 값을 교체한다.
 - 같은 outbox 이벤트가 다시 처리되어도 같은 원본 기준 집계를 다시 쓰므로, 동일 기록이 중복 누적되면 안 된다.
+- 같은 사용자와 같은 주차의 집계 갱신은 원본 조회부터 교체 반영까지 하나의 transaction advisory lock 안에서 수행한다.
+- 집계 반영 지연은 허용하지만, 이미 더 최신 원본 기준으로 반영된 집계가 오래된 재집계 결과로 후퇴하면 안 된다.
 - 평균 페이스는 거리 가중 평균으로 계산한다.
 - 주간 티어 점수는 기록별 티어 점수의 평균이다.
 - 집계 row는 ranking과 weekly tier finalization의 입력으로 사용된다.
@@ -187,6 +189,7 @@ _Domain Event_
 - [RunningRecordRequest](../../src/main/java/com/ohgiraffers/dalryeo/record/dto/RunningRecordRequest.java)
 - [RunningRecord](../../src/main/java/com/ohgiraffers/dalryeo/record/entity/RunningRecord.java)
 - [WeeklyUserStats](../../src/main/java/com/ohgiraffers/dalryeo/record/entity/WeeklyUserStats.java)
+- [WeeklyUserStatsRebuildLockRepository](../../src/main/java/com/ohgiraffers/dalryeo/record/repository/WeeklyUserStatsRebuildLockRepository.java)
 - [WeeklyUserStatsRepository](../../src/main/java/com/ohgiraffers/dalryeo/record/repository/WeeklyUserStatsRepository.java)
 - [RecordOutboxEvent](../../src/main/java/com/ohgiraffers/dalryeo/record/outbox/RecordOutboxEvent.java)
 - [RecordOutboxEventProcessor](../../src/main/java/com/ohgiraffers/dalryeo/record/outbox/RecordOutboxEventProcessor.java)
@@ -197,4 +200,6 @@ _Domain Event_
 - [RecordServiceTest](../../src/test/java/com/ohgiraffers/dalryeo/record/service/RecordServiceTest.java)
 - [RecordSaveTransactionIntegrationTest](../../src/test/java/com/ohgiraffers/dalryeo/record/service/RecordSaveTransactionIntegrationTest.java)
 - [RecordAggregationIntegrationTest](../../src/test/java/com/ohgiraffers/dalryeo/record/service/RecordAggregationIntegrationTest.java)
+- [WeeklyUserStatsRebuildAdvisoryLockIntegrationTest](../../src/test/java/com/ohgiraffers/dalryeo/record/service/WeeklyUserStatsRebuildAdvisoryLockIntegrationTest.java)
+- [WeeklyUserStatsRebuildLockRepositoryTest](../../src/test/java/com/ohgiraffers/dalryeo/record/repository/WeeklyUserStatsRebuildLockRepositoryTest.java)
 - [RecordOutboxEventTransactionServiceTest](../../src/test/java/com/ohgiraffers/dalryeo/record/outbox/RecordOutboxEventTransactionServiceTest.java)
