@@ -43,10 +43,10 @@ done
 collect_paths() {
   case "$mode" in
     tracked)
-      git ls-files
+      git -c core.quotePath=false ls-files
       ;;
     staged)
-      git diff --cached --name-only --diff-filter=ACMR
+      git -c core.quotePath=false diff --cached --name-only --diff-filter=ACMR
       ;;
     paths-file)
       [[ -f "$paths_file" ]] || {

@@ -131,7 +131,7 @@ def is_meaningful(text):
 
 def has_checked_line(text, expected):
     cleaned = strip_comments(text)
-    pattern = re.compile(r"^-\s+\[[xX]\]\s+" + re.escape(expected) + r"\s*$", re.MULTILINE)
+    pattern = re.compile(r"^\s*-\s+\[[xX]\]\s+" + re.escape(expected) + r"\s*$", re.MULTILINE)
     return bool(pattern.search(cleaned))
 
 

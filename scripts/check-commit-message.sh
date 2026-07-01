@@ -48,10 +48,10 @@ fail() {
 validate_subject() {
   local value="$1"
 
-  [[ "$value" =~ ^(feat|fix|refactor|test|docs|chore|perf):\ .+ ]] \
-    || fail "subject must use 'type: 제목' with allowed type"
+  [[ "$value" =~ ^(feat|fix|refactor|test|docs|chore|perf):\ [[:space:]]*[^[:space:]] ]] \
+    || fail "subject must use 'type: 제목' with allowed type and non-empty title"
 
-  [[ ! "$value" =~ \.$ ]] \
+  [[ ! "$value" =~ \.[[:space:]]*$ ]] \
     || fail "subject must not end with a period"
 }
 

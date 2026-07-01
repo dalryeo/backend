@@ -37,6 +37,7 @@ write_file() {
 
 test_sensitive_paths() {
   local paths_file="$TMP_ROOT/paths.txt"
+  local repo="$TMP_ROOT/unicode-sensitive-repo"
 
   write_file "$paths_file" \
     ".env.test.example" \
@@ -49,6 +50,16 @@ test_sensitive_paths() {
     "src/main/resources/static/.DS_Store" \
     "secrets/prod.pem"
   assert_fail sensitive_blocks_forbidden "$ROOT_DIR/scripts/check-sensitive-paths.sh" --paths-file "$paths_file"
+
+  mkdir -p "$repo"
+  (
+    cd "$repo"
+    git init -q
+    printf 'secret' > "테스트.pem"
+    git add "테스트.pem"
+    assert_fail sensitive_blocks_unicode_tracked "$ROOT_DIR/scripts/check-sensitive-paths.sh" --tracked
+    assert_fail sensitive_blocks_unicode_staged "$ROOT_DIR/scripts/check-sensitive-paths.sh" --staged
+  )
 }
 
 test_commit_message() {
@@ -68,6 +79,11 @@ test_commit_message() {
     "" \
     "- 커밋 메시지 구조 검사 추가"
   assert_fail commit_message_bad_subject "$ROOT_DIR/scripts/check-commit-message.sh" "$bad_subject"
+
+  assert_fail commit_message_rejects_blank_title \
+    "$ROOT_DIR/scripts/check-commit-message.sh" --subject-only --subject "feat:    "
+  assert_fail commit_message_rejects_trailing_period_with_space \
+    "$ROOT_DIR/scripts/check-commit-message.sh" --subject-only --subject "feat: 제목. "
 
   write_file "$bad_body" \
     "chore: 하네스 검사 추가" \
@@ -142,10 +158,49 @@ test_pr_contract() {
     --title "chore: 하네스 검사 추가" \
     --body-file "$body" \
     --changed-files "$changed_files"
+
+  write_file "$changed_files" \
+    "scripts/check-pr-contract.sh"
+  write_file "$body" \
+    "## 작업 내용" \
+    "- PR 검증 스크립트 추가" \
+    "" \
+    "## 변경 이유" \
+    "- 자동 검증 누락 방지" \
+    "" \
+    "## 검증" \
+    "- bash scripts/test-harness-checks.sh" \
+    "" \
+    "## 운영 영향" \
+    "- 없음" \
+    "" \
+    "## 계약 영향" \
+    "  - [x] API 요청/응답 필드, status code, error shape 변경 여부를 확인함" \
+    "" \
+    "## 마이그레이션 영향 (DB 변경 시에만)" \
+    "- [ ] DB 변경이 하위 호환인지 검토함" \
+    "- [ ] 코드-스키마 배포 순서와 롤백 영향을 PR에 적음" \
+    "" \
+    "## 리뷰 포인트" \
+    "- 스크립트 실패 조건"
+  assert_pass pr_contract_allows_indented_checkbox "$ROOT_DIR/scripts/check-pr-contract.sh" \
+    --title "chore: 하네스 검사 추가" \
+    --body-file "$body" \
+    --changed-files "$changed_files"
+}
+
+test_install_git_hooks() {
+  local hook="$ROOT_DIR/.githooks/commit-msg"
+
+  chmod -x "$hook"
+  assert_pass install_git_hooks_repairs_commit_msg_mode \
+    env DALRYEO_INSTALL_HOOKS_SKIP_GIT_CONFIG=1 "$ROOT_DIR/scripts/install-git-hooks.sh"
+  [[ -x "$hook" ]] || fail "install-git-hooks did not make commit-msg executable"
 }
 
 test_sensitive_paths
 test_commit_message
 test_pr_contract
+test_install_git_hooks
 
 echo "test-harness-checks: OK"
