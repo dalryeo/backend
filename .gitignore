@@ -46,4 +46,5 @@ out/
 !.env.*.example
 
 ### Local agent work ###
-docs/superpowers/
+docs/superpowers/*
+!docs/superpowers/.gitkeep
