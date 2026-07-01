@@ -51,6 +51,11 @@ test_sensitive_paths() {
     "secrets/prod.pem"
   assert_fail sensitive_blocks_forbidden "$ROOT_DIR/scripts/check-sensitive-paths.sh" --paths-file "$paths_file"
 
+  write_file "$paths_file" \
+    "secrets/SECRET.PEM" \
+    "secrets/prod.KEY"
+  assert_fail sensitive_blocks_uppercase_extensions "$ROOT_DIR/scripts/check-sensitive-paths.sh" --paths-file "$paths_file"
+
   mkdir -p "$repo"
   (
     cd "$repo"

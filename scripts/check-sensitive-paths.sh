@@ -60,25 +60,32 @@ collect_paths() {
 
 is_allowed_env_example() {
   local path="$1"
-  [[ "$path" == ".env.example" || "$path" =~ (^|/)\.env\..*\.example$ ]]
+  local lower_path
+
+  lower_path="$(printf '%s' "$path" | tr '[:upper:]' '[:lower:]')"
+  [[ "$lower_path" == ".env.example" || "$lower_path" =~ (^|/)\.env\..*\.example$ ]]
 }
 
 is_forbidden_path() {
   local path="$1"
-  local base="${path##*/}"
+  local lower_path
+  local lower_base
+
+  lower_path="$(printf '%s' "$path" | tr '[:upper:]' '[:lower:]')"
+  lower_base="${lower_path##*/}"
 
   [[ -z "$path" ]] && return 1
 
-  if [[ "$base" == ".DS_Store" ]]; then
+  if [[ "$lower_base" == ".ds_store" ]]; then
     return 0
   fi
 
-  if [[ "$path" =~ (^|/)\.env($|\.) ]]; then
+  if [[ "$lower_path" =~ (^|/)\.env($|\.) ]]; then
     is_allowed_env_example "$path" && return 1
     return 0
   fi
 
-  if [[ "$path" =~ \.(pem|key|p12|jks|keystore)$ ]]; then
+  if [[ "$lower_path" =~ \.(pem|key|p12|jks|keystore)$ ]]; then
     return 0
   fi
 
