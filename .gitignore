@@ -5,6 +5,9 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
+### macOS ###
+.DS_Store
+
 ### STS ###
 .apt_generated
 .classpath
@@ -36,8 +39,12 @@ out/
 ### VS Code ###
 .vscode/
 
-### Local test environment ###
-.env.test
+### Local environment ###
+.env
+.env.*
+!.env.example
+!.env.*.example
 
 ### Local agent work ###
-docs/superpowers/
+docs/superpowers/*
+!docs/superpowers/.gitkeep
