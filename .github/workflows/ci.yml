@@ -48,9 +48,9 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -n "${GITHUB_BASE_REF:-}" ]]; then
-            git diff --name-only "origin/${GITHUB_BASE_REF}...HEAD" > changed-files.txt
+            git diff --name-status "origin/${GITHUB_BASE_REF}...HEAD" > changed-files.txt
           else
-            git diff --name-only HEAD~1..HEAD > changed-files.txt
+            git diff --name-status HEAD~1..HEAD > changed-files.txt
           fi
 
       - name: Run harness checks
@@ -58,13 +58,14 @@ jobs:
           set -euo pipefail
           bash scripts/test-harness-checks.sh
           bash scripts/docs-lint.sh
+          bash scripts/check-migration-files.sh
           bash scripts/check-sensitive-paths.sh --tracked
 
       - name: Check PR contract
         if: github.event_name == 'pull_request'
         run: |
           set -euo pipefail
-          bash scripts/check-pr-contract.sh --changed-files changed-files.txt
+          bash scripts/check-pr-contract.sh --changed-files changed-files.txt --base-ref "$GITHUB_BASE_REF"
 
       - name: Run tests
         run: ./scripts/test-local.sh
