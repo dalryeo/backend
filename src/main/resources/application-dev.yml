@@ -19,16 +19,16 @@ logging:
   level:
     root: INFO
     com.ohgiraffers.dalryeo: INFO
-    org.springframework.web: WARN
+    org.springframework.web: INFO
     org.hibernate.SQL: "OFF"
     org.hibernate.orm.jdbc.bind: "OFF"
     org.hibernate.type.descriptor.sql.BasicBinder: "OFF"
 
 springdoc:
   api-docs:
-    enabled: false
+    enabled: true
   swagger-ui:
-    enabled: false
+    enabled: true
 
 sentry:
-  environment: ${SENTRY_ENVIRONMENT:prod}
+  environment: ${SENTRY_ENVIRONMENT:dev}

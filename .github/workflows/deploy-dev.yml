@@ -2,7 +2,7 @@ name: Deploy backend-api-dev (dev)
 
 on:
   push:
-    branches: ["main"]
+    branches: ["dev"]
   workflow_dispatch:
 
 permissions:
@@ -18,6 +18,7 @@ env:
 
 jobs:
   build-and-deploy:
+    if: github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
 
     steps:
@@ -66,6 +67,6 @@ jobs:
               "APP_OAUTH_APPLE_CLIENT_ID=${{ vars.APP_OAUTH_APPLE_CLIENT_ID }}" \
               "APP_OAUTH_APPLE_ALLOWED_CLIENT_IDS=${{ vars.APP_OAUTH_APPLE_ALLOWED_CLIENT_IDS || vars.APP_OAUTH_APPLE_CLIENT_ID }}" \
               "SENTRY_DSN=secretref:sentry-dsn" \
-              "SENTRY_ENVIRONMENT=prod" \
+              "SENTRY_ENVIRONMENT=dev" \
               "SENTRY_RELEASE=${{ env.IMAGE_TAG }}" \
-              "SPRING_PROFILES_ACTIVE=${{ vars.SPRING_ENV }}"
+              "SPRING_PROFILES_ACTIVE=dev"

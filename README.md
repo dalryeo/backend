@@ -34,8 +34,7 @@
 | `DB_USERNAME` | DB 사용자명 |
 | `DB_PASSWORD` | DB 비밀번호 |
 | `JWT_SECRET` | JWT 서명 키 |
-| `APP_OAUTH_APPLE_CLIENT_ID` | Apple 로그인 클라이언트 ID |
-| `APP_OAUTH_APPLE_ALLOWED_CLIENT_IDS` | 허용할 Apple 클라이언트 ID 목록 |
+| `APP_OAUTH_APPLE_CLIENT_ID` 또는 `APP_OAUTH_APPLE_ALLOWED_CLIENT_IDS` | Apple 로그인 client id. 둘 중 하나 이상 필요 |
 
 ### 빈 DB 최초 실행
 
@@ -58,6 +57,15 @@ SPRING_PROFILES_ACTIVE=local ./gradlew bootRun
 
 > 프로파일을 지정하지 않으면 DB 접속 정보 등이 채워지지 않아 실행에 실패할 수 있습니다. 로컬 개발 시에는 `local` 프로파일을 사용하세요.
 
+### 프로파일 기준
+
+| 프로파일 | 용도 | 주요 차이 |
+|---|---|---|
+| `local` | 개발자 PC 실행 | Swagger 활성화, 애플리케이션 로그 `DEBUG`, 에러 상세 노출 |
+| `dev` | 공유 개발/검증 배포 | Swagger 활성화, 에러 상세와 SQL 로그 비노출, Sentry `dev` |
+| `prod` | 운영 배포 | Swagger 비활성화, 에러 상세와 SQL 로그 비노출, Sentry `prod` |
+| `test` | 자동화 테스트 | `src/test/resources` 전용, 테스트 DB와 테스트용 JWT secret 사용 |
+
 ### 3. 확인
 
 서버가 정상 기동되면 다음에서 확인할 수 있습니다.
@@ -78,8 +86,7 @@ SPRING_PROFILES_ACTIVE=local ./gradlew bootRun
 | `DB_USERNAME` | DB 사용자명 |
 | `DB_PASSWORD` | DB 비밀번호 |
 | `JWT_SECRET` | JWT 서명 키 |
-| `APP_OAUTH_APPLE_CLIENT_ID` | Apple 로그인 클라이언트 ID |
-| `APP_OAUTH_APPLE_ALLOWED_CLIENT_IDS` | 허용할 Apple 클라이언트 ID 목록 |
+| `APP_OAUTH_APPLE_CLIENT_ID` 또는 `APP_OAUTH_APPLE_ALLOWED_CLIENT_IDS` | Apple 로그인 client id. 둘 중 하나 이상 필요 |
 
 <details>
 <summary><b>선택 변수 (기본값 있음)</b></summary>
@@ -89,11 +96,25 @@ SPRING_PROFILES_ACTIVE=local ./gradlew bootRun
 **애플리케이션**
 - `APP_PUBLIC_BASE_URL` — 공개 base URL (`https://api.dalryeo.store`)
 - `APP_TIME_ZONE` — 서비스 기준 시간대 (`Asia/Seoul`)
+- `WEEKLY_TIER_ZONE` — `APP_TIME_ZONE`이 없을 때 사용하는 기존 호환용 시간대 fallback
+- `WEEKLY_TIER_FINALIZATION_ZONE` — `APP_TIME_ZONE`, `WEEKLY_TIER_ZONE`이 없을 때 사용하는 기존 호환용 시간대 fallback
 - `PROFILE_IMAGE_UPLOAD_DIR` — 프로필 이미지 업로드 경로 (`uploads/profile-images`)
+
+**DB 커넥션 풀**
+- `DB_HIKARI_MAXIMUM_POOL_SIZE` — Hikari 최대 pool 크기 (`3`)
+- `DB_HIKARI_MINIMUM_IDLE` — Hikari 최소 idle 커넥션 수 (`1`)
+- `DB_HIKARI_CONNECTION_TIMEOUT_MS` — 커넥션 획득 timeout ms (`20000`)
+- `DB_HIKARI_IDLE_TIMEOUT_MS` — idle timeout ms (`60000`)
+- `DB_HIKARI_MAX_LIFETIME_MS` — 커넥션 최대 수명 ms (`240000`)
+- `DB_HIKARI_KEEPALIVE_TIME_MS` — keepalive 주기 ms (`60000`)
+- `DB_HIKARI_VALIDATION_TIMEOUT_MS` — validation timeout ms (`5000`)
+
+**Apple OAuth**
+- `APP_OAUTH_APPLE_ALLOWED_CLIENT_IDS` — 허용할 Apple client id 목록. 쉼표로 여러 값을 지정할 수 있으며, 비어 있으면 `APP_OAUTH_APPLE_CLIENT_ID`만 사용
 
 **러닝 기록 Outbox**
 - `RECORD_OUTBOX_SCHEDULER_ENABLED` — 스케줄러 활성화 (`true`)
-- `RECORD_OUTBOX_SCHEDULER_FIXED_DELAY_MS` — 처리 주기 ms (`5000`)
+- `RECORD_OUTBOX_SCHEDULER_FIXED_DELAY_MS` — 처리 주기 ms (`30000`)
 - `RECORD_OUTBOX_SCHEDULER_BATCH_SIZE` — 배치 크기 (`20`)
 - `RECORD_OUTBOX_STALE_TIMEOUT_SECONDS` — 처리 중 이벤트 회수 타임아웃 (`300`)
 - `RECORD_OUTBOX_RETRY_MAX_ATTEMPTS` — 최대 재시도 (`10`)
@@ -106,10 +127,20 @@ SPRING_PROFILES_ACTIVE=local ./gradlew bootRun
 
 **모니터링**
 - `SENTRY_DSN` — Sentry 연동 키
-- `SENTRY_ENVIRONMENT` — 환경 태그 (`prod`)
+- `SENTRY_ENVIRONMENT` — 환경 태그. 기본값은 기본/prod profile에서 `prod`, dev profile에서 `dev`
 - `SENTRY_RELEASE` — 릴리스 버전 (`local`)
 
 </details>
+
+### 테스트 전용 환경변수
+
+`application-test.yml`은 자동화 테스트 classpath에서만 사용합니다. 지정하지 않으면 일반 DB 변수 fallback을 사용합니다.
+
+| 변수 | 설명 |
+|---|---|
+| `TEST_DB_URL` | 테스트 DB 접속 URL. 없으면 `DB_URL` 사용 |
+| `TEST_DB_USERNAME` | 테스트 DB 사용자명. 없으면 `DB_USERNAME` 사용 |
+| `TEST_DB_PASSWORD` | 테스트 DB 비밀번호. 없으면 `DB_PASSWORD` 사용 |
 
 ## 프로젝트 구조
 
@@ -136,7 +167,7 @@ com.ohgiraffers.dalryeo
 
 - 로컬 실행 후: `http://localhost:8080/swagger-ui/index.html`
 
-Swagger는 기본값과 운영(prod) 환경에서 닫혀 있고, `local` 프로파일에서만 열립니다. 운영에서는 보안을 위해 Swagger UI와 API 문서(`/v3/api-docs`)가 모두 비활성화되어 있으며, 해당 경로는 404 응답을 반환해야 합니다.
+Swagger는 기본값과 운영(prod) 환경에서 닫혀 있고, `local`과 `dev` 프로파일에서 열립니다. 운영에서는 보안을 위해 Swagger UI와 API 문서(`/v3/api-docs`)가 모두 비활성화되어 있으며, 해당 경로는 404 응답을 반환해야 합니다.
 
 ## 아키텍처 메모
 
@@ -154,5 +185,5 @@ Swagger는 기본값과 운영(prod) 환경에서 닫혀 있고, `local` 프로�
 
 - **DB 스키마 검증 모드**: `ddl-auto`가 `validate`로 설정되어 있어, 엔티티와 실제 DB 스키마가 일치하지 않으면 애플리케이션이 기동되지 않습니다. 스키마 변경은 Flyway 마이그레이션으로 관리합니다.
 - **시간대**: 서비스 기준 시간대는 `Asia/Seoul`이며, 주간 티어 집계 등 시간 의존 로직이 이를 기준으로 동작합니다. 날짜·시간 데이터는 offset(`OffsetDateTime`)을 포함해 다룹니다.
-- **Swagger 노출**: API 문서는 `local` 프로파일에서만 활성화됩니다. 기본값과 `prod` 프로파일에서는 `springdoc.api-docs.enabled=false`, `springdoc.swagger-ui.enabled=false`로 비활성화됩니다.
+- **Swagger 노출**: API 문서는 `local`, `dev` 프로파일에서 활성화됩니다. 기본값과 `prod` 프로파일에서는 `springdoc.api-docs.enabled=false`, `springdoc.swagger-ui.enabled=false`로 비활성화됩니다.
 - **에러 응답 정책**: 운영 환경에서는 스택트레이스·내부 메시지 등 상세 정보를 응답에 노출하지 않습니다.

@@ -9,45 +9,26 @@ import java.io.IOException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class SwaggerProfilePropertiesTest {
+class SentryProfilePropertiesTest {
 
     private final YamlPropertySourceLoader loader = new YamlPropertySourceLoader();
 
     @Test
-    void defaultConfigurationDisablesSwagger() throws IOException {
-        PropertySource<?> properties = load("application.yml");
-
-        assertSwaggerEnabled(properties, "false");
-    }
-
-    @Test
-    void localConfigurationEnablesSwagger() throws IOException {
-        PropertySource<?> properties = load("application-local.yml");
-
-        assertSwaggerEnabled(properties, "true");
-    }
-
-    @Test
-    void devConfigurationEnablesSwagger() throws IOException {
+    void devConfigurationDefaultsSentryEnvironmentToDev() throws IOException {
         PropertySource<?> properties = load("application-dev.yml");
 
-        assertSwaggerEnabled(properties, "true");
+        assertProperty(properties, "sentry.environment", "${SENTRY_ENVIRONMENT:dev}");
     }
 
     @Test
-    void prodConfigurationDisablesSwagger() throws IOException {
+    void prodConfigurationDefaultsSentryEnvironmentToProd() throws IOException {
         PropertySource<?> properties = load("application-prod.yml");
 
-        assertSwaggerEnabled(properties, "false");
+        assertProperty(properties, "sentry.environment", "${SENTRY_ENVIRONMENT:prod}");
     }
 
     private PropertySource<?> load(String resourceName) throws IOException {
         return loader.load(resourceName, new ClassPathResource(resourceName)).get(0);
-    }
-
-    private void assertSwaggerEnabled(PropertySource<?> properties, String expectedValue) {
-        assertProperty(properties, "springdoc.api-docs.enabled", expectedValue);
-        assertProperty(properties, "springdoc.swagger-ui.enabled", expectedValue);
     }
 
     private void assertProperty(PropertySource<?> properties, String key, String expectedValue) {
