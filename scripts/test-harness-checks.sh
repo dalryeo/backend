@@ -190,19 +190,22 @@ test_pr_contract() {
   assert_fail pr_contract_requires_target_branch_decision "$ROOT_DIR/scripts/check-pr-contract.sh" \
     --title "chore: 하네스 검사 추가" \
     --body-file "$body" \
-    --changed-files "$changed_files"
+    --changed-files "$changed_files" \
+    --base-ref "dev"
 
   write_pr_body "$body" dev unchecked none unchecked unchecked
   assert_fail pr_contract_requires_api_compatibility_decision "$ROOT_DIR/scripts/check-pr-contract.sh" \
     --title "chore: 하네스 검사 추가" \
     --body-file "$body" \
-    --changed-files "$changed_files"
+    --changed-files "$changed_files" \
+    --base-ref "dev"
 
   write_pr_body "$body" dev none unchecked unchecked unchecked
   assert_fail pr_contract_requires_app_client_coordination_decision "$ROOT_DIR/scripts/check-pr-contract.sh" \
     --title "chore: 하네스 검사 추가" \
     --body-file "$body" \
-    --changed-files "$changed_files"
+    --changed-files "$changed_files" \
+    --base-ref "dev"
 
   write_pr_body "$body" promotion none none unchecked unchecked \
     "dev 변경을 운영으로 승격" "운영 배포" "bash scripts/test-harness-checks.sh" \
@@ -228,7 +231,8 @@ test_pr_contract() {
   assert_fail pr_contract_db_requires_checked_migration "$ROOT_DIR/scripts/check-pr-contract.sh" \
     --title "chore: 하네스 검사 추가" \
     --body-file "$body" \
-    --changed-files "$changed_files"
+    --changed-files "$changed_files" \
+    --base-ref "dev"
 
   write_pr_body "$body" dev none none unchecked expand \
     "DB migration 추가" "조회 성능 보완" "bash scripts/test-harness-checks.sh" \
@@ -236,7 +240,8 @@ test_pr_contract() {
   assert_pass pr_contract_db_checked "$ROOT_DIR/scripts/check-pr-contract.sh" \
     --title "chore: 하네스 검사 추가" \
     --body-file "$body" \
-    --changed-files "$changed_files"
+    --changed-files "$changed_files" \
+    --base-ref "dev"
 
   write_pr_body "$body" dev none none unchecked no_type \
     "DB migration 추가" "조회 성능 보완" "bash scripts/test-harness-checks.sh" \
@@ -244,14 +249,16 @@ test_pr_contract() {
   assert_fail pr_contract_db_requires_change_type "$ROOT_DIR/scripts/check-pr-contract.sh" \
     --title "chore: 하네스 검사 추가" \
     --body-file "$body" \
-    --changed-files "$changed_files"
+    --changed-files "$changed_files" \
+    --base-ref "dev"
 
   write_file "$changed_files" \
     "M	src/main/resources/db/migration/V1__init.sql"
   assert_fail pr_contract_db_blocks_existing_migration_modification "$ROOT_DIR/scripts/check-pr-contract.sh" \
     --title "chore: 하네스 검사 추가" \
     --body-file "$body" \
-    --changed-files "$changed_files"
+    --changed-files "$changed_files" \
+    --base-ref "dev"
 
   write_file "$changed_files" \
     "scripts/check-pr-contract.sh"
@@ -261,7 +268,8 @@ test_pr_contract() {
   assert_pass pr_contract_allows_indented_checkbox "$ROOT_DIR/scripts/check-pr-contract.sh" \
     --title "chore: 하네스 검사 추가" \
     --body-file "$body" \
-    --changed-files "$changed_files"
+    --changed-files "$changed_files" \
+    --base-ref "dev"
 }
 
 test_migration_files() {
