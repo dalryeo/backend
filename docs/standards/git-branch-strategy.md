@@ -37,14 +37,14 @@
 - 원격 저장소에는 `dev` 브랜치가 있다. 현재 `dev`는 `protected: false`이므로, 공유 개발 브랜치로 사용하기 전에 직접 push 금지 보호 규칙을 적용한다.
 - GitHub repository ruleset은 없다.
 - GitHub Environment는 `dev`, `copilot`이 있고, 두 environment 모두 required reviewer/protection rule은 없다.
-- `.github/workflows/deploy-dev.yml`은 `dev` push에 반응한다.
-- `.github/workflows/deploy-dev.yml`은 `SPRING_PROFILES_ACTIVE=dev`, `SENTRY_ENVIRONMENT=dev`를 설정한다.
+- 현재 checked-in 배포 workflow인 `.github/workflows/deploy-dev.yml`은 기존 상태대로 `main` push에 반응한다.
+- 개발용 배포 workflow는 DevOps가 별도 파일과 리소스로 분리할 때 추가한다.
 
 ## 기본 흐름
 
 ```text
-feat/*, fix/*, refactor/* -> PR -> dev -> 개발 환경 배포
-dev 검증 완료 -> PR -> main -> 운영 환경 배포
+feat/*, fix/*, refactor/* -> PR -> dev -> 개발 검증
+dev 검증 완료 -> PR -> main -> 기존 배포 workflow 실행
 hotfix/* from main -> PR -> main -> 운영 환경 배포 -> dev로 반영
 ```
 

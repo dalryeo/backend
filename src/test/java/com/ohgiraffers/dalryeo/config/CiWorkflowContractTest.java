@@ -35,19 +35,24 @@ class CiWorkflowContractTest {
     }
 
     @Test
-    void deployDevWorkflowUsesOnlyDevBranchAndDevRuntimeProfile() throws IOException {
+    void existingDeployWorkflowKeepsMainTriggerUntilDevDeployIsSplit() throws IOException {
         String workflow = Files.readString(Path.of(".github/workflows/deploy-dev.yml"));
+        String policy = Files.readString(Path.of("docs/standards/testing-policy.md"));
 
-        assertThat(workflow).contains("branches: [\"dev\"]");
-        assertThat(workflow).contains("if: github.ref == 'refs/heads/dev'");
-        assertThat(workflow).doesNotContain("branches: [\"main\"]");
+        assertThat(workflow).contains("branches: [\"main\"]");
+        assertThat(workflow).doesNotContain("branches: [\"dev\"]");
         assertThat(workflow).contains(
-                "\"SENTRY_ENVIRONMENT=dev\"",
-                "\"SPRING_PROFILES_ACTIVE=dev\""
+                "\"SENTRY_ENVIRONMENT=prod\"",
+                "\"SPRING_PROFILES_ACTIVE=${{ vars.SPRING_ENV }}\""
         );
         assertThat(workflow).doesNotContain(
-                "\"SENTRY_ENVIRONMENT=prod\"",
-                "\"SPRING_PROFILES_ACTIVE=prod\""
+                "\"SENTRY_ENVIRONMENT=dev\"",
+                "\"SPRING_PROFILES_ACTIVE=dev\"",
+                "refs/heads/dev"
+        );
+        assertThat(policy).contains(
+                "기존 checked-in 배포 workflow는 `main` push 기준을 유지한다",
+                "개발용 배포 workflow는 DevOps가 별도 파일과 리소스로 분리할 때 추가한다"
         );
     }
 

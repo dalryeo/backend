@@ -64,9 +64,8 @@ Gradle 직접 실행이 필요한 경우에는 `--no-daemon`을 사용한다.
 
 Profile 또는 배포 workflow를 바꿀 때는 dev/prod 값이 섞이지 않는지 확인한다.
 
-- dev 배포 workflow는 `dev` 브랜치 push에 반응한다.
-- dev 배포 workflow는 `SPRING_PROFILES_ACTIVE=dev`를 사용한다.
-- dev 배포 workflow는 `SENTRY_ENVIRONMENT=dev`를 사용한다.
+- 기존 checked-in 배포 workflow는 `main` push 기준을 유지한다.
+- 개발용 배포 workflow는 DevOps가 별도 파일과 리소스로 분리할 때 추가한다.
 - prod profile은 Swagger를 닫고 `SENTRY_ENVIRONMENT` 기본값을 `prod`로 둔다.
 - dev profile은 Swagger를 열되 에러 상세와 SQL 로그를 노출하지 않는다.
 
