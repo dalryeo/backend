@@ -11,9 +11,12 @@
 
 ## 현재 연결된 문서
 
+- [API Contract Policy](../standards/api-contract-policy.md): API 계약 범위, 하위 호환 기준, PR 계약 영향 작성 기준
 - [Dalryeo Documentation Rules](../standards/documentation-system.md): 문서 위치 선택, 목차 관리, 이관 방식
+- [Database Migration Policy](../standards/database-migration-policy.md): Flyway migration 작성 규칙, DB 변경 유형, PR 검증 기준
 - [Git Branch Strategy](../standards/git-branch-strategy.md): 브랜치 수명주기와 이름 규칙
 - [Git Commit Convention](../standards/git-commit-convention.md): 커밋 타입과 메시지 규칙
+- [Testing Policy](../standards/testing-policy.md): PR/로컬 검증 명령, dev/prod 설정 혼동 방지 기준
 - [Time Policy](../standards/time-policy.md): `Asia/Seoul`, 주간 기준일, offset 포함 기록 시간 계약 기준
 
 ## 정리 예정 기준
@@ -21,8 +24,6 @@
 아래 주제는 standards 문서로 정리할 후보이다. 실제 문서 생성이나 기존 문서 이동은 별도 승인 후 진행한다.
 
 - [API Error Response Standard](../standards/api-error-response.md): `CommonResponse`, 예외 응답, validation 오류, JSON 파싱 오류 기준 정리 예정
-- [Testing Policy](../standards/testing-policy.md): `scripts/test-local.sh`, 특정 테스트 실행, 전체 회귀 테스트 기준
-- [Database Migration Policy](../standards/database-migration-policy.md): DB 변경 기준, Flyway migration 작성 규칙, rollback 판단 기준 정리 예정
 
 ## 제외 기준
 
