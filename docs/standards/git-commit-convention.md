@@ -7,13 +7,13 @@
 
 ## 현재 기준
 
-달려 백엔드는 제목과 본문이 있는 작은 작업 커밋을 사용하고, `main`에는 PR squash commit을 남긴다.
+달려 백엔드는 제목과 본문이 있는 작은 작업 커밋을 사용하고, `main`과 `dev`에는 PR squash commit을 남긴다.
 
 - 커밋 제목은 `type: 제목` 형식을 쓴다.
 - `type`은 소문자 영어로 쓴다.
 - 제목은 한국어로 쓰고 명사형에 가깝게 끝낸다.
 - 작업 커밋 본문은 작성한다.
-- `main`에 남는 squash commit 본문은 PR 본문 구조를 따른다.
+- `main`과 `dev`에 남는 squash commit 본문은 PR 본문 구조를 따른다.
 - 한 커밋에는 한 가지 논리적 변경만 담는다.
 - `git add .` 대신 작업한 파일만 명시해서 stage한다.
 
@@ -92,7 +92,7 @@ git commit -m "docs: 문서 하네스 구조 정리" \
 
 ## PR squash commit
 
-`main`에는 PR을 squash merge한 커밋을 남긴다.
+`main`과 `dev`에는 PR을 squash merge한 커밋을 남긴다.
 
 - squash commit 제목은 PR 제목을 사용한다.
 - PR 제목은 `type: 제목` 형식을 따른다.
@@ -100,13 +100,15 @@ git commit -m "docs: 문서 하네스 구조 정리" \
 - PR 본문은 `.github/PULL_REQUEST_TEMPLATE.md`의 섹션 구조를 채운다.
 - GitHub squash merge 기본값은 제목 `PR_TITLE`, 본문 `PR_BODY`로 둔다.
 
-따라서 `main`의 최종 커밋은 작업 커밋의 짧은 불릿 본문이 아니라, 검증된 PR 본문 구조를 본문으로 가진다.
+따라서 장기 브랜치의 최종 커밋은 작업 커밋의 짧은 불릿 본문이 아니라, 검증된 PR 본문 구조를 본문으로 가진다.
 
-## 직접 main 커밋
+## 직접 push
 
-`main` 직접 커밋은 금지한다.
+`main`과 `dev` 직접 push는 금지한다.
 
-예외 상황에서 저장소 관리자 승인으로 직접 커밋이 필요하면 제목과 본문 기준을 모두 지킨다.
+로컬 commit 자체는 막지 않는다. 다만 장기 브랜치에는 PR과 squash merge로만 반영한다.
+
+예외 상황에서 저장소 관리자 승인으로 직접 push가 필요하면 제목과 본문 기준을 모두 지킨다.
 
 - 제목은 `type: 제목` 형식을 따른다.
 - 제목 아래 한 줄을 비우고 본문을 작성한다.
