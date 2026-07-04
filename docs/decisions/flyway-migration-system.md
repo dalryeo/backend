@@ -60,7 +60,7 @@ Flyway migration 변경은 최소한 아래 흐름을 확인해야 한다.
 - 변경된 테이블, 제약, 인덱스와 직접 연결된 테스트가 통과한다.
 - 운영에 이미 적용된 migration을 수정하지 않았는지 확인한다.
 
-상세 작성 규칙은 추후 `docs/standards/database-migration-policy.md`에 정리한다. 배포 전후 확인 절차는 추후 `docs/runbooks/database-migration-check.md`에 정리한다.
+상세 작성 규칙은 `docs/standards/database-migration-policy.md`를 따른다. 배포 전후 확인 절차는 `docs/runbooks/database-migration-check.md`에 정리한다.
 
 ## 관련 이력
 

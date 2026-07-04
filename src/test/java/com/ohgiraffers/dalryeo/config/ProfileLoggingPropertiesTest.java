@@ -46,6 +46,22 @@ class ProfileLoggingPropertiesTest {
     }
 
     @Test
+    void devConfigurationKeepsSharedEnvironmentLoggingSafe() throws IOException {
+        PropertySource<?> properties = load("application-dev.yml");
+
+        assertProperty(properties, "spring.jpa.show-sql", "false");
+        assertProperty(properties, "spring.jpa.properties.hibernate.format_sql", "false");
+        assertProperty(properties, "spring.jpa.properties.hibernate.use_sql_comments", "false");
+        assertProperty(properties, "server.error.include-message", "never");
+        assertProperty(properties, "server.error.include-binding-errors", "never");
+        assertProperty(properties, "server.error.include-stacktrace", "never");
+        assertProperty(properties, "logging.level.com.ohgiraffers.dalryeo", "INFO");
+        assertProperty(properties, "logging.level.org.hibernate.SQL", "OFF");
+        assertProperty(properties, "logging.level.org.hibernate.orm.jdbc.bind", "OFF");
+        assertProperty(properties, "logging.level.org.hibernate.type.descriptor.sql.BasicBinder", "OFF");
+    }
+
+    @Test
     void prodConfigurationKeepsSensitiveLoggingDisabled() throws IOException {
         PropertySource<?> properties = load("application-prod.yml");
 

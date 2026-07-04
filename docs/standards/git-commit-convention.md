@@ -3,11 +3,11 @@
 - Status: Active
 - Audience: Engineers, Codex
 - Source of Truth: Yes
-- Last Reviewed: 2026-07-01
+- Last Reviewed: 2026-07-04
 
 ## 현재 기준
 
-달려 백엔드는 제목과 본문이 있는 작은 작업 커밋을 사용하고, `main`에는 PR squash commit을 남긴다.
+달려 백엔드는 제목과 본문이 있는 작은 작업 커밋을 사용한다. `main`에는 PR squash commit을 남기고, 현재 1인 백엔드 운영 중인 `dev`에는 직접 push를 허용한다.
 
 - 커밋 제목은 `type: 제목` 형식을 쓴다.
 - `type`은 소문자 영어로 쓴다.
@@ -102,11 +102,13 @@ git commit -m "docs: 문서 하네스 구조 정리" \
 
 따라서 `main`의 최종 커밋은 작업 커밋의 짧은 불릿 본문이 아니라, 검증된 PR 본문 구조를 본문으로 가진다.
 
-## 직접 main 커밋
+## 직접 push
 
-`main` 직접 커밋은 금지한다.
+`main` 직접 push는 금지한다.
 
-예외 상황에서 저장소 관리자 승인으로 직접 커밋이 필요하면 제목과 본문 기준을 모두 지킨다.
+로컬 commit 자체는 막지 않는다. 다만 `main`에는 PR과 squash merge로만 반영한다.
+
+`dev`는 현재 1인 백엔드 운영 중 직접 push를 허용한다. `dev`에 직접 push할 때도 제목과 본문 기준을 모두 지킨다.
 
 - 제목은 `type: 제목` 형식을 따른다.
 - 제목 아래 한 줄을 비우고 본문을 작성한다.
