@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers, Codex
 - Source of Truth: Yes
-- Last Reviewed: 2026-07-03
+- Last Reviewed: 2026-07-04
 
 ## 현재 기준
 
@@ -11,7 +11,8 @@
 
 - `main`은 실제 운영 중인 앱 코드 기준이다.
 - `dev`는 TestFlight처럼 개발 검증 환경에 배포되는 코드 기준이다.
-- 모든 작업은 짧은 작업 브랜치에서 진행하고 PR로 반영한다.
+- `main` 반영은 짧은 작업 브랜치에서 진행하고 PR로 처리한다.
+- `dev`는 현재 1인 백엔드 운영 중 직접 push를 허용한다.
 - 일반 기능과 버그 수정은 `dev`로 먼저 머지한다.
 - 운영 배포는 검증된 `dev` 변경을 `main`으로 승격하는 PR로 처리한다.
 - 운영 긴급 수정은 `main`에서 `hotfix/*` 브랜치를 만들고, 배포 후 `dev`로 되돌려 반영한다.
@@ -22,9 +23,9 @@
 | 브랜치 | 역할 | 배포 대상 | 머지 기준 |
 | --- | --- | --- | --- |
 | `main` | 운영 코드 | production | 운영 배포 가능한 변경만 PR로 반영 |
-| `dev` | 개발 검증 코드 | development | 기능, 버그 수정, 운영 전 검증 변경을 PR로 반영 |
+| `dev` | 개발 검증 코드 | development | 직접 push 허용 |
 
-`main`과 `dev`에는 직접 push하지 않는다. 혼자 작업하더라도 PR과 CI를 통해 변경 단위, 검증 결과, 운영 영향을 남긴다.
+`main`에는 직접 push하지 않는다. `dev`는 현재 1인 백엔드 운영 중 직접 push를 허용한다.
 
 운영 배포에서 GitHub Environment의 required reviewer는 필수로 두지 않는다. 1인 운영에서는 PR 기록과 CI 통과를 기본 안전장치로 삼고, 수동 승인자는 필요해질 때 다시 검토한다.
 
@@ -34,7 +35,7 @@
 
 - GitHub API에서 `main`은 `protected: true`다. 이 제한은 원격 push 단계에서 적용되는 서버 정책이다.
 - 로컬 git hook은 커밋 메시지와 staged 민감 경로만 검사한다. `main` 로컬 commit 자체를 막지는 않는다.
-- 원격 저장소에는 `dev` 브랜치가 있다. 현재 `dev`는 `protected: false`이므로, 공유 개발 브랜치로 사용하기 전에 직접 push 금지 보호 규칙을 적용한다.
+- 원격 저장소에는 `dev` 브랜치가 있다. 현재 `dev`는 `protected: false`이며, 1인 백엔드 운영에서는 허용 가능한 상태다. 백엔드 개발자가 늘어나거나 직접 push 리스크가 커지면 보호 규칙을 다시 검토한다.
 - GitHub repository ruleset은 없다.
 - GitHub Environment는 `dev`, `copilot`이 있고, 두 environment 모두 required reviewer/protection rule은 없다.
 - 현재 checked-in 배포 workflow인 `.github/workflows/deploy-dev.yml`은 기존 상태대로 `main` push에 반응한다.
@@ -96,7 +97,8 @@ DB 변경은 일반 기능보다 더 작게 나눈다.
 
 ## PR 운영 규칙
 
-- `main`과 `dev`에는 직접 push하지 않는다.
+- `main`에는 직접 push하지 않는다.
+- `dev`는 현재 1인 백엔드 운영 중 직접 push를 허용한다.
 - 작업 브랜치는 가능하면 1~3일 안에 머지한다.
 - PR은 한 가지 목적만 담는다.
 - 큰 변경은 여러 PR로 쪼갠다.
@@ -106,6 +108,8 @@ DB 변경은 일반 기능보다 더 작게 나눈다.
 - 운영 배포 시점은 태그로 남긴다.
 
 ## PR 대상 브랜치 기준
+
+PR을 사용하는 경우 대상 브랜치는 아래 기준을 따른다.
 
 - 일반 기능, 버그 수정, 리팩터링, 테스트 보강: `dev` 대상 PR
 - 운영 배포 승격: `dev`에서 `main` 대상 PR
