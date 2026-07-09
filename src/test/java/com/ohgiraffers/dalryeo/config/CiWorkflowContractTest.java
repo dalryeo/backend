@@ -35,24 +35,39 @@ class CiWorkflowContractTest {
     }
 
     @Test
-    void existingDeployWorkflowKeepsMainTriggerUntilDevDeployIsSplit() throws IOException {
-        String workflow = Files.readString(Path.of(".github/workflows/deploy-dev.yml"));
+    void deployWorkflowsUseSplitDevAndProdTriggersAndContainerManagedRuntimeEnv() throws IOException {
+        String devWorkflow = Files.readString(Path.of(".github/workflows/deploy-dev.yml"));
+        String prodWorkflow = Files.readString(Path.of(".github/workflows/deploy-prod.yml"));
         String policy = Files.readString(Path.of("docs/standards/testing-policy.md"));
 
-        assertThat(workflow).contains("branches: [\"main\"]");
-        assertThat(workflow).doesNotContain("branches: [\"dev\"]");
-        assertThat(workflow).contains(
-                "\"SENTRY_ENVIRONMENT=prod\"",
-                "\"SPRING_PROFILES_ACTIVE=${{ vars.SPRING_ENV }}\""
+        assertThat(devWorkflow).contains(
+                "branches: [\"dev\"]",
+                "environment: dev"
         );
-        assertThat(workflow).doesNotContain(
+        assertThat(prodWorkflow).contains(
+                "branches: [\"main\"]",
+                "environment: prod"
+        );
+        assertThat(devWorkflow).doesNotContain(
+                "branches: [\"main\"]",
+                "environment: prod",
                 "\"SENTRY_ENVIRONMENT=dev\"",
                 "\"SPRING_PROFILES_ACTIVE=dev\"",
-                "refs/heads/dev"
+                "SENTRY_ENVIRONMENT",
+                "SPRING_PROFILES_ACTIVE"
+        );
+        assertThat(prodWorkflow).doesNotContain(
+                "branches: [\"dev\"]",
+                "environment: dev",
+                "\"SENTRY_ENVIRONMENT=prod\"",
+                "\"SPRING_PROFILES_ACTIVE=${{ vars.SPRING_ENV }}\"",
+                "SENTRY_ENVIRONMENT",
+                "SPRING_PROFILES_ACTIVE"
         );
         assertThat(policy).contains(
-                "기존 checked-in 배포 workflow는 `main` push 기준을 유지한다",
-                "개발용 배포 workflow는 DevOps가 별도 파일과 리소스로 분리할 때 추가한다"
+                "`.github/workflows/deploy-dev.yml`은 `dev` push와 GitHub `dev` Environment 기준으로 실행한다",
+                "`.github/workflows/deploy-prod.yml`은 `main` push와 GitHub `prod` Environment 기준으로 실행한다",
+                "배포 workflow는 `SENTRY_ENVIRONMENT`와 `SPRING_PROFILES_ACTIVE`를 주입하지 않는다"
         );
     }
 

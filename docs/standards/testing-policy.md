@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers, Codex
 - Source of Truth: Yes
-- Last Reviewed: 2026-07-03
+- Last Reviewed: 2026-07-09
 
 ## 이 문서가 정하는 것
 
@@ -64,8 +64,9 @@ Gradle 직접 실행이 필요한 경우에는 `--no-daemon`을 사용한다.
 
 Profile 또는 배포 workflow를 바꿀 때는 dev/prod 값이 섞이지 않는지 확인한다.
 
-- 기존 checked-in 배포 workflow는 `main` push 기준을 유지한다.
-- 개발용 배포 workflow는 DevOps가 별도 파일과 리소스로 분리할 때 추가한다.
+- `.github/workflows/deploy-dev.yml`은 `dev` push와 GitHub `dev` Environment 기준으로 실행한다.
+- `.github/workflows/deploy-prod.yml`은 `main` push와 GitHub `prod` Environment 기준으로 실행한다.
+- 배포 workflow는 `SENTRY_ENVIRONMENT`와 `SPRING_PROFILES_ACTIVE`를 주입하지 않는다. 두 값은 컨테이너 런타임 설정에서 관리한다.
 - prod profile은 Swagger를 닫고 `SENTRY_ENVIRONMENT` 기본값을 `prod`로 둔다.
 - dev profile은 Swagger를 열되 에러 상세와 SQL 로그를 노출하지 않는다.
 

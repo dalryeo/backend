@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers, Codex
 - Source of Truth: Yes
-- Last Reviewed: 2026-07-04
+- Last Reviewed: 2026-07-09
 
 ## 현재 기준
 
@@ -31,21 +31,23 @@
 
 ## 확인된 저장소 설정
 
-2026-07-03 기준 GitHub API와 checked-in workflow로 확인한 상태는 아래와 같다.
+GitHub 저장소 설정은 2026-07-03 기준 GitHub API로, checked-in workflow는 2026-07-09 기준 파일로 확인한 상태다.
 
 - GitHub API에서 `main`은 `protected: true`다. 이 제한은 원격 push 단계에서 적용되는 서버 정책이다.
 - 로컬 git hook은 커밋 메시지와 staged 민감 경로만 검사한다. `main` 로컬 commit 자체를 막지는 않는다.
 - 원격 저장소에는 `dev` 브랜치가 있다. 현재 `dev`는 `protected: false`이며, 1인 백엔드 운영에서는 허용 가능한 상태다. 백엔드 개발자가 늘어나거나 직접 push 리스크가 커지면 보호 규칙을 다시 검토한다.
 - GitHub repository ruleset은 없다.
 - GitHub Environment는 `dev`, `copilot`이 있고, 두 environment 모두 required reviewer/protection rule은 없다.
-- 현재 checked-in 배포 workflow인 `.github/workflows/deploy-dev.yml`은 기존 상태대로 `main` push에 반응한다.
-- 개발용 배포 workflow는 DevOps가 별도 파일과 리소스로 분리할 때 추가한다.
+- 현재 checked-in 배포 workflow는 dev/prod로 분리되어 있다.
+- `.github/workflows/deploy-dev.yml`은 `dev` push와 GitHub `dev` Environment 기준으로 개발 검증 환경에 배포한다.
+- `.github/workflows/deploy-prod.yml`은 `main` push와 GitHub `prod` Environment 기준으로 운영 환경에 배포한다.
+- `SENTRY_ENVIRONMENT`와 `SPRING_PROFILES_ACTIVE`는 배포 workflow에서 주입하지 않고 컨테이너 런타임 설정에서 관리한다.
 
 ## 기본 흐름
 
 ```text
-feat/*, fix/*, refactor/* -> PR -> dev -> 개발 검증
-dev 검증 완료 -> PR -> main -> 기존 배포 workflow 실행
+feat/*, fix/*, refactor/* -> PR -> dev -> 개발 검증 workflow 실행
+dev 검증 완료 -> PR -> main -> 운영 배포 workflow 실행
 hotfix/* from main -> PR -> main -> 운영 환경 배포 -> dev로 반영
 ```
 
